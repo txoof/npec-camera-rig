@@ -572,14 +572,69 @@ progress read, start or Stop, not only at start-up; until the mark is saved it i
 | `reprocess_failure.reason` | text | Why its saved reading was kept, for example "the photo is gone and its saved masks cannot be counted again: a saved mask is missing" |
 | `reprocess_failure.failed_at` | text | UTC |
 
-**Upgrading.** This version migrates `rig.db` to version 26. An older version of the app refuses to
-start on it. Copy `rig.db` before deploying, and restore that copy to roll back.
-
 A photo that meets a locked rig.db is tried again, `REPROCESS_LOCK_TRIES` (5) times with a pause of
 `REPROCESS_LOCK_WAIT_S` (5 s), numbers chosen and not measured; after the last try it is listed as
 failed ("rig.db stayed locked after 5 tries"). Reprocess replaces the saved readings of every photo
 it can redo and keeps no copy of the old ones: take a copy of `rig.db` first
 (`docs/operator-guide.md`, *Reprocessing areas*).
+
+## Upgrading and going back
+
+The app migrates `rig.db` the first time it touches the file: every migration in `database.py`
+above the file's own `PRAGMA user_version`, all the missing ones in one transaction, each setting
+its own number, so the file is never left half changed (`database.migrate`). This version migrates
+`rig.db` to version 27. The current number is `database.SCHEMA_VERSION` in
+`src/npec_rig/database.py`; read it there, it moves with every migration.
+
+**There is no migration downwards.** An older app meeting a file a newer app has migrated refuses
+to start, on purpose: it would otherwise write to tables it has an older idea of. It raises
+
+```
+RuntimeError: rig.db is at schema version N, this app knows up to N-1
+```
+
+with the two real numbers in place of N, while starting, so the server exits. Under systemd
+(`deploy/npec-rig.service`: `Restart=always`, `RestartSec=5`, `StartLimitIntervalSec=0`, "never
+give up restarting") it starts again 5 s later and fails the same way, with no cut-off, so the rig
+serves no pages and takes no scheduled photos until it is put right. Checking out the earlier
+commit does not help on its own, because the database is already migrated.
+
+**A rig already in that loop.** `journalctl -u npec-rig -n 20` shows the error. The quickest way
+out is to put the newer code back and restart it: the migrated file is the one that code expects.
+Restoring a copy is needed only when the older code has to run.
+
+Going back to the older code means restoring the database and the code together:
+
+1. Take a copy of the database **before** the upgrade. `VACUUM INTO` copies it while the app runs,
+   where `cp` of a live database can copy a torn file. The output file must not exist yet, so put
+   the date in its name:
+
+   ```bash
+   python3 - <<'PY'
+   import sqlite3
+   sqlite3.connect("/var/lib/npec-rig/rig.db", timeout=30).execute(
+       "VACUUM INTO '/var/lib/npec-rig/rig-before-2026-11-25.db'")
+   PY
+   ```
+
+   The copy keeps the schema version, so reading `PRAGMA user_version` from it is the check that it
+   worked: it prints the version the rig is on.
+
+2. Stop the app with SIGTERM (CLAUDE.md, *Restarting the production server*).
+3. Put the copy back as `/var/lib/npec-rig/rig.db`.
+4. Deploy the older version and start it.
+
+Rows the newer app wrote after the copy are gone. The photographs stay on disk under
+`/var/lib/npec-rig/rig/`, and so do their masks and the calibrations and validations in
+`/var/lib/npec-rig/calibration`, which are JSON files and not rows. What does go back is the
+database: the focus lock and the camera settings, experiment records, scheduled photos, tray and
+cell readings, exclusions and tray layouts. Readings come back by reprocessing; the rest does not.
+
+This is as true on development as on production. Development's `rig.db` holds the experiments and
+readings the work is tried against, so it is copied before a migrating deploy and restored the
+same way. `rig.db` is never deleted, moved or emptied to get an older app to start. Who may roll a
+rig back at all, and what has to be said before a branch carrying a migration is deployed, is in
+`CLAUDE.md`, *A migration goes one way*.
 
 ## Planned
 

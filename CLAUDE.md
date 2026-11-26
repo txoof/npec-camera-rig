@@ -196,6 +196,34 @@ development (health OK and a live snapshot) **and** Aaron has approved that upda
   If `curl -s 10.248.49.102:8000/api/experiments` shows an experiment `"state": "running"`, ask
   Aaron first.
 
+**A migration goes one way (#521).** The app brings `rig.db` up to the schema version its own
+code knows the first time it starts, and nothing migrates downwards. An older app meeting the
+migrated file refuses to start (`RuntimeError: rig.db is at schema version N, this app knows up to
+N-1`), systemd starts it again 5 s later, and the rig sits in that loop: no pages, no scheduled
+photos. Checking out the earlier commit does not undo it; the database is already migrated. So,
+before a branch goes on development or production:
+
+1. **Check for a new migration.** `git diff <commit>..<branch> -- src/npec_rig/database.py`, with
+   `<commit>` the version the rig runs
+   (`ssh pi@npec-rig-01 'git -C ~/npec_camera_rig log --oneline -1'`): an entry appended to
+   `MIGRATIONS` is one. The housekeeping tables made in `settings.py`, `images.py` and `health.py`
+   carry no version and this check does not cover them.
+2. **Say so upfront** when there is one, in the reply that asks Aaron to try the branch, in the PR
+   body and in the `hardware` claim comment: "this branch migrates `rig.db` to version N; the rig
+   cannot go back to `<commit>` without a copy of the database restored with it".
+3. **Copy the database before the deploy restarts the app**, on development as on production: on
+   development that restart is `make update-app`, which migrates the file as the app starts. Use
+   `VACUUM INTO`, not `cp`: the app is running, and `cp` of a live database can copy a torn file.
+   The command is in `docs/database.md`, *Upgrading and going back*.
+4. **Going back needs the copy and the older code together**, with the app stopped, on either rig.
+   Everything the newer app wrote after the copy is lost: the focus lock and the camera settings,
+   experiment records, scheduled photos, tray and cell readings, exclusions and tray layouts. Say
+   what is being lost before doing it. On production, only with Aaron's approval.
+5. **Never delete, move or empty `rig.db` to make an older app start.** It is the one move that
+   always works and it throws the rig's whole record away. Development's record is not scratch:
+   its experiments and readings are what the work is tried against. With no copy, the rig stays on
+   the newer code and the reply says so.
+
 ## Parallel work
 
 Several agent sessions may work at once, each on its own task. The PR workflow is in
@@ -289,7 +317,9 @@ use the development camera, put its branch on development, or ask Aaron to try i
 Take it only when `gh issue list --label hardware` is empty. In the claim comment, write the app
 version development was running
 (`ssh pi@npec-rig-01 'git -C ~/npec_camera_rig log --oneline -1'`). When Aaron has tried the
-work, put development back on that version and remove the label. Everyone else writes code and
+work, put development back on that version and remove the label. If the branch migrated
+`rig.db`, restore the copy taken before the deploy at the same time. With no copy, leave
+development on the branch and say so in the reply. Everyone else writes code and
 runs unit tests with the synthetic camera on the controller, then waits for the label. No task
 uses the production camera or server.
 
