@@ -140,7 +140,7 @@ def test_three_shuffled_rounds_complete_a_validation(tray_scene: dict) -> None:
     assert body["rounds_counted"] == 3
     assert body["completed_at"] is not None
     assert [r["n"] for r in body["results"]] == [90] * 12
-    # Three identical-size rounds have no spread. The value is zero up to float rounding, which
+    # Every sheet is exact size, so each slot's p95 error is zero up to float rounding, which
     # differs between OpenCV and NumPy builds: about 3e-12 on the Arm64 CI runner (#510).
     assert body["certainty_range_pct"] == pytest.approx([0.0, 0.0], abs=1e-9)
     response = client.get(body["map_url"])
@@ -331,7 +331,8 @@ def test_a_session_reports_each_rounds_figures_and_how_far_medians_moved(tray_sc
         body = client.post(f"/validation/sessions/{session['id']}/rounds").json()
     assert [sorted(r["slots"]) for r in body["rounds"]] == [sorted(r["name"] for r in body["results"])] * 2
     assert body["rounds"][0]["slots"]["North 1"]["n"] == 30
-    assert body["median_range_pct"]["North 1"] == pytest.approx(0.0)
+    # The two rounds use different shifts, so each median has its own float rounding (#510).
+    assert body["median_range_pct"]["North 1"] == pytest.approx(0.0, abs=1e-9)
     assert body["median_disagreement_pct"] > 0
     assert body["inconsistent_slots"] == []
     assert body["problems"] == []
