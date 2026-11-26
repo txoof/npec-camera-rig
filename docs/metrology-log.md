@@ -11836,4 +11836,120 @@ leaf shapes. The second acceptance step of `PLAN.md` (change the calibration, Re
 update) was dropped from the acceptance test: Reprocess is a development-only tool for testing
 new area methods, not part of the system researchers use (Aaron, 2026-11-26).
 
-**Results.** Not yet taken.
+**Results (2026-11-26).** Production `d6-daylight`, app 3136f5e, calibration 20261125T132847632943,
+validation 20261125T133149250777. Experiment 1 "I78 Milestone" (folder `2026-11-26_a6eb8878`),
+stills one per minute, taken by the scheduler. The squares were in place from the first still.
+Aaron stopped the experiment after the last run; its photos stay on production and were not copied.
+
+| Run | Squares | Stills | UTC (Dutch time is one hour later) |
+|---|---|---|---|
+| 1 | parallel to the tray edges | 7 | 12:38:08 to 12:44:08 |
+| 2 | each lifted, put back turned about 45 degrees | 13 | 12:47:08 to 12:59:08 |
+| 3 | each lifted, put back parallel again | 6 | 13:02:08 to 13:07:08 |
+
+Four stills fall while Aaron was handling the squares (12:45:08, 12:46:08, 13:00:08 and 13:01:08) and
+are in no run. A tray of loose tags in the lower left of the frame, outside the table, made the
+gallery warn that it saw extra tags; it is outside the 12 slots and is not used here.
+
+**Two methods, both reported.** The method above named the green threshold (decision of 2026-10-27).
+Aaron decided on 2026-11-26, after seeing its result, to score the same stills with Grow from leaf
+cores as well, which researchers now see, and to report both. Both values come from the rig's own
+per-cell readings of each still (`green threshold, 0.1`: `area_mm2`; Grow from leaf cores, core
+0.07: `grown_area_mm2`), made by app 3136f5e. For each square and run, the reading is the median
+over the run's stills of the area of cell C3. Error = reading / calliper area - 1. A square is
+inside when the calliper area lies within the slot's band, taken as the reading times the slot's
+`band_pct`. The band is the validation band of the slot (flat targets at tray-top height); it does
+not include segmentation error (`CLAUDE.md`, *Facts not to rediscover*).
+
+Error by square and run (%), the band, and whether the square is inside (Y) or outside (n) in
+runs 1, 2 and 3:
+
+| Slot | Square | Calliper (mm²) | Green threshold, runs 1 / 2 / 3 | Grow from leaf cores, runs 1 / 2 / 3 | Band (±%) | Inside, grown |
+|---|---|---|---|---|---|---|
+| North 1 | I | 3,018.77 | +6.4 / +7.6 / +4.0 | +5.9 / +2.9 / +5.2 | 1.6 | n n n |
+| North 2 | A | 98.60 | +6.5 / +6.4 / +10.9 | +6.8 / +8.6 / +10.5 | 1.4 | n n n |
+| North 3 | E | 397.74 | -11.2 / -10.6 / -5.5 | +0.4 / +0.7 / +0.5 | 3.0 | Y Y Y |
+| North 4 | K | 1,599.87 | -33.6 / -35.9 / -24.2 | -0.7 / -0.1 / +0.1 | 3.1 | Y Y Y |
+| North 5 | B | 98.97 | -4.0 / -16.0 / -6.0 | +2.8 / +6.8 / +4.6 | 1.8 | n n n |
+| North 6 | F | 98.93 | +12.7 / +16.2 / +17.8 | +4.2 / +5.1 / +4.1 | 1.7 | n n n |
+| South 1 | D | 399.27 | +9.1 / +10.2 / +9.2 | +7.5 / +7.4 / +4.8 | 1.8 | n n n |
+| South 2 | J | 3,023.17 | +2.8 / +2.6 / +3.0 | +3.8 / +3.3 / +3.8 | 1.2 | n n n |
+| South 3 | H | 397.40 | -29.0 / -34.3 / -63.7 | +0.3 / 0.0 / +0.8 | 2.9 | Y Y Y |
+| South 4 | C | 98.87 | -93.4 / -83.8 / -79.5 | +3.2 / +2.5 / +3.1 | 2.9 | n Y n |
+| South 5 | L | 1,596.00 | +4.0 / +5.1 / +4.9 | +2.5 / +3.3 / +3.3 | 1.5 | n n n |
+| South 6 | G | 398.80 | +7.5 / +10.4 / +10.4 | +2.3 / +5.0 / +5.9 | 1.8 | n n n |
+
+| | Green threshold | Grow from leaf cores |
+|---|---|---|
+| Squares inside the band, runs 1 / 2 / 3 | 0 / 0 / 0 of 12 | 3 / 4 / 3 of 12 |
+| Mean size of the error, runs 1 / 2 / 3 | 18.4 / 19.9 / 19.9% | 3.4 / 3.8 / 3.9% |
+| Range of the errors | -93.4% to +17.8% | -0.7% to +10.5% |
+| Slots outside the band in 2 or more runs | 12 | 9 |
+| Pass rule (11 of 12 inside in every run, no slot outside in 2 runs) | **fail** | **fail** |
+
+![Error of each square by slot, both methods, with the band of each slot](figures/50/errors-by-slot-2026-11-26.png)
+
+*Figure 50a. Error of each square, by slot and run, for the two methods. Top: all 12 slots, scale
+-100% to +20%. Bottom: Grow from leaf cores only, scale -2% to +12%, where the grey band of each
+slot can be read. Made 2026-11-26 by `experiments/78-acceptance/fig50.py` from
+`experiments/78-acceptance/score78g.json`; the readings are in `rows78g.json` there.*
+
+**The jump between the square and the blue.** For the green threshold, the mask's index is
+(2G - R - B) / (R + G + B) with a cut at 0.1. In one still of run 1 (12:41:08) and one of run 3
+(13:05:08), full size, the index was measured inside each square (the median over the square
+shrunk by 4 px) and on the blue ring 20 to 30 px outside it (median). The jump is the first minus
+the second. "Kept" is the share of the square's pixels, found by a looser test (green above red
+and blue), that pass the 0.1 cut. Run 1 values; run 3 differs by 0.02 or less in every index, and
+in "kept" by up to 41 points (South 3, 75% against 34%) and 11 points (South 4, 7% against 18%):
+
+| Slot | Square | Index in the square | Index of the blue | Jump | Kept by the 0.1 cut |
+|---|---|---|---|---|---|
+| North 1 | I | 0.185 | -0.046 | 0.231 | 99% |
+| North 2 | A | 0.147 | -0.075 | 0.222 | 97% |
+| North 3 | E | 0.110 | -0.052 | 0.162 | 88% |
+| North 4 | K | 0.105 | -0.045 | 0.149 | 68% |
+| North 5 | B | 0.129 | -0.076 | 0.206 | 93% |
+| North 6 | F | 0.181 | -0.023 | 0.204 | 100% |
+| South 1 | D | 0.154 | -0.042 | 0.196 | 98% |
+| South 2 | J | 0.147 | -0.075 | 0.222 | 99% |
+| South 3 | H | 0.105 | -0.046 | 0.151 | 75% |
+| South 4 | C | 0.088 | -0.049 | 0.137 | 7% |
+| South 5 | L | 0.145 | -0.027 | 0.172 | 100% |
+| South 6 | G | 0.183 | -0.040 | 0.223 | 100% |
+
+**What the results show.**
+
+1. **Both methods fail the acceptance rule.** No square was inside its band with the green threshold
+   in any run. With Grow from leaf cores 3, 4 and 3 of 12 were, against the 11 needed.
+2. **The green threshold is wrong by position.** The four centre slots (North 3, North 4, South 3,
+   South 4) read 5% to 93% small, and the other slots 3% to 18% large, except North 5 (B), 4% to
+   16% small. In the centre the index in the
+   square falls to 0.09 to 0.11, at the cut of 0.1, and the cut keeps only 7% to 88% of the square.
+   The squares are one material, printed together and kept together (Aaron, 2026-11-26), so the
+   difference in how green they look is the light and the lens, not the squares.
+3. **Grow from leaf cores removes the position dependence.** Its centre-slot squares are within
+   +3.2% and -0.7%, because its core cutoff of 0.07 lies below the index of every square (0.088 to
+   0.185). What is left is an over-read of +2% to +11% on 9 of the 12 squares (up to +10.5% on a
+   10 mm square), larger than the bands of 1.2% to 3.1%.
+4. **The over-read is beyond the calliper error.** Calliper error at 0.1 mm is about ±2% in area on a 10 mm
+   square, ±1% on 20 mm, ±0.5% on 40 mm and ±0.4% on 55 mm (section 18.5). The 55 mm squares and the 40 mm
+   square L read +2.5% to +5.9% large with Grow from leaf cores, beyond that error.
+5. **Putting the squares back changes the reading.** With Grow from leaf cores the same square read
+   up to 4 points differently from run to run (B +2.8 / +6.8 / +4.6, G +2.3 / +5.0 / +5.9), as the
+   background under it and its angle changed (section 18.5).
+6. **Blue is not the problem.** The blue is at -0.02 to -0.08 on the index in every slot and the
+   jump is 0.14 to 0.23, so the edge is clear. The green threshold fails because one fixed cut sits
+   at the level of the paler squares; the over-read on the others is the blurred edge (sections 18.2
+   and 18.9).
+
+**What it covers and does not.** A *validation* of flat green squares at pot-top height, on blue
+mats, on one rig (`d6-daylight`), with one calibration and one lens position, 26 stills, both
+methods as they stood on 2026-11-26. It does not cover plants, plant height, soil, overlapping
+leaves or other backgrounds. Grow from leaf cores sets its levels from the tray's soil (sections 33 and
+34.1) and its own warning says leaf edges on blue mats read a little small; a flat square has no soil, so
+that this test reads the square's edge cleanly is not shown for leaves. The jump was measured in
+two stills. The calliper areas of D and F come from the swapped rows of 18.5 (above); D was not
+measured again. No Reprocess step was run (dropped from the acceptance test, Aaron, 2026-11-26).
+
+**Source.** Photos and readings on the rig; the script, readings and scores in
+`experiments/78-acceptance/`; Aaron's placement and size classes of 2026-11-26.

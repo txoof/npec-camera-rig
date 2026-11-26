@@ -598,6 +598,22 @@ metrology log backs it.
   metrology log 28), so plant areas are not changed by them and no rule is added. Not shown: an
   empty cell filled with soil (none existed in the data).
 
+### Known-area squares in all 12 slots (M5 acceptance, 2026-11-26)
+
+- **The acceptance test fails with both methods.** Twelve flat green squares of known area, one in
+  each slot on blue mats, were read in 3 runs (26 stills, production, `docs/metrology-log.md`,
+  section 50). The rule was at least 11 of 12 squares inside the slot's band in every run. With the
+  green threshold 0 of 12 were, in every run. With Grow from leaf cores 3, 4 and 3 of 12 were.
+- **The bands do not cover segmentation, and here that error is larger than the band.** The bands
+  are 1.2% to 3.1%. With Grow from leaf cores the squares read -0.7% to +10.5%, mostly large, and
+  the 10 mm squares the most. With the green threshold they read -93% to +18%.
+- **The green threshold's error depends on where in the frame an object lies.** In the four centre
+  slots it lost 5% to 93% of the squares, because the light and the lens bring the greenness down
+  to the fixed cut of 0.1. Grow from leaf cores does not, in these squares.
+- **Not shown.** Plants of any kind, plant height, soil, overlapping leaves and backgrounds other
+  than blue mats. These results are for flat squares, so they do not say how large the error is for
+  a living plant on a blue mat. The size of the error for plants still has to be measured.
+
 ### Flat-target bands (M2, to 2026-10-14)
 
 - **Segmentation.** Telling plant from background was not part of M2. Round 1 measured a green
