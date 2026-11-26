@@ -10445,9 +10445,15 @@ their checksums given in the results.
 a Raspberry Pi 5) it started 2026-11-24 14:15:55 UTC and the Pi went offline about 04:30 UTC on
 2026-11-25, interrupted at **8,215 of 47,457 photos, 13 failed**. Issue #511 finished it from a copy of
 the Pi's SD card **on an x86_64 Linux box (AMD Ryzen 7 5700X, 8 cores, 16 threads, 30 GiB RAM), not on
-the rig.** The method above was not changed. The photo count (47,457) is larger than the 28,847 photos
-with tray readings counted in the plan, because the run covered every capture of the experiment; the
-photo counts of the plan and of this run are not the same quantity and were not reconciled here.
+the rig.** The method above was not changed.
+
+The photo count (47,457) is larger than the plan's 28,847 because the two count different things at
+different times. The plan counted photos *already holding tray readings* on 2026-11-20, the day the
+method was written; this run covered *every capture photo* of the experiment, and the experiment went
+on taking photos until 2026-11-24 07:32 UTC. Read back from the copy of the rig's database: 41,244
+capture photos existed before 2026-11-20, of which 28,548 held tray readings — the plan's 28,847 was
+counted from the live database on the day and is 299 higher. Neither figure is wrong; they are not
+the same quantity.
 
 **The copy and its checks.** The card was imaged with GNU ddrescue on a Mac (100% rescued, 0 read
 errors). On the box the image was checked against the exact size (1,023,326,289,920 bytes) and against
