@@ -219,6 +219,14 @@ asks for confirmation while an experiment is running.
 - **Auto white balance.** It changes the colours recorded, and may change area values. Leave it as
   it is unless there is a reason to change it.
 
+## When the rig cannot tell the lights are off
+
+The rig leaves out photos taken with the lights off or while the light is changing. It can tell only
+while Auto exposure is on, because it reads how the camera's automatic exposure reacts to the light.
+With Auto exposure off, every photo is taken the same way, lit or dark, so dark photos are counted
+like the others. The Gallery marks each such photo "Lights not checked: auto exposure was off".
+Keep Auto exposure on during an experiment unless you need fixed settings.
+
 ## Reprocessing areas (developers and scripts)
 
 Reprocess works out the plant areas of every photo of an experiment again, for example after a

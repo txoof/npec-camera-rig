@@ -40,6 +40,13 @@ def test_a_photo_at_the_cameras_ceiling_is_lights_off() -> None:
     assert exclusions.light_exclusions(photos)["exclusions"] == ["lights off", None]
 
 
+def test_photos_with_auto_exposure_off_are_not_excluded() -> None:
+    """#507: AeState idle (auto exposure off) is no exclusion; the photos stay counted and the
+    page warns. Three photos with the same E (5,000), so no ramp either."""
+    photos = [{**p, "ae_state": "idle"} for p in _photos(5_000, 5_000, 5_000)]
+    assert exclusions.light_exclusions(photos)["exclusions"] == [None, None, None]
+
+
 MINUTE = timedelta(minutes=1)
 
 

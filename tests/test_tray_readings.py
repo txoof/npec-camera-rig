@@ -318,6 +318,25 @@ def test_a_photo_taken_with_the_lights_off_is_excluded_from_its_exposure_and_gai
     assert tray_readings.photo_readings(lit)["exclusion"] is None
 
 
+def test_a_photo_with_auto_exposure_off_is_counted_but_says_the_lights_were_not_checked(monkeypatch) -> None:
+    """#507: with auto exposure off libcamera reports AeState 0, idle, and the rig cannot tell a
+    lights-off photo. Aaron's decision (question 1): its areas stay counted, with a warning. A
+    searching or converged camera was checking the light, and a photo with no recorded state
+    gets no warning (it keeps the rule from its exposure and gain)."""
+    _calibrate()
+    _finds(monkeypatch, None)
+    paths = {}
+    for name, state in (("idle", 0), ("searching", 1), ("converged", 2), ("none", None)):
+        _camera_reports(monkeypatch, 5_404, 1.0, ae_state=state)
+        paths[name] = _photo()
+        tray_readings.read_photo(paths[name])
+
+    readings = {name: tray_readings.photo_readings(path) for name, path in paths.items()}
+    assert {name: r["lights_checked"] for name, r in readings.items()} == {
+        "idle": False, "searching": True, "converged": True, "none": True}
+    assert readings["idle"]["exclusion"] is None
+
+
 def test_each_trays_area_carries_the_floor_below_which_it_means_nothing_detected(monkeypatch) -> None:
     """100 mm2 for the green threshold: Aaron's starting value (2026-10-26), from empty trays
     reading up to 98 mm2 (metrology log 17.4); checked in #293."""

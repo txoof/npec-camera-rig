@@ -75,6 +75,14 @@ def _lights_off(photo: dict, e: float | None) -> bool:
     return e is not None and e >= LIGHTS_OFF_E
 
 
+def lights_checked(photo: dict) -> bool:
+    """Whether the camera was checking the light when the photo was taken: False when its
+    auto-exposure state (`ae_state`) is "idle", auto exposure off, so the rig cannot tell a
+    lights-off photo (#507). Not an exclusion: such a photo's areas stay counted and the page
+    warns (Aaron, 2026-11-26). True for a photo with no recorded state, which has no warning."""
+    return photo.get("ae_state") != "idle"
+
+
 def _ramp(es: list[float | None]) -> set[int]:
     """N-pad (#382, metrology log 29.2): each photo whose E lies strictly between the E of the
     photo before and the photo after (the auto-exposure still moving one way), and the photo

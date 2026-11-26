@@ -767,6 +767,8 @@ def capture_readings(capture: dict, *, history: bool = True, locations: dwell.Lo
             # Read before exclusions were stored: lights off needs only the photo itself.
             saved = {"name": exclusions.light_exclusions([capture])["exclusions"][0]}
         readings["exclusion"] = saved["name"]
+        # Auto exposure off (AeState idle): areas stay counted, the page warns (#507).
+        readings["lights_checked"] = exclusions.lights_checked(capture)
         _outline_old_rows(capture, readings["trays"])
         # A tray with no tag (#331) carries no tag another tray could share.
         carried = Counter(tray["tray_id"] for tray in readings["trays"] if tray["tray_id"] is not None)

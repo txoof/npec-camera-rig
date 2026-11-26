@@ -8878,6 +8878,116 @@ that stops above darkness, or a dark period with some light, was not seen: wheth
 auto-exposure then still reads searching is not known. Photos saved before version 24 have no
 state and are judged by E of 200,000 (17.7).
 
+### 29.4 Auto exposure off: what state does the camera report? (method written 2026-11-26, before the run; run the same day)
+
+**Label: development check.** Issue #507.
+
+**Question.** Section 29.3 found that the rig can tell the lights are off only from the camera's
+auto-exposure state (`ae_state`, libcamera `AeState`). With Auto exposure off, exposure and gain are
+set by hand. Does the camera then report "idle" (libcamera AeState 0, exposure and gain both
+manual) for every photo, lit or dark? If so, the state carries no information about the light and
+the rig cannot tell lights on from lights off.
+
+**Method.** Development rig `npec-rig-01`, branch `507-lights-not-checked`, the `hardware` label
+held, no experiment running. Auto exposure off, exposure and gain left at the values the page
+shows. Three photos by `POST /capture` with the chamber lights on, then three with the lights off,
+each set taken back to back (the question is the state the camera reports with Auto exposure off,
+which does not depend on the gap between photos; method changed 2026-11-26 from "one minute apart",
+before the run). The lights stay off for the three dark photos. A person switches the chamber lights off for the three dark photos and
+back on afterwards. For each of the 6 photos, read `ae_state`, E (exposure_us x analogue gain) and
+`Lux` from `rig.db` (read only) and from the capture's JSON record.
+
+**What would show it works** (that is, that the state is uninformative with Auto exposure off, as
+expected): "idle" in all 6 photos. **What would show it fails:** any "searching" or "converged", or a
+missing state. The rig would then be able to use the state with Auto exposure off, and the
+"Lights not checked" warning (29.6) would need another look.
+
+**Result (2026-11-26, 13:03 to 13:04 UTC).** "idle" (AeState 0) in all 6 photos, lit and dark. The
+expected outcome held: with Auto exposure off the state carries no information about the light.
+
+| Photo | Taken (UTC) | Lights | ae_state | Exposure (us) | Gain | Lux |
+|---|---|---|---|---|---|---|
+| `130310_875658` | 13:03:10 | off | idle | 32583 | 7.88 | 0.74 |
+| `130313_891827` | 13:03:13 | off | idle | 32583 | 7.88 | 0.72 |
+| `130317_379841` | 13:03:17 | off | idle | 32583 | 7.88 | 0.73 |
+| `130418_227849` | 13:04:18 | on | idle | 32583 | 7.88 | 1023.7 |
+| `130421_110849` | 13:04:21 | on | idle | 32583 | 7.88 | 1023.7 |
+| `130424_448815` | 13:04:24 | on | idle | 32583 | 7.88 | 1023.7 |
+
+E (exposure x gain) was about 256,650 (us x gain) in all 6, the same fixed value, so nothing in the saved
+state or E separates the lit photos from the dark ones. Lux, a separate reading by the camera,
+does (0.7 against 1023.7).
+
+**How the run differed from the method above.** (1) The chamber lights were already off when the
+run started, so the 3 dark photos were taken first and the 3 lit ones after the lights were
+switched on; the order does not matter for the question. (2) The values in the table are from the
+JSON record that `POST /capture` returned for each photo; `rig.db` was not read. (3) Experiment 4
+on the development rig was stopped, not running, at the time. (4) Exposure and gain were left at
+what the camera had chosen in the dark (32.6 ms, gain 7.9), so the 3 lit photos are saturated
+(Lux 1023.7 in all 3); this does not affect the state being read.
+
+**Limits of the evidence.** One camera (the development rig's Arducam 64MP, libcamera 0.7.2).
+Production was not checked. Six photos, one session. It shows what the camera reports, not what
+every future camera or libcamera version reports; a photo with no `AeState` is still judged by its
+exposure alone (29.2).
+
+### 29.5 The first photo after a fresh camera start (method written 2026-11-26, before the run; run the same day)
+
+**Label: development check.** Issue #507.
+
+**Question.** After the camera is opened afresh, its auto exposure starts from default values and
+may read "searching" for the first frames. Does the first photo then read "searching" with the
+lights on, so that it would be wrongly left out as "lights off"?
+
+**Background.** The scheduler takes the first photo within about 0 s to one interval (60 s in the experiments so far) of a
+fresh open, depending on the slot. The check forces the short gap, the worst case, by taking a
+photo straight after the restart.
+
+**Method.** Development rig `npec-rig-01`, branch `507-lights-not-checked`, the `hardware` label
+held, lights on, Auto exposure on, no experiment running. Five times: restart the `npec-rig`
+service, wait until `/api/health` reports the camera open, take one photo by `POST /capture` at
+once, and record the time from app start to that photo. Read `ae_state` of each photo from `rig.db`
+(read only) and the capture's JSON record.
+
+**What would show it works.** "converged" in all 5 first photos. The point is then closed with the
+result recorded. **What would show it fails.** Any "searching". A fix is then agreed with Aaron
+before any code: either the camera waits for "converged" before the photo, or the photo is judged by
+its neighbours.
+
+**Result (2026-11-26, 13:04 to 13:05 UTC).** "converged" (AeState 2) in all 5 first photos. None
+read "searching", so no fix is needed and the point is closed (issue #507 question 2 does not
+arise).
+
+| Restart | Photo taken (UTC) | ae_state | Seconds from app start | Exposure (us) | Gain | Lux |
+|---|---|---|---|---|---|---|
+| 1 | 13:04:47 | converged | 3.8 | 3481 | 1.0 | 10929 |
+| 2 | 13:04:59 | converged | 3.8 | 3481 | 1.0 | 10930 |
+| 3 | 13:05:11 | converged | 3.8 | 3481 | 1.0 | 10929 |
+| 4 | 13:05:23 | converged | 3.8 | 3481 | 1.0 | 10931 |
+| 5 | 13:05:35 | converged | 3.8 | 3481 | 1.0 | 10923 |
+
+Each photo was taken 3.8 s after the app started (the `app_up_s` of its record), the shortest gap
+the check could force, so this is the worst case for the first photo.
+
+**How the run differed from the method above.** (1) The app has no `/api/health` route that
+reports the camera open. The camera counted as open when `GET /controls` answered 200, and the
+photo was taken straight after that. (2) Values are from the capture's JSON record; `rig.db` was
+not read. (3) Experiment 4 on the development rig was stopped, so no scheduled photo competed with
+the check.
+
+**Limits of the evidence.** Service restarts of the app only. A restart of the camera process
+after a fault, and a reopen before a lens command, are not covered. One camera, libcamera 0.7.2;
+production was not checked. Five photos, one session, one scene (lights on).
+
+### 29.6 Photos taken with Auto exposure off: a decision (2026-11-26, not a measurement)
+
+This entry is a decision by Aaron for issue #507, not a measurement. A photo taken with Auto
+exposure off keeps its plant areas counted. It carries the warning "Lights not checked: auto
+exposure was off" in the Gallery. The reason is that with Auto exposure off the rig has no way to
+tell lit from dark (29.4 measured it: idle in all 6 photos), and leaving every such photo out would discard an
+experiment's data that may be fine. The warning leaves the judgement to the person reading the
+photo. Researchers are told in the operator guide ("When the rig cannot tell the lights are off").
+
 ## 30. Which pot is A1 on a 2 x 2 tray, across days (issue #385, 2026-11-07)
 
 **Label: development check.** Whether a 2 x 2 tray's pots keep the same names in every photo of an
