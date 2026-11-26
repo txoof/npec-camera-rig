@@ -7,7 +7,7 @@ name: unit
 on:
   pull_request:
   push:
-    branches: [main, 546-ci-unit-workflow] # TRIAL: the branch entry is removed before the PR
+    branches: [main]
 
 jobs:
   unit:
