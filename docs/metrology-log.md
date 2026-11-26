@@ -12310,3 +12310,211 @@ measured again. No Reprocess step was run (dropped from the acceptance test, Aar
 
 **Source.** Photos and readings on the rig; the script, readings and scores in
 `experiments/78-acceptance/`; Aaron's placement and size classes of 2026-11-26.
+
+### 51.1 Conclusions of the M5 acceptance test (written 2026-11-26, after the results of section 51)
+
+**Label: validation.** Written by the agent for Aaron from section 51 and his statements of
+2026-11-26, to be cited as "log 51.1". M5 is recorded as not met (`PLAN.md`, M5 status line; issue
+#78). No rerun is planned, because the chamber is not free (Aaron, 2026-11-26).
+
+**What the test shows.** Twelve flat green squares of known area on blue mats, one in each slot, were
+read in 3 runs (26 stills, production `d6-daylight`). The rule was at least 11 of 12 squares inside
+the slot's band in every run, and no slot outside in 2 runs. Neither method met it:
+
+- The green threshold put 0 of 12 inside the band in every run, with errors from -93% to +18%. It
+  under-read the four centre slots, where the light and the lens bring the green down to the fixed
+  cut of 0.1, and over-read most of the others.
+- Grow from leaf cores put 3, 4 and 3 of 12 inside, with errors from -0.7% to +10.5%. It removed the
+  centre-slot error. What is left is mostly an over-read, largest on the 10 mm squares, and larger
+  than the bands of 1.2% to 3.1%.
+
+**Conclusions.**
+
+1. Segmentation, not geometry, is the largest remaining error source for area, and the bands do
+   not include it. With Grow from leaf cores the error was larger than the band on 9 of the 12
+   squares, by up to about 7 times; with the green threshold it was larger on all 12 (section 51).
+2. The rig therefore gives an area as an estimate. It does not give a definite plant area, and no
+   measured error range exists for living plants.
+3. The error depends on the object's size and, for the green threshold, on where it lies in the
+   frame. A bias that changes with size bends a growth curve as a plant grows. How much it changes
+   a comparison between treatments is not shown here.
+4. The bands remain what `docs/measurement-trust.md` says: for flat objects at tray-top height, at
+   the locked focus. This test did not recheck them on flat targets.
+
+**Limits of these conclusions.**
+
+- One rig, one calibration, one lens position, flat squares only, 26 stills.
+- The three runs differ only in how the squares were put back. The slots stayed the same, so no run
+  is independent data for a band fitted to these results. The test was not rerun in different slots,
+  so a band that includes segmentation error is not validated.
+- Fixes for the over-read were tried and work only for the setup they were tuned on. That is Aaron's
+  assessment of 2026-11-26. It is not a measured result and no record of those attempts is in this
+  log.
+- Plants, plant height, soil, overlapping leaves and backgrounds other than blue mats are not covered.
+
+**What would change them.** A rerun with the squares in different slots, to check a band that
+includes a measured segmentation term; a measurement on living plants against a hand reference
+(sections 33 and 34.1 started this); or a segmentation method that works across setups. None is
+planned. What researchers see in the meantime is issue #536.
+
+**Where the rest is.** Results, data and the jump table: section 51 above and
+`experiments/78-acceptance/`. The claim's scope: `docs/measurement-trust.md`, *The claim* and
+*Limits of the evidence*.
+
+## 52. Time-lapse video memory: the peak while the rig keeps working (issue #503, method written 2026-11-26, before the run)
+
+**Label: development check.** Purpose: find how much memory a time-lapse video needs at its peak
+while the rig keeps taking its scheduled photos and reading its trays, so that the memory limit of
+the video job (`MEMORY_LIMIT_BYTES` in `src/npec_rig/timelapse.py`) rests on a measurement. This
+section is written before the run. The limit is a decision at the end (52.6), not a result.
+
+### 52.1 Why this is measured
+
+A video is made in a child process, and ffmpeg runs inside that child. The child sets a cap with
+`RLIMIT_AS` to `MEMORY_LIMIT_BYTES`, now 2 GiB. That number is a placeholder, never measured
+(`timelapse.py`, comment above the constant). Making a video while the rig keeps taking photos is
+normal use, and a process killed for lack of memory could disturb a running experiment (#430, #503).
+
+Three memory figures are read from `/proc`, and they mean different things:
+
+- **VmPeak**: the highest virtual size of a process (address space reserved, not all in use).
+  `RLIMIT_AS` caps this figure, so the limit is set from VmPeak.
+- **VmHWM**: the highest resident size (memory actually held in RAM). The Linux out-of-memory
+  killer acts on resident memory, so VmHWM is what threatens other processes.
+- **MemAvailable**: what the whole Pi can still give out. Pi-wide used memory is MemTotal minus
+  MemAvailable.
+
+ffmpeg inherits its own separate 2 GiB cap, so the child and ffmpeg together can reach about twice
+the limit. `choose_frames` holds database rows, not pixels, so the frame count does not by itself
+raise memory; each frame is decoded one at a time in `_encode`.
+
+### 52.2 Rig and data
+
+Development `npec-rig-01` (Pi 5, **8 GB**, 2 GiB swap). This is not the 4 GB production Pi, so
+absolute per-process peaks and Pi-wide used memory are reported, from which a 4 GB budget is worked
+out in 52.6. App version d6feef7 (branch 531-auto-exposure-rig-settings), checked identical to main
+e312cff in `timelapse.py`, `routes/data.py`, `tray_readings.py` and `camera_process.py`. No deploy
+and no restart.
+
+Data: experiment 4 "Dario 13 Emergence", running, one photo every 300 s, about 3,800 photos since
+2026-11-13 (about 13 days), 6 trays. The issue's longest case (about 1,000 frames per tray, 3 weeks
+at 2 an hour) is out of reach. **5 photos an hour on one tray (about 1,560 frames) is a stand-in
+for it**, not the case itself.
+
+### 52.3 Cases
+
+Start is at or before the experiment's start and end is the time of the run's start. Smallest first.
+Every case runs while the app keeps its normal live capture and tray reading.
+
+| Case | Trays | Photos an hour | Mask | Frames (about) |
+|---|---|---|---|---|
+| A | one | 1 | no | 313 |
+| B | one | 2 | yes | 626 |
+| C | all 6 | 1 | no | 1,900 |
+| D (stand-in) | one | 5 | no | 1,560 |
+| E | the case with the highest child VmPeak, repeated once | | | |
+
+**Case F was added after A to D were run:** one tray, 5 photos an hour, with the mask. Case B (the mask)
+had the highest child VmPeak and case D (the stand-in rate) the most frames, so F puts the two together.
+It was not in the method as first written. Frame counts in the table are the estimates made before the
+run; the counts found are in 52.8.
+
+Each job is started about 20 s before the next scheduled photo is due, so the tray reading of that
+photo overlaps the video. No export and no Reprocess run (the app refuses the combination).
+**No "alone" case is run.** An "alone" run for all trays would pause the experiment. So the share
+of memory due to the video alone, against the rig's own use, is not separated from it; the figures
+are the peak of both together.
+
+### 52.4 Method
+
+1. The sampler `experiments/503-timelapse-memory/sample.py` (standard library only) reads `/proc`
+   every 0.25 s and keeps the highest VmPeak and VmHWM of each process: the app, the video child and
+   ffmpeg (the camera child is not sampled by itself; its memory is part of Pi-wide used memory). It
+   writes one CSV row per second:
+   VmPeak, VmHWM and VmRSS of each, MemTotal, MemAvailable and used memory.
+2. Jobs are started by `POST /api/data/timelapse` on the development server.
+3. **Safety.** Smallest case first. `free -m` before each run; start only with about 5 GiB
+   available. The sampler aborts the video job (ffmpeg first, then the video child; never the app or
+   the camera child) if used memory passes 3.0 GiB or MemAvailable falls below 1.0 GiB. After each
+   case: `NRestarts` of `npec-rig`, the kernel log for out-of-memory kills, and whether experiment
+   4's photos stayed on time.
+4. A case that fails with "ran out of memory" has reached the 2 GiB cap. That is itself a result.
+   Measuring beyond it needs a build with a higher cap and Aaron's approval.
+
+### 52.5 What the results will give
+
+Per case: frames, highest VmPeak and VmHWM of each process, lowest MemAvailable, highest used
+memory, whether photos stayed on time, and the CSV paths (`experiments/503-timelapse-memory/data/`,
+or the path set at the run).
+
+### 52.6 Decision rule, written before the run (a decision, not a measurement)
+
+`MEMORY_LIMIT_BYTES` = the largest measured child VmPeak plus a margin, **only if** the summed
+resident peaks (app, camera child, video child and ffmpeg) fit a 4 GB Pi with 0.5 GiB to spare.
+Otherwise the limit is set lower, so large requests fail with the existing message instead of
+pushing the Pi towards an out-of-memory kill.
+
+**The margin (decision, Aaron, 2026-11-26): 25%, rounded up to a multiple of 256 MiB.** It was proposed before the run and confirmed after the results.
+
+### 52.7 Limits of the evidence
+
+- One rig, with 8 GB, not the 4 GB production Pi; the 4 GB fit is worked out from absolute figures,
+  not observed.
+- One experiment's photo sizes, as stored (the photo quality setting of that time).
+- 13 days of data, not 3 weeks; case D is a stand-in.
+- The issue's longest case (3 weeks, about 1,000 frames per tray, with the mask) was not run: development
+  holds 13 days. At 1.5 GiB such a video could fail with "ran out of memory" where it would have passed at
+  2 GiB. Case F, the nearest, sits 0.35 GiB under the new cap; the slope in 52.8 puts the longer case
+  below it, but that is read off six runs and is not a measurement.
+- No "alone" case (52.3). The cap itself was never reached: no run ended with "ran out of memory",
+  so how a video behaves at the new, lower cap is not observed on the rig.
+- If ffmpeg reaches its own cap, the message shown does not mention memory.
+- The cap message says "GB" for a value in GiB (`_failure`); fixed in the same change as the constant (52.8).
+
+### 52.8 Results
+
+**Label: development check.** Run 2026-11-26 15:07 to 15:43 UTC on `npec-rig-01`, app `d6feef7`, experiment 4
+running. Every video ended `ready`. `NRestarts` of `npec-rig` stayed 0, the kernel log held no
+out-of-memory kill, and the app's journal held no error in that time. Photos stayed on time: 10 photos
+between 15:00 and 15:50 UTC (the list is in `data/photo-times-15-00-to-15-50.txt`), each 300 s after the one before. Every run took place alongside the live
+photo and tray reading (52.3). Raw data: `experiments/503-timelapse-memory/data/` (one CSV of the
+sampler and one JSON of the run per case); scripts `sample.py` and `run_case.py` in the folder above.
+
+Peaks are the highest value seen (sampled every 0.25 s). Memory is in GiB (1 GiB = 1,048,576 kB).
+
+| Case | Frames | Seconds | Child VmPeak | Child VmHWM | ffmpeg VmPeak | ffmpeg VmHWM | Lowest MemAvailable | Highest used (Pi-wide) |
+|---|---|---|---|---|---|---|---|---|
+| A one tray, 1 an hour | 133 | 60 | 0.93 | 0.40 | 0.74 | 0.18 | 5.42 | 2.42 |
+| B one tray, 2 an hour, mask | 256 | 155 | 1.08 | 0.56 | 0.74 | 0.18 | 5.44 | 2.43 |
+| B again | 256 | 166 | 1.08 | 0.56 | 0.74 | 0.18 | 5.29 | 2.56 |
+| C all 6 trays, 1 an hour | 664 | 289 | 0.94 | 0.41 | 0.74 | 0.18 | 5.48 | 2.35 |
+| D one tray, 5 an hour (stand-in) | 631 | 277 | 1.02 | 0.49 | 0.74 | 0.18 | 5.37 | 2.50 |
+| F one tray, 5 an hour, mask (added) | 632 | 407 | **1.15** | 0.63 | 0.74 | 0.18 | 5.17 | 2.55 |
+
+"Highest used" is MemTotal minus MemAvailable in the one-second rows; the lowest MemAvailable is from
+the 0.25 s samples, so the two do not add up to the 7.9 GiB total. The app's own figures are for its
+whole run since it started, not for the video: VmPeak 2.16 GiB and VmHWM 1.23 to 1.24 GiB in the cases (the
+camera child is not sampled by itself). The frame counts are lower than the estimates in 52.3: steps
+with the lights off in every photo give no frame (`choose_frames`), and 9 to 52 steps with photos but
+no usable tray were skipped. The two runs of case B had the same child VmPeak (1,137,232 kB).
+
+What the figures show:
+
+- The child's VmPeak is set mostly by the mask and little by the number of frames. Going from 133 to
+  631 frames (A to D, no mask) raised it by 0.09 GiB; adding the mask (D to F) raised it by 0.14 GiB.
+  Whole-rig 3-week cases were not run, so this slope is read off these six runs and is not a
+  measurement beyond them.
+- ffmpeg's VmPeak was the same, 0.74 GiB, in all runs, and its resident peak 0.18 GiB.
+- Neither cap (2 GiB each) was reached.
+- The 4 GB budget. The rule in 52.6 sums the resident peaks of four processes; the camera child was not
+  sampled, so that sum could not be made, and the Pi-wide figure is used instead (a change from the
+  method as written). The highest Pi-wide use was 2.56 GiB, on a Pi whose idle use was about 0.9 GiB
+  (Hailo-10H and the development services in it). A 4 GB Pi has about 3.8 GiB usable (an assumption, not read
+  from a 4 GB Pi), so about 1.2 GiB would stay free. Production's idle use was not measured here, so this is a fit worked out from
+  dev's absolute figures, not observed.
+
+**Decision (not a measurement): `MEMORY_LIMIT_BYTES` = 1.5 GiB (1536 MiB).** It is the highest child
+VmPeak, 1.15 GiB, plus 25%, rounded up to 256 MiB, which is the rule of 52.6, and the 4 GB fit above
+holds. It replaces the 2 GiB placeholder. The 25% margin was confirmed by Aaron on
+2026-11-26 (52.6). The failure message now gives the limit in decimal GB with one decimal
+(1.5 GiB shows as "1.6 GB"); before it printed GiB as "GB" rounded to a whole number.

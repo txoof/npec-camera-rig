@@ -1,0 +1,44 @@
+{
+ "case": "A",
+ "run": 1,
+ "request": {
+  "experiment_id": 4,
+  "tray_id": 8,
+  "start": "2026-11-13T09:55:18.732646+00:00",
+  "end": "2026-11-26T15:10:55.959732+00:00",
+  "per_hour": 1,
+  "method": "grown",
+  "mask": false
+ },
+ "start_status": 200,
+ "available_mb_before": 7000,
+ "nrestarts_before": "0",
+ "sampler_pid_app": 39599,
+ "video_id": "20261126T151056012304-a02f91",
+ "final": {
+  "state": "ready",
+  "request": {
+   "experiment_id": 4,
+   "tray_id": 8,
+   "start": "2026-11-13T09:55:18.732646+00:00",
+   "end": "2026-11-26T15:10:55.959732+00:00",
+   "per_hour": 1,
+   "method": "grown",
+   "cell": null,
+   "mask": false
+  },
+  "frames": 133,
+  "done": 133,
+  "skipped": 9,
+  "unreadable": 0,
+  "unreadable_photos": [],
+  "trays": 1,
+  "bytes": 1339044
+ },
+ "seconds": 60.4,
+ "sampler_exit": 0,
+ "sampler_summary": "max app VmPeak 2263360 VmHWM 1289392 kB; child VmPeak 972960 VmHWM 418752 kB; ffmpeg VmPeak 780144 VmHWM 186160 kB; min MemAvailable 5681536 kB; rows 269",
+ "nrestarts_after": "0",
+ "last_photo_after": "2026-11-26T15:11:15.862798+00:00",
+ "photo_due": "2026-11-26T15:11:15.825805+00:00"
+}
