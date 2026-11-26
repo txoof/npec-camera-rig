@@ -12310,3 +12310,53 @@ measured again. No Reprocess step was run (dropped from the acceptance test, Aar
 
 **Source.** Photos and readings on the rig; the script, readings and scores in
 `experiments/78-acceptance/`; Aaron's placement and size classes of 2026-11-26.
+
+### 51.1 Conclusions of the M5 acceptance test (written 2026-11-26, after the results of section 51)
+
+**Label: validation.** Written by the agent for Aaron from section 51 and his statements of
+2026-11-26, to be cited as "log 51.1". M5 is recorded as not met (`PLAN.md`, M5 status line; issue
+#78). No rerun is planned, because the chamber is not free (Aaron, 2026-11-26).
+
+**What the test shows.** Twelve flat green squares of known area on blue mats, one in each slot, were
+read in 3 runs (26 stills, production `d6-daylight`). The rule was at least 11 of 12 squares inside
+the slot's band in every run, and no slot outside in 2 runs. Neither method met it:
+
+- The green threshold put 0 of 12 inside the band in every run, with errors from -93% to +18%. It
+  under-read the four centre slots, where the light and the lens bring the green down to the fixed
+  cut of 0.1, and over-read most of the others.
+- Grow from leaf cores put 3, 4 and 3 of 12 inside, with errors from -0.7% to +10.5%. It removed the
+  centre-slot error. What is left is mostly an over-read, largest on the 10 mm squares, and larger
+  than the bands of 1.2% to 3.1%.
+
+**Conclusions.**
+
+1. Segmentation, not geometry, is the largest remaining error source for area, and the bands do
+   not include it. With Grow from leaf cores the error was larger than the band on 9 of the 12
+   squares, by up to about 7 times; with the green threshold it was larger on all 12 (section 51).
+2. The rig therefore gives an area as an estimate. It does not give a definite plant area, and no
+   measured error range exists for living plants.
+3. The error depends on the object's size and, for the green threshold, on where it lies in the
+   frame. A bias that changes with size bends a growth curve as a plant grows. How much it changes
+   a comparison between treatments is not shown here.
+4. The bands remain what `docs/measurement-trust.md` says: for flat objects at tray-top height, at
+   the locked focus. This test did not recheck them on flat targets.
+
+**Limits of these conclusions.**
+
+- One rig, one calibration, one lens position, flat squares only, 26 stills.
+- The three runs differ only in how the squares were put back. The slots stayed the same, so no run
+  is independent data for a band fitted to these results. The test was not rerun in different slots,
+  so a band that includes segmentation error is not validated.
+- Fixes for the over-read were tried and work only for the setup they were tuned on. That is Aaron's
+  assessment of 2026-11-26. It is not a measured result and no record of those attempts is in this
+  log.
+- Plants, plant height, soil, overlapping leaves and backgrounds other than blue mats are not covered.
+
+**What would change them.** A rerun with the squares in different slots, to check a band that
+includes a measured segmentation term; a measurement on living plants against a hand reference
+(sections 33 and 34.1 started this); or a segmentation method that works across setups. None is
+planned. What researchers see in the meantime is issue #536.
+
+**Where the rest is.** Results, data and the jump table: section 51 above and
+`experiments/78-acceptance/`. The claim's scope: `docs/measurement-trust.md`, *The claim* and
+*Limits of the evidence*.
