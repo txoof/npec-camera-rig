@@ -140,7 +140,9 @@ def test_three_shuffled_rounds_complete_a_validation(tray_scene: dict) -> None:
     assert body["rounds_counted"] == 3
     assert body["completed_at"] is not None
     assert [r["n"] for r in body["results"]] == [90] * 12
-    assert body["certainty_range_pct"] == pytest.approx([0.0, 0.0])
+    # Three identical-size rounds have no spread. The value is zero up to float rounding, which
+    # differs between OpenCV and NumPy builds: about 3e-12 on the Arm64 CI runner (#510).
+    assert body["certainty_range_pct"] == pytest.approx([0.0, 0.0], abs=1e-9)
     response = client.get(body["map_url"])
     assert response.status_code == 200
     assert response.content[:2] == b"\xff\xd8"
