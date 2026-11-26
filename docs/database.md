@@ -625,9 +625,16 @@ Going back to the older code means restoring the database and the code together:
 4. Deploy the older version and start it.
 
 Rows the newer app wrote after the copy are gone. The photographs stay on disk under
-`/var/lib/npec-rig/rig/`, and so do their masks, but their readings, exclusions and scheduled-photo
-rows come back only by reprocessing. Who may roll a rig back at all, and what has to be said before
-a branch carrying a migration is deployed, is in `CLAUDE.md`, *A migration goes one way*.
+`/var/lib/npec-rig/rig/`, and so do their masks and the calibrations and validations in
+`/var/lib/npec-rig/calibration`, which are JSON files and not rows. What does go back is the
+database: the focus lock and the camera settings, experiment records, scheduled photos, tray and
+cell readings, exclusions and tray layouts. Readings come back by reprocessing; the rest does not.
+
+This is as true on development as on production. Development's `rig.db` holds the experiments and
+readings the work is tried against, so it is copied before a migrating deploy and restored the
+same way. `rig.db` is never deleted, moved or emptied to get an older app to start. Who may roll a
+rig back at all, and what has to be said before a branch carrying a migration is deployed, is in
+`CLAUDE.md`, *A migration goes one way*.
 
 ## Planned
 
