@@ -460,6 +460,35 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_its_info_each_areas_fl
     assert [t["floor_mm2"] for t in info["trays"]] == [100]
 
 
+def test_a_photo_with_auto_exposure_off_is_listed_with_a_lights_warning_and_no_exclusion(monkeypatch) -> None:
+    """#507: AeState 0 (libcamera: idle) means auto exposure was off. The photo is not excluded
+    (Aaron, 2026-11-26) but the list says in words the lights were not checked; a photo from a
+    converged camera (AeState 2, the synthetic default) carries no warning."""
+    from npec_rig import tray_readings
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Idle(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            draw_tray(frame, 115, 554, 3165, 4214)  # one_tray_plant_scene's tray
+            return frame, {**metadata, "ExposureTime": 5_404, "AnalogueGain": 1.0, "AeState": 0}
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    CameraManager.set_instance(CameraManager(Idle(width=4000, height=4400)))
+    idle_path = client.post("/capture").json()["path"]
+    tray_readings.read_photo(idle_path)
+    CameraManager.set_instance(CameraManager(SyntheticBackend(width=4000, height=4400)))
+    lit_path = client.post("/capture").json()["path"]
+
+    listed = {i["path"]: i for i in client.get("/api/captures").json()}
+    assert listed[idle_path]["lights"] == {
+        "checked": False, "reason": "Lights not checked: auto exposure was off"}
+    assert listed[idle_path]["trays"]["exclusion"] is None
+    assert listed[lit_path]["lights"] == {"checked": True, "reason": None}
+
+
 def test_a_reading_saved_before_trays_were_found_in_the_photo_keeps_its_trays_outline(monkeypatch) -> None:
     """Review of #334: a photo read before #331 (tray 5 placed from its tag, with an area) has no
     stored outline. Its tray is shown as the old placement drew it, the tray's outside size

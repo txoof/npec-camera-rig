@@ -8878,6 +8878,71 @@ that stops above darkness, or a dark period with some light, was not seen: wheth
 auto-exposure then still reads searching is not known. Photos saved before version 24 have no
 state and are judged by E of 200,000 (17.7).
 
+### 29.4 Auto exposure off: what state does the camera report? (method written 2026-11-26, before the run; result not yet taken)
+
+**Label: development check.** Issue #507.
+
+**Question.** Section 29.3 found that the rig can tell the lights are off only from the camera's
+auto-exposure state (`ae_state`, libcamera `AeState`). With Auto exposure off, exposure and gain are
+set by hand. Does the camera then report "idle" (libcamera AeState 0, exposure and gain both
+manual) for every photo, lit or dark? If so, the state carries no information about the light and
+the rig cannot tell lights on from lights off.
+
+**Method.** Development rig `npec-rig-01`, branch `507-lights-not-checked`, the `hardware` label
+held, no experiment running. Auto exposure off, exposure and gain left at the values the page
+shows. Three photos by `POST /capture` with the chamber lights on, then three with the lights off,
+at least one minute apart. A person switches the chamber lights off for the three dark photos and
+back on afterwards. For each of the 6 photos, read `ae_state`, E (exposure_us x analogue gain) and
+`Lux` from `rig.db` (read only) and from the capture's JSON record.
+
+**What would show it works** (that is, that the state is uninformative with Auto exposure off, as
+expected): "idle" in all 6 photos. **What would show it fails:** any "searching" or "converged", or a
+missing state. The rig would then be able to use the state with Auto exposure off, and the
+"Lights not checked" warning (29.6) would need another look.
+
+**Result.** Not yet run.
+
+**Limits of the evidence (planned).** One camera (the development rig's Arducam 64MP, libcamera
+0.7.2). Production was not checked. Six photos, one session.
+
+### 29.5 The first photo after a fresh camera start (method written 2026-11-26, before the run; result not yet taken)
+
+**Label: development check.** Issue #507.
+
+**Question.** After the camera is opened afresh, its auto exposure starts from default values and
+may read "searching" for the first frames. Does the first photo then read "searching" with the
+lights on, so that it would be wrongly left out as "lights off"?
+
+**Background.** The scheduler takes the first photo within about 0 s to one interval (60 s) of a
+fresh open, depending on the slot. The check forces the short gap, the worst case, by taking a
+photo straight after the restart.
+
+**Method.** Development rig `npec-rig-01`, branch `507-lights-not-checked`, the `hardware` label
+held, lights on, Auto exposure on, no experiment running. Five times: restart the `npec-rig`
+service, wait until `/api/health` reports the camera open, take one photo by `POST /capture` at
+once, and record the time from app start to that photo. Read `ae_state` of each photo from `rig.db`
+(read only) and the capture's JSON record.
+
+**What would show it works.** "converged" in all 5 first photos. The point is then closed with the
+result recorded. **What would show it fails.** Any "searching". A fix is then agreed with Aaron
+before any code: either the camera waits for "converged" before the photo, or the photo is judged by
+its neighbours.
+
+**Result.** Not yet run.
+
+**Limits of the evidence (planned).** Service restarts of the app only. A restart of the camera
+process after a fault, and a reopen before a lens command, are not covered. One camera, libcamera
+0.7.2; production was not checked.
+
+### 29.6 Photos taken with Auto exposure off: a decision (2026-11-26, not a measurement)
+
+This entry is a decision by Aaron for issue #507, not a measurement. A photo taken with Auto
+exposure off keeps its plant areas counted. It carries the warning "Lights not checked: auto
+exposure was off" in the Gallery. The reason is that with Auto exposure off the rig has no way to
+tell lit from dark (29.4 is the check of that), and leaving every such photo out would discard an
+experiment's data that may be fine. The warning leaves the judgement to the person reading the
+photo. Researchers are told in the operator guide ("When the rig cannot tell the lights are off").
+
 ## 30. Which pot is A1 on a 2 x 2 tray, across days (issue #385, 2026-11-07)
 
 **Label: development check.** Whether a 2 x 2 tray's pots keep the same names in every photo of an

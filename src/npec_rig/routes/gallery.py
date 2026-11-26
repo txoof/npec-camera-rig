@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import images, photo_tags, tray_readings
+from npec_rig import exclusions, images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
@@ -50,6 +50,8 @@ def api_captures(
     # Each photo's saved tray readings (#222) with its light mark and floors (#288), None until
     # it has been read. Like the records (captures._with_database_rows), a database that cannot
     # be read leaves the photos listed.
+    for item in items:
+        item["lights"] = _lights(item.get("record"))
     try:
         for item in items:
             record = item.get("record")
@@ -59,6 +61,17 @@ def api_captures(
         for item in items:
             item["trays"] = None
     return items
+
+
+LIGHTS_NOT_CHECKED = "Lights not checked: auto exposure was off"
+
+
+def _lights(record: dict | None) -> dict:
+    """Whether the camera was checking the light for this photo (#507): with auto exposure off the
+    rig cannot tell a lights-off photo, so its areas stay counted and the page says so. A photo
+    with no record or no recorded state has no warning."""
+    checked = record is None or exclusions.lights_checked(record)
+    return {"checked": checked, "reason": None if checked else LIGHTS_NOT_CHECKED}
 
 
 # What a card's one tray line shows (#377); Info fetches the full reading, cells included, from
