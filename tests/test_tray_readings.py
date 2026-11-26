@@ -318,6 +318,25 @@ def test_a_photo_taken_with_the_lights_off_is_excluded_from_its_exposure_and_gai
     assert tray_readings.photo_readings(lit)["exclusion"] is None
 
 
+def test_a_photo_with_auto_exposure_off_is_counted_but_says_the_lights_were_not_checked(monkeypatch) -> None:
+    """#507: with auto exposure off libcamera reports AeState 0, idle, and the rig cannot tell a
+    lights-off photo. Aaron's decision (question 1): its areas stay counted, with a warning. A
+    searching or converged camera was checking the light, and a photo with no recorded state
+    gets no warning (it keeps the rule from its exposure and gain)."""
+    _calibrate()
+    _finds(monkeypatch, None)
+    paths = {}
+    for name, state in (("idle", 0), ("searching", 1), ("converged", 2), ("none", None)):
+        _camera_reports(monkeypatch, 5_404, 1.0, ae_state=state)
+        paths[name] = _photo()
+        tray_readings.read_photo(paths[name])
+
+    readings = {name: tray_readings.photo_readings(path) for name, path in paths.items()}
+    assert {name: r["lights_checked"] for name, r in readings.items()} == {
+        "idle": False, "searching": True, "converged": True, "none": True}
+    assert readings["idle"]["exclusion"] is None
+
+
 def test_each_trays_area_carries_the_floor_below_which_it_means_nothing_detected(monkeypatch) -> None:
     """100 mm2 for the green threshold: Aaron's starting value (2026-10-26), from empty trays
     reading up to 98 mm2 (metrology log 17.4); checked in #293."""
@@ -1139,6 +1158,106 @@ def _matted_tray_scene(monkeypatch) -> None:
     CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
 
 
+# Issue #486: soil as green as under mats (MAT_EDGE_RGB, the top bin), but no mats: a 100 px blue
+# rim only, as `_soil_tray_scene`, so the tray's outline is still found by its colour.
+def _green_soil_tray_scene(monkeypatch) -> None:
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[400:4060, 300:3350] = TRAY_BLUE
+            frame[500:3960, 400:3250] = MAT_EDGE_RGB  # the soil, a 100 px blue rim left showing
+            frame[2060:2400, 1307:1647] = PALE_EDGE_RGB  # 20 px around the leaf
+            frame[2080:2380, 1327:1627] = MINT_LEAF_RGB  # 300 x 300 px inside B3's opening: 900 mm2
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_a1_tag(5, 779.5, 3624.0)])
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def test_a_tray_whose_soil_looks_green_with_no_mats_keeps_the_soil_cutoff_and_is_marked(monkeypatch) -> None:
+    """The soil-based cutoff (0.045 + 0.07 = 0.115) is kept, above the pale edge's 0.08: only the
+    leaf counts, 300 x 300 px = 900 mm2, not the whole tray as it did before this fix."""
+    from npec_rig import segmentation
+
+    _green_soil_tray_scene(monkeypatch)
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+
+    assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(0.045), pytest.approx(0.115))
+    assert tray["grown_blue_coverage"] < segmentation.GROWN_BLUE_COVERAGE_MIN  # the 100 px rim only
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)  # 1%: JPEG blurs the edges
+    assert segmentation.SOIL_GREEN in tray["warnings"]
+    assert segmentation.SOIL_HIDDEN not in tray["warnings"]
+
+
+def test_reprocess_keeps_counting_a_soil_looks_green_reading_without_the_photo(monkeypatch) -> None:
+    """A reading whose soil read green with no mats (its blue coverage saved, #486) is not shaped
+    like a reading saved before #373 with its leaves cut short: with the photo gone, its saved mask
+    is counted again, not blocked into a regrow it cannot do."""
+    from npec_rig import segmentation
+    from npec_rig.captures import photo_file
+
+    _green_soil_tray_scene(monkeypatch)
+    path = _photo()
+    tray_readings.read_photo(path)
+    photo_file(path).unlink()
+
+    [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.01)
+    assert segmentation.SOIL_GREEN in tray["warnings"]
+
+
+# #486 review (2026-11-26): an empty cell's bottom is the tray's own blue plastic, and so are the
+# walls between cells — neither is a mat. A 2 x 2 tray (tag 80, type "2x2"), green soil (no mats)
+# in three of its four cells, the fourth (B1) genuinely empty (no pot, the bare blue tray bottom).
+# Cell corners here are `tray_placement.place_cells`'s own answer for this exact outline and tag,
+# worked out once by hand and fixed in the comments below, not recomputed by the test.
+# A1 x 405 to 1495, y 2662 to 3751 (planted, a leaf). A2 x 405 to 1495, y 1017 to 2106 (soil only).
+# B1 x 1785 to 2875, y 2662 to 3751 (empty: left blue). B2 x 1785 to 2875, y 1017 to 2106 (soil only).
+def _tray_with_an_empty_cell_scene(monkeypatch) -> None:
+    from npec_rig.camera import CameraManager, SyntheticBackend
+    from tests.helpers import MINT_LEAF_RGB
+
+    one_tray_plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[554:4214, 115:3165] = TRAY_BLUE  # the whole tray: walls, rim, and B1, stay blue
+            frame[2682:3731, 425:1475] = MAT_EDGE_RGB  # A1: soil, a little green, inset 20 px
+            frame[1037:2086, 425:1475] = MAT_EDGE_RGB  # A2: soil, no leaf
+            frame[2682:3731, 1805:2855] = MAT_EDGE_RGB  # B2: soil, no leaf
+            frame[2900:3200, 800:1100] = MINT_LEAF_RGB  # A1's leaf, 300 x 300 px inside it
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_a1_tag(80, 1640.0, 2384.0)])
+    CameraManager.set_instance(CameraManager(Scene(width=4000, height=4400)))
+
+
+def test_a_2x2_trays_empty_cell_does_not_read_as_a_mat(monkeypatch) -> None:
+    """Without the cell fix, B1's blue bottom and the walls push blue coverage above the threshold
+    and the tray is wrongly marked soil hidden; the leaf's area then comes from the wrong (floor)
+    cutoff. With it, only A1 (the cell holding the leaf's core) counts towards blue coverage, which
+    has no blue in it at all: the tray is correctly marked soil looks green, its cutoff kept."""
+    from npec_rig import segmentation
+
+    _tray_with_an_empty_cell_scene(monkeypatch)
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+
+    assert tray["grown_blue_coverage"] < segmentation.GROWN_BLUE_COVERAGE_MIN
+    assert segmentation.SOIL_GREEN in tray["warnings"]
+    assert segmentation.SOIL_HIDDEN not in tray["warnings"]
+    # The leaf alone, 300 x 300 px = 900 mm2: no pale edge drawn around it here, so JPEG ringing at
+    # its sharp border adds more than the usual 1% (other tests draw a pale edge to absorb this).
+    assert tray["grown_area_mm2"] == pytest.approx(900, rel=0.08)
+
+
 def test_a_tray_whose_soil_is_hidden_under_mats_is_grown_from_the_floor_and_marked(monkeypatch) -> None:
     """The leaf with its pale edge, 340 x 340 px = 1156 mm2 at 10 px/mm, as on bare soil. A cutoff
     0.07 above the top bin (0.115) would leave the edge out: 900 mm2."""
@@ -1150,7 +1269,7 @@ def test_a_tray_whose_soil_is_hidden_under_mats_is_grown_from_the_floor_and_mark
     assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
     assert (tray["grown_soil_level"], tray["grown_lower_cutoff"]) == (pytest.approx(0.045), pytest.approx(-0.045))
     assert SOIL_HIDDEN in tray["warnings"]
-    assert SOIL_HIDDEN == "soil hidden: usual leaf cutoff used"
+    assert SOIL_HIDDEN == "mats covering soil; area measured with a less precise fallback"
 
 
 def test_reprocess_segments_again_a_photo_read_with_its_cutoff_in_the_leaves(monkeypatch) -> None:
@@ -1170,7 +1289,7 @@ def test_reprocess_segments_again_a_photo_read_with_its_cutoff_in_the_leaves(mon
     segmentation.save_mask(path, old, segmentation.GROWN_MASK)
     trays = database.tray_readings(capture_id)["trays"]
     database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
-        {**t, "grown_lower_cutoff": 0.115, "warnings": []} for t in trays])
+        {**t, "grown_lower_cutoff": 0.115, "grown_blue_coverage": None, "warnings": []} for t in trays])
 
     [tray] = tray_readings.read_photo(path, reuse_mask=True)["trays"]
     assert tray["grown_area_mm2"] == pytest.approx(1156, rel=0.01)  # 1%: JPEG blurs the edges
@@ -1195,7 +1314,7 @@ def _cut_short_reading(monkeypatch, *, change) -> str:
     segmentation.save_mask(path, old, segmentation.GROWN_MASK)
     trays = database.tray_readings(capture_id)["trays"]
     database.record_tray_readings(capture_id, read_at="t", status="read", trays=[
-        change({**t, "grown_lower_cutoff": 0.115, "warnings": []}) for t in trays])
+        change({**t, "grown_lower_cutoff": 0.115, "grown_blue_coverage": None, "warnings": []}) for t in trays])
     return path
 
 

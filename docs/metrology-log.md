@@ -8878,6 +8878,116 @@ that stops above darkness, or a dark period with some light, was not seen: wheth
 auto-exposure then still reads searching is not known. Photos saved before version 24 have no
 state and are judged by E of 200,000 (17.7).
 
+### 29.4 Auto exposure off: what state does the camera report? (method written 2026-11-26, before the run; run the same day)
+
+**Label: development check.** Issue #507.
+
+**Question.** Section 29.3 found that the rig can tell the lights are off only from the camera's
+auto-exposure state (`ae_state`, libcamera `AeState`). With Auto exposure off, exposure and gain are
+set by hand. Does the camera then report "idle" (libcamera AeState 0, exposure and gain both
+manual) for every photo, lit or dark? If so, the state carries no information about the light and
+the rig cannot tell lights on from lights off.
+
+**Method.** Development rig `npec-rig-01`, branch `507-lights-not-checked`, the `hardware` label
+held, no experiment running. Auto exposure off, exposure and gain left at the values the page
+shows. Three photos by `POST /capture` with the chamber lights on, then three with the lights off,
+each set taken back to back (the question is the state the camera reports with Auto exposure off,
+which does not depend on the gap between photos; method changed 2026-11-26 from "one minute apart",
+before the run). The lights stay off for the three dark photos. A person switches the chamber lights off for the three dark photos and
+back on afterwards. For each of the 6 photos, read `ae_state`, E (exposure_us x analogue gain) and
+`Lux` from `rig.db` (read only) and from the capture's JSON record.
+
+**What would show it works** (that is, that the state is uninformative with Auto exposure off, as
+expected): "idle" in all 6 photos. **What would show it fails:** any "searching" or "converged", or a
+missing state. The rig would then be able to use the state with Auto exposure off, and the
+"Lights not checked" warning (29.6) would need another look.
+
+**Result (2026-11-26, 13:03 to 13:04 UTC).** "idle" (AeState 0) in all 6 photos, lit and dark. The
+expected outcome held: with Auto exposure off the state carries no information about the light.
+
+| Photo | Taken (UTC) | Lights | ae_state | Exposure (us) | Gain | Lux |
+|---|---|---|---|---|---|---|
+| `130310_875658` | 13:03:10 | off | idle | 32583 | 7.88 | 0.74 |
+| `130313_891827` | 13:03:13 | off | idle | 32583 | 7.88 | 0.72 |
+| `130317_379841` | 13:03:17 | off | idle | 32583 | 7.88 | 0.73 |
+| `130418_227849` | 13:04:18 | on | idle | 32583 | 7.88 | 1023.7 |
+| `130421_110849` | 13:04:21 | on | idle | 32583 | 7.88 | 1023.7 |
+| `130424_448815` | 13:04:24 | on | idle | 32583 | 7.88 | 1023.7 |
+
+E (exposure x gain) was about 256,650 (us x gain) in all 6, the same fixed value, so nothing in the saved
+state or E separates the lit photos from the dark ones. Lux, a separate reading by the camera,
+does (0.7 against 1023.7).
+
+**How the run differed from the method above.** (1) The chamber lights were already off when the
+run started, so the 3 dark photos were taken first and the 3 lit ones after the lights were
+switched on; the order does not matter for the question. (2) The values in the table are from the
+JSON record that `POST /capture` returned for each photo; `rig.db` was not read. (3) Experiment 4
+on the development rig was stopped, not running, at the time. (4) Exposure and gain were left at
+what the camera had chosen in the dark (32.6 ms, gain 7.9), so the 3 lit photos are saturated
+(Lux 1023.7 in all 3); this does not affect the state being read.
+
+**Limits of the evidence.** One camera (the development rig's Arducam 64MP, libcamera 0.7.2).
+Production was not checked. Six photos, one session. It shows what the camera reports, not what
+every future camera or libcamera version reports; a photo with no `AeState` is still judged by its
+exposure alone (29.2).
+
+### 29.5 The first photo after a fresh camera start (method written 2026-11-26, before the run; run the same day)
+
+**Label: development check.** Issue #507.
+
+**Question.** After the camera is opened afresh, its auto exposure starts from default values and
+may read "searching" for the first frames. Does the first photo then read "searching" with the
+lights on, so that it would be wrongly left out as "lights off"?
+
+**Background.** The scheduler takes the first photo within about 0 s to one interval (60 s in the experiments so far) of a
+fresh open, depending on the slot. The check forces the short gap, the worst case, by taking a
+photo straight after the restart.
+
+**Method.** Development rig `npec-rig-01`, branch `507-lights-not-checked`, the `hardware` label
+held, lights on, Auto exposure on, no experiment running. Five times: restart the `npec-rig`
+service, wait until `/api/health` reports the camera open, take one photo by `POST /capture` at
+once, and record the time from app start to that photo. Read `ae_state` of each photo from `rig.db`
+(read only) and the capture's JSON record.
+
+**What would show it works.** "converged" in all 5 first photos. The point is then closed with the
+result recorded. **What would show it fails.** Any "searching". A fix is then agreed with Aaron
+before any code: either the camera waits for "converged" before the photo, or the photo is judged by
+its neighbours.
+
+**Result (2026-11-26, 13:04 to 13:05 UTC).** "converged" (AeState 2) in all 5 first photos. None
+read "searching", so no fix is needed and the point is closed (issue #507 question 2 does not
+arise).
+
+| Restart | Photo taken (UTC) | ae_state | Seconds from app start | Exposure (us) | Gain | Lux |
+|---|---|---|---|---|---|---|
+| 1 | 13:04:47 | converged | 3.8 | 3481 | 1.0 | 10929 |
+| 2 | 13:04:59 | converged | 3.8 | 3481 | 1.0 | 10930 |
+| 3 | 13:05:11 | converged | 3.8 | 3481 | 1.0 | 10929 |
+| 4 | 13:05:23 | converged | 3.8 | 3481 | 1.0 | 10931 |
+| 5 | 13:05:35 | converged | 3.8 | 3481 | 1.0 | 10923 |
+
+Each photo was taken 3.8 s after the app started (the `app_up_s` of its record), the shortest gap
+the check could force, so this is the worst case for the first photo.
+
+**How the run differed from the method above.** (1) The app has no `/api/health` route that
+reports the camera open. The camera counted as open when `GET /controls` answered 200, and the
+photo was taken straight after that. (2) Values are from the capture's JSON record; `rig.db` was
+not read. (3) Experiment 4 on the development rig was stopped, so no scheduled photo competed with
+the check.
+
+**Limits of the evidence.** Service restarts of the app only. A restart of the camera process
+after a fault, and a reopen before a lens command, are not covered. One camera, libcamera 0.7.2;
+production was not checked. Five photos, one session, one scene (lights on).
+
+### 29.6 Photos taken with Auto exposure off: a decision (2026-11-26, not a measurement)
+
+This entry is a decision by Aaron for issue #507, not a measurement. A photo taken with Auto
+exposure off keeps its plant areas counted. It carries the warning "Lights not checked: auto
+exposure was off" in the Gallery. The reason is that with Auto exposure off the rig has no way to
+tell lit from dark (29.4 measured it: idle in all 6 photos), and leaving every such photo out would discard an
+experiment's data that may be fine. The warning leaves the judgement to the person reading the
+photo. Researchers are told in the operator guide ("When the rig cannot tell the lights are off").
+
 ## 30. Which pot is A1 on a 2 x 2 tray, across days (issue #385, 2026-11-07)
 
 **Label: development check.** Whether a 2 x 2 tray's pots keep the same names in every photo of an
@@ -10406,6 +10516,19 @@ floor (-0.045) is grown again from its photo ("flagged"), and with it every othe
 | all trays | 107,555 in the same photos | | grown again from the photo by the same rule they were read with: expected unchanged, not guaranteed |
 | all trays | 183,683, the rest | | unchanged |
 
+**Correction to the table above, what the trays hold (Aaron, 2026-11-26).** The row for trays 7, 8
+and 10 calls all three "benchmark objects, empty trays, no soil". That is wrong about tray 7.
+**Trays 1 to 7 hold legitimate plants**; trays 8 to 12 are a mix of benchmark objects and synthetic
+targets. Tray 7 has some synthetic targets mixed in among its plants, and its values are not relied
+on. The prediction is left as written on 2026-11-20, because it is the record of what was expected
+before the run: only the description of the trays was wrong, not the counts, which came out exactly
+as predicted (41.1).
+
+This matters for reading 41.1's comparison of the rig against the x86_64 box, which reports zero
+differences across trays 1 to 7, the plants, with the only six differing cell readings on trays 8
+and 10. Taking tray 7 for a benchmark tray would put it in the wrong group and misstate which
+readings that comparison covers.
+
 **Pass rule (decision, not a measurement).** Every "other" reading keeps its rig area and grown
 area within 0.01 mm² (the code counts the same mask again, so equal is expected); "same photo"
 readings that change are counted and listed per tray, as a finding, not a failure; every flagged
@@ -10437,6 +10560,182 @@ against a reference. One experiment, one rig.
 tray comparison will be in `experiments/444-full-reprocess/data/`. The snapshots (about 8 MB for the
 trays, more for the 6 million cell readings) stay on the controller, outside the repository, with
 their checksums given in the results.
+
+
+### 41.1 Results (written 2026-11-26)
+
+**Label: development check.** The Reprocess was not finished on the rig. On production (`ac-testing`,
+a Raspberry Pi 5) it started 2026-11-24 14:15:55 UTC and the Pi went offline about 04:30 UTC on
+2026-11-25, interrupted at **8,215 of 47,457 photos, 13 failed**. Issue #511 finished it from a copy of
+the Pi's SD card **on an x86_64 Linux box (AMD Ryzen 7 5700X, 8 cores, 16 threads, 30 GiB RAM), not on
+the rig.** The method above was not changed.
+
+The photo count (47,457) is larger than the plan's 28,847 because the two count different things at
+different times. The plan counted photos *already holding tray readings* on 2026-11-20, the day the
+method was written; this run covered *every capture photo* of the experiment, and the experiment went
+on taking photos until 2026-11-24 07:32 UTC. Read back from the copy of the rig's database: 41,244
+capture photos existed before 2026-11-20, of which 28,548 held tray readings — the plan's 28,847 was
+counted from the live database on the day and is 299 higher. Neither figure is wrong; they are not
+the same quantity.
+
+**The copy and its checks.** The card was imaged with GNU ddrescue on a Mac (100% rescued, 0 read
+errors). On the box the image was checked against the exact size (1,023,326,289,920 bytes) and against
+the superblock read from the card, its ext4 journal was replayed with an undo file, `e2fsck -fn` found
+only two stale free-space summary counters and no structural error, and the image was mounted read
+only and the data copied to local ext4. All four `rsync -n --itemize-changes` re-checks listed
+nothing. `rig.db` reports `integrity_check ok` and `user_version 26`, with **47,457 capture rows and
+0 missing photo files**. When `ac-testing` came back on the network its own API reported
+`interrupted`, `done 8215`, `failed 13`, matching the copied database exactly. The "before" snapshots
+made on the box hold **317,784** tray rows and **6,327,101** cell rows, the counts recorded on the
+controller for the same snapshots.
+
+**Software against the rig.** App v0.5.0, commit `9498c0f`, schema 26: the commit `ac-testing` ran.
+Python 3.13.5, numpy 2.5.3 and Pillow 12.3.0 match the rig. **OpenCV differs and could not be made to
+match:** the rig uses `python3-opencv` 4.10.0+dfsg-5, a Debian system package reached through
+`include-system-site-packages = true`; the box used the PyPI wheel `opencv-python-headless==4.10.0.84`,
+the same upstream release (4.10.0) built differently. libjpeg is `libjpeg62-turbo` 1:2.1.5-4 on the
+rig and `libjpeg-turbo8` 2.1.5-4ubuntu4 on the box: the same upstream version under another package
+name. Workers: 6 for the main run, 4 for the redo below.
+
+**Result 1: does the box reproduce the Pi's numbers?** First 300 photos (all 13 of the Pi's
+failures, and 30 each from trays 1, 7, 8, 10, 25 lit, 25 dark, 207 spread over 2026-10-22 to 10-28), then
+all **8,215** photos the Pi had finished:
+
+| Readings compared | Count | Outside 0.01 mm² | Largest difference |
+|---|---|---|---|
+| Tray | 69,978 | 0 | 0.000441 mm² |
+| Cell | 1,395,260 | **6** | see below |
+
+By the literal pass rule (any reading outside 0.01 mm²) the cell comparison **fails**, and the
+comparison script reports it as a fail. The 6 are not differences in measured area. They are two
+objects, each filed under a neighbouring cell on one machine and the other, with the area identical to
+every digit:
+
+- tray 10, photo `2026-10-24/151153_610446`: 23071.94473636432 mm² in cell B3 on the Pi and B4 on the
+  box; the grown value 22604.34994772799 likewise.
+- tray 8, photo `2026-10-26/233453_618248`: grown area 35152.65015284417 mm², C3 on the Pi and B3 on
+  the box.
+
+*Cause.* The two machines estimate the tray's tilt very slightly differently (-0.35368° on the Pi,
+-0.36034° on the box, 0.0067° apart). This moves every computed cell centre by a fraction of a pixel,
+and where an object straddles a cell wall the whole object is given to the other cell. The tray totals
+of those photos are bit-identical. This cause was identified from the readings; the OpenCV build is
+the likely source of the tilt difference but this was not tested.
+
+*Where it can matter.* Both trays (8 and 10) hold benchmark objects and synthetic targets, not plants.
+**Across trays 1 to 7, which hold the real plants, there were 0 differences in any of the 1,395,260
+cell readings** (the count is over all trays; the 6 are all on trays 8 and 10). Plant mass on trays 1
+to 7 lies a median 15.6 to 33.6 px from its cell centre against a half-cell of 171.5 px, far from any
+wall; trays 8 and 10 lie at medians of 115.3 and 199.0 px. An object near a wall on another rig
+could be reassigned the same way.
+
+**Result 2: do parallel workers change the answer?** The same 300 photos, once serially and once on 6
+workers, both from the same pre-444 baseline: tray readings 2,562 and cell readings 48,420 compared,
+**0 outside tolerance, largest difference 0.000000 mm²**. The order-dependent `exclusion` table holds
+**47,526 rows on both sides, identical.** *Caveat:* the first exclusion check was defective. It queried
+a column the table does not have, the error was compared against itself, and it reported agreement
+without testing anything. It was re-run against the real schema (`capture_id, name, norm_e,
+limit_fraction`) and the 47,526 figure is from that corrected run.
+
+**Result 3: the run.** Started 2026-11-25 19:47:09 UTC, finished 2026-11-26 05:19:29 UTC, about 9.5
+hours. Of **47,457 photos, 47,433 were reprocessed, 24 were left as they were with a recorded reason,
+and 0 are unexplained.** Measured rate: **2.84 s per photo on one core**, against 7.0 to 10.3 s on the
+Pi, so the box is 2.5 to 3.7 times faster per core (the plan's "about 18 to 30 hours" rested on an
+assumed 2 to 3 times; it is now measured on this box). On 6 workers, 3.9 s per photo per worker, about
+4.3 times faster than one core rather than 6.
+
+*One worker of six aborted* with `cannot allocate memory for thread-local data` after 6,026 of its
+7,910 photos. It was capped with `ulimit -v 6000000`, a limit on virtual address space, and OpenCV's
+thread pools reserve large virtual arenas; its resident memory never exceeded about 600 MB against 23
+GB free, and the kernel did not run out of memory. Progress is written per photo, so nothing was lost:
+the 1,884 photos not reached were found by querying what had been read since the run began and redone
+on 4 workers with no such cap (471 each, 0 failures). The lesson is about the cap, not the machine.
+
+**Result 4: what the Reprocess changed.** `compare.py` on before and after snapshots. Every flagged
+count of the prediction table came out as predicted:
+
+| Group | Predicted flagged | Measured | Median grown-area ratio (after / before) |
+|---|---|---|---|
+| Tray 1 (plants under mats) | 3,586 | 3,586 | 3.26 (predicted 2.7 to 10) |
+| Trays 3, 4, 5, 6 | 15 | 15 (7 + 2 + 5 + 1) | 2.12 to 7.26 (predicted 1.4 to 8) |
+| Trays 7, 8, 10 | 7,300 | 7,300 (4 + 7,284 + 12) | 1.01 to 89 |
+| No tag | 64 | 64 | 1.09 |
+
+In total **10,965** readings were grown again, matching 39.2. Every flagged reading carries the
+"soil hidden" mark. The "same photo" readings came out **unchanged on every tray**: the plan expected
+this and did not guarantee it, and it held.
+
+*Not predicted.* (1) **667 readings of experiment 18 still have an empty `grown_area_mm2`** after a
+complete Reprocess, spread over 103 photos (the 787 and 799 counted across every experiment in the
+database; one photo, capture 30763, accounts for 12 that were filled). **These are the chamber's
+light changes, not a fault in the Reprocess.** They are of two kinds, and both are a photo arriving
+while the light is wrong rather than anything about a tray:
+
+- **407 readings, "tag seen, tray not found"** (`found` = `tag only`): the picture is dark, the
+  high-contrast markers are still readable but the tray edges are not, so no tray outline is found
+  and there is nothing to measure.
+- **260 readings, no plant found**: the picture is dark enough that the segmenter returns nothing,
+  and the tray reads zero plant area.
+
+By hour of day the losses fall almost entirely at the two light changes: 199 and 96 at 08:00, 152
+and 84 at 00:00, against near zero through the rest of the day. On 2026-11-11 the photo at 08:00:53
+lost all 12 trays at exposure 66,465 µs and gain 4.0; the photo one minute later, at 08:01:53, read
+all 12 normally at 64,438 µs and the same gain. The exposure barely moved, so it is the chamber's
+light that changed, not the camera's response to it; the camera has caught up by 08:05 (15,330 µs,
+gain 1.5). The rig photographs on a fixed schedule, so about one photo per transition falls in the
+gap.
+
+![One minute apart at the 08:00 light change](figures/41/light-change-one-minute-apart.jpg)
+
+*Two photographs of experiment 18 one minute apart, 2026-11-11, picked from the copied capture
+folder by the exposure and the empty readings recorded against them. Left, 08:00:53: lights still
+off, exposure 66,465 µs at gain 4.0, and all 12 trays recorded "tag seen, tray not found". Right,
+08:01:53: lights on, 64,438 µs at the same gain, all 12 trays read normally. Raw photos in the
+experiment folder, `stills/2026-11-11/080053_*` and `080153_*`.*
+
+![Lights off against lights on](figures/41/lights-off-vs-lights-on.jpg)
+
+*The other kind of loss. Left, 2026-10-22 23:28:53, lights off, exposure 64,022 µs at gain 4.0: too
+dark for the segmenter, and all 12 trays recorded zero plant area. Right, 2026-10-23 12:00:53, a
+normal photo at 5,404 µs and gain 1.0, the same table. Picked the same way.*
+
+![Lost readings by hour of day](figures/41/losses-by-hour.png)
+
+*Every reading of experiment 18 with no grown area, counted by the hour its photo was taken (UTC),
+split by kind. Both kinds fall at the two light changes and almost nowhere else. Counted from the
+reprocessed `rig.db` by `found` and `grown_area_mm2`; checksum of that database above.*
+
+*Open.* **"Soil hidden" marks appeared on readings that were not flagged:** 4 on tray 4, 10 on tray
+5, 10 on tray 6 and 6 on tray 7. Not predicted and not yet looked at.
+
+**Result 5: the photos not reprocessed.** All 24 failed with the same reason, "plant areas could not be
+worked out now, kept the saved ones"; nothing was overwritten. **13 lie inside the Pi's finished range
+and so hold current-method values; 11 lie beyond it and still hold pre-444 (old method) values.** Those
+11 remain inconsistent with the rest of the experiment. They cluster at light-transition times (00:28,
+07:00, 07:44, 08:00, 23:28), consistent with the light-ramp exclusions of section 29 (issue #382).
+
+**Pass rule, as set above.** "Other" readings unchanged: not tested separately here, see the limits.
+Flagged readings marked: met. "Same photo" readings unchanged: met. 0 failed photos: **not met**, 24
+failed (13 + 11 as above). Comparison with the Pi: tray readings met, cell readings 6 outside, with the
+cause given above.
+
+**Bookkeeping.** The runner calls `read_photo(path, reuse_mask=True)` directly to get parallelism,
+which bypasses the `reprocess_run` and `reprocess_failure` upkeep of `start_reprocess`, so those rows
+were written afterwards: run 1 (the Pi's, `interrupted` at 8,215) kept as history, run 2 added as
+`finished`, total 47,457, done 47,457, failed 24. Aaron then makes a new data export (step 5).
+
+**Limits.** One experiment, one run, on different hardware from the rig. The comparison with the Pi
+covers the 8,215 photos it finished, not all 47,457. Whether the new areas are correct against a
+physical reference is not tested here; 39.1 and 39.2 checked that by eye.
+
+*Raw data.* Scripts in `experiments/444-amd-reprocess/` (committed on branch `511-amd-reprocess`).
+Snapshots, comparison outputs, the failure list and both databases are on the media-server scratch
+viewer, `http://media-server:8001/511-amd-reprocess/`, outside the repository.
+
+- `rig.db` sha256 `f0cfc6982bb1764d83fc32231c73bb2a4a069ee06785e96b8e1514ffc1e5add4`
+- masks folder sha256 `026a9cdc1f79e58885025d148947c847ef57b9ed53dcd50bb3f0eda0a3eaf699`, of the
+  sorted per-file manifest: 64,997 files, 14 more than the pre-444 snapshot's 64,983 (the Reprocess
+  wrote new masks).
 
 ## 42. Soil-only trays by grow from leaf cores: is a floor needed? (issue #293, method written 2026-11-20, after the stored readings were first looked at)
 
@@ -11756,7 +12055,59 @@ production unless Aaron decides otherwise (issue #513 lists this as a decision, 
 the same day. Project text that names the device was changed in the same change: `CLAUDE.md`,
 `CONTRIBUTING.md`, `hardware/Installation.md`.
 
-## 50. M5 acceptance: green squares of known area in all 12 slots (issue #78, method written 2026-11-26, before the photos)
+## 50. Soil counts as hidden only when blue covers most of the tray: a placeholder threshold, not yet measured (issue #486, written 2026-11-25, before any photo is measured)
+
+**Not yet a result: the threshold below is a decision, not a measurement.** #434 (metrology log 39)
+made a tray's soil level fall back to a fixed floor cutoff whenever it landed in the greenness
+histogram's top bin, on the assumption that only blue mats covering most of the soil could put it
+there. #480's review (finding 3) showed ordinary soil a little greener than usual lands in the same
+bin, with no mats anywhere, and was wrongly given the same fallback: a 200 x 200 px tray box with a
+1,600 px leaf read as 40,000 px of plant once its soil greenness crossed 0.0435 (issue #486).
+
+**Decided (Aaron, 2026-11-23, decision 3).** Soil counts as hidden only when blue covers most of
+the tray. Otherwise the soil-based cutoff is kept and a "soil looks green" warning is added instead.
+
+**The fix (#486).** `grow_from_cores` (`src/npec_rig/segmentation.py`) now measures `blue_coverage`:
+the fraction of the tray's countable area, a leaf core left out so its own growth over an
+experiment never changes the reading, that is blue. "Hidden" (`segmentation.soil_hidden`) requires
+both a soil level in the top bin and `blue_coverage >= GROWN_BLUE_COVERAGE_MIN`; a top-bin level
+found without that keeps the soil-based cutoff and is marked `SOIL_GREEN` instead
+(`segmentation.soil_green`). Every tray's `blue_coverage` is saved with its reading (`rig.db`
+`tray_reading.grown_blue_coverage`, migration 28 — renumbered from 27 after #518 merged its own
+migration 27 first) so a reading made under the old, soil-level-only rule is never silently
+reclassified: `blue_coverage` is `NULL` for every reading saved before this change, and only such a
+reading falls back to the old rule.
+
+**Amendment (code review of #486, 2026-11-26): an empty cell, or the tray itself, is not a mat.**
+Checked against real photos (a development 2 x 2 tray, no mats anywhere): blue coverage over the
+whole tray read 0.52 to 0.56, above the threshold, purely from the tray's own blue plastic — a 2 x 2
+tray's walls and rim are about 57% of it, a 4 x 5's about 37%, and an empty cell (no pot placed)
+shows its own blue bottom the same way a mat would. Neither can be told apart from a mat by colour
+alone (open since #424). Since a cell with no leaf core cannot grow any plant mask regardless of the
+cutoff chosen, excluding it from the measurement costs no plant-area accuracy: `blue_coverage` is
+now counted only inside cells that hold a core (`tray_placement.place_cells`'s geometry, the tag's
+own cell left out), falling back to the whole tray when none does (a tray whose cells are not known,
+or none of them seeded yet). Known, accepted gaps, not fixed here: a neighbouring leaf overhanging
+into an empty cell still marks it as cored; a round pot's corners inside a square cell can still
+show the tray's blue even when planted.
+
+**What is still open.** `GROWN_BLUE_COVERAGE_MIN = 0.5` ("most of the tray") is a placeholder,
+chosen to make the fix testable, not measured. "Most of the tray" is to be set from stored photos
+with mats (logs 39 and 42) and without them; the method for that measurement is written up in this
+log, as its own numbered entry, before any photo is measured, per the usual rule. The cell-only
+restriction above changes what fraction 0.5 is measured against (walls and rim no longer count), so
+that measurement must use the same restriction, not the whole-tray fraction logs 39 and 42
+describe. Until then, 0.5 is a guess, not a result, and should not be cited as one.
+
+**Source.** Issue #486; the decision is Aaron, 2026-11-23 (issue #486, decision 3), 2026-11-25
+(session following #480's review) and 2026-11-26 (the cell amendment, found checking real
+development photos and reviewed by an Opus agent before and after coding); the code is
+`src/npec_rig/segmentation.py`, `src/npec_rig/tray_readings.py`, `src/npec_rig/database.py`, tested
+in `tests/test_segmentation.py`, `tests/test_tray_readings.py`, `tests/test_database.py`,
+`tests/test_timelapse.py` (confirming `SOIL_GREEN` stays off video frames, no source change
+needed), on branch `486-soil-looks-green`.
+
+## 51. M5 acceptance: green squares of known area in all 12 slots (issue #78, method written 2026-11-26, before the photos)
 
 **Label: validation.** Purpose: the M5 acceptance test of `PLAN.md`. A flat object of known area
 lies in each of the 12 slots, and for each one we check whether the area the rig reads, with the
@@ -11892,11 +12243,11 @@ runs 1, 2 and 3:
 | Slots outside the band in 2 or more runs | 12 | 9 |
 | Pass rule (11 of 12 inside in every run, no slot outside in 2 runs) | **fail** | **fail** |
 
-![Error of each square by slot, both methods, with the band of each slot](figures/50/errors-by-slot-2026-11-26.png)
+![Error of each square by slot, both methods, with the band of each slot](figures/51/errors-by-slot-2026-11-26.png)
 
-*Figure 50a. Error of each square, by slot and run, for the two methods. Top: all 12 slots, scale
+*Figure 51a. Error of each square, by slot and run, for the two methods. Top: all 12 slots, scale
 -100% to +20%. Bottom: Grow from leaf cores only, scale -2% to +12%, where the grey band of each
-slot can be read. Made 2026-11-26 by `experiments/78-acceptance/fig50.py` from
+slot can be read. Made 2026-11-26 by `experiments/78-acceptance/fig51.py` from
 `experiments/78-acceptance/score78g.json`; the readings are in `rows78g.json` there.*
 
 **The jump between the square and the blue.** For the green threshold, the mask's index is

@@ -476,6 +476,7 @@ for readings saved before version 25, or when the method could not run.
 | `tray_reading.grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real | Their centre, full-size photo pixels; NULL when none |
 | `tray_reading.grown_soil_level` | real | The tray's soil greenness, (2G - R - B) / (R + G + B), the cutoff was set from. NULL when the tray showed no soil |
 | `tray_reading.grown_lower_cutoff` | real | The greenness the leaf cores were grown down to; Never NULL when `grown_area_mm2` is set |
+| `tray_reading.grown_blue_coverage` | real | How much of the tray's countable area (a leaf core's own cell, and any cell holding one, left out; otherwise the whole tray) was blue (#486). NULL for a reading saved before #486, which the soil level's bin alone then decides as hidden or not (`segmentation.soil_hidden`) |
 | `cell_reading.grown_area_mm2`, `grown_plant_px`, `grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real, integer | As `area_mm2`, `plant_px` and their centre, by grow from leaf cores |
 | `cell_reading.grown_over_other_cells` | integer | As `over_other_cells`, by grow from leaf cores |
 
@@ -552,6 +553,21 @@ part was sent to its last byte.
 | `export_part_sent.part` | integer | The part, 0 to `photo_parts` |
 | `export_part_sent.sent_at` | text | When its last byte was handed to the network, UTC. A part downloaded twice has two rows; a download broken off has none |
 
+### `export_part_file`: the files in each photo part
+
+From version 27 (#482). When an export is built, the files of each photo part are written down
+with their sizes and capture ids. A download or a Purge reads that stored list instead of working
+out again which photos belong to the part, so a photo taken or removed afterwards cannot change
+what a part holds.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `export_id` | integer | The export (`export.id`) |
+| `part` | integer | The photo part, 1 and up. Part 0 is one file, in `export.file` |
+| `capture_id` | integer | The photograph (`capture.id`) |
+| `name` | text | Its name in the zip, under the export's top folder |
+| `bytes` | integer | Its size when the export was built; NULL when the file was already missing then |
+
 ### `reprocess_run` and `reprocess_failure`: Reprocess progress and failed photos
 
 From version 26 (#483). Each Reprocess of an experiment (`POST /api/experiments/{id}/reprocess`) is
@@ -575,10 +591,10 @@ progress read, start or Stop, not only at start-up; until the mark is saved it i
 A photo that meets a locked rig.db is tried again, `REPROCESS_LOCK_TRIES` (5) times with a pause of
 `REPROCESS_LOCK_WAIT_S` (5 s), numbers chosen and not measured; after the last try it is listed as
 failed ("rig.db stayed locked after 5 tries"). Reprocess replaces the saved readings of every photo
-it can redo and keeps no copy of the old ones: take a copy of `rig.db` first
+it can redo and keeps no copy of the old ones: export the experiment first
 (`docs/operator-guide.md`, *Reprocessing areas*).
 
-## Upgrading and going back
+## Upgrading
 
 The app migrates `rig.db` the first time it touches the file: every migration in `database.py`
 above the file's own `PRAGMA user_version`, all the missing ones in one transaction, each setting
@@ -596,45 +612,48 @@ RuntimeError: rig.db is at schema version N, this app knows up to N-1
 with the two real numbers in place of N, while starting, so the server exits. Under systemd
 (`deploy/npec-rig.service`: `Restart=always`, `RestartSec=5`, `StartLimitIntervalSec=0`, "never
 give up restarting") it starts again 5 s later and fails the same way, with no cut-off, so the rig
-serves no pages and takes no scheduled photos until it is put right. Checking out the earlier
-commit does not help on its own, because the database is already migrated.
+serves no pages and takes no scheduled photos until it is put right.
 
-**A rig already in that loop.** `journalctl -u npec-rig -n 20` shows the error. The quickest way
-out is to put the newer code back and restart it: the migrated file is the one that code expects.
-Restoring a copy is needed only when the older code has to run.
+**Putting it right means going forward.** Put the newer code back on the rig and restart it: the
+migrated file is the one that code expects, and the rig comes back with everything it had.
+`journalctl -u npec-rig -n 20` shows the error while it is failing. Upgrading needs no copy of the
+database and no other preparation, so none is part of a normal deploy (Aaron, 2026-11-26).
 
-Going back to the older code means restoring the database and the code together:
+## Emergency recovery
 
-1. Take a copy of the database **before** the upgrade. `VACUUM INTO` copies it while the app runs,
-   where `cp` of a live database can copy a torn file. The output file must not exist yet, so put
-   the date in its name:
+Rare, and only for a rig that genuinely has to run older code again, or whose database is damaged.
+Normal work never comes here: the answer to a migration is to go forward, and the answer to a
+Reprocess that is not wanted is an export taken beforehand. Nobody is asked to copy a database by
+hand as a routine step.
 
-   ```bash
-   python3 - <<'PY'
-   import sqlite3
-   sqlite3.connect("/var/lib/npec-rig/rig.db", timeout=30).execute(
-       "VACUUM INTO '/var/lib/npec-rig/rig-before-2026-11-25.db'")
-   PY
-   ```
+Going back to older code needs a copy of the database **from before the migration**. If none was
+taken, there is no way back, and the rig stays on the newer code. `rig.db` is never deleted, moved
+or emptied to make an older app start: that throws away the rig's whole record.
 
-   The copy keeps the schema version, so reading `PRAGMA user_version` from it is the check that it
-   worked: it prints the version the rig is on.
+Taking the copy, when one is wanted: `VACUUM INTO` copies the database while the app runs, where
+`cp` of a live database can copy a torn file. The output file must not exist yet, so put the date
+in its name.
 
-2. Stop the app with SIGTERM (CLAUDE.md, *Restarting the production server*).
-3. Put the copy back as `/var/lib/npec-rig/rig.db`.
-4. Deploy the older version and start it.
+```bash
+python3 - <<'PY'
+import sqlite3
+sqlite3.connect("/var/lib/npec-rig/rig.db", timeout=30).execute(
+    "VACUUM INTO '/var/lib/npec-rig/rig-2026-11-26.db'")
+PY
+```
 
-Rows the newer app wrote after the copy are gone. The photographs stay on disk under
-`/var/lib/npec-rig/rig/`, and so do their masks and the calibrations and validations in
-`/var/lib/npec-rig/calibration`, which are JSON files and not rows. What does go back is the
-database: the focus lock and the camera settings, experiment records, scheduled photos, tray and
-cell readings, exclusions and tray layouts. Readings come back by reprocessing; the rest does not.
+The copy keeps the schema version, so reading `PRAGMA user_version` from it is the check that it
+worked: it prints the version the rig is on.
 
-This is as true on development as on production. Development's `rig.db` holds the experiments and
-readings the work is tried against, so it is copied before a migrating deploy and restored the
-same way. `rig.db` is never deleted, moved or emptied to get an older app to start. Who may roll a
-rig back at all, and what has to be said before a branch carrying a migration is deployed, is in
-`CLAUDE.md`, *A migration goes one way*.
+Restoring it, with the app stopped (`sudo systemctl stop npec-rig`): put the copy back as
+`/var/lib/npec-rig/rig.db`, deploy the older code, start the app. On production this is Aaron's
+decision, never an agent's.
+
+What a restore costs: rows the newer app wrote after the copy are gone. The photographs stay on
+disk under `/var/lib/npec-rig/rig/`, and so do their masks and the calibrations and validations in
+`/var/lib/npec-rig/calibration`, which are JSON files and not rows. What goes back is the database:
+the focus lock and the camera settings, experiment records, scheduled photos, tray and cell
+readings, exclusions and tray layouts. Readings come back by reprocessing; the rest does not.
 
 ## Planned
 

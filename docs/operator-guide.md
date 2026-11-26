@@ -219,6 +219,14 @@ asks for confirmation while an experiment is running.
 - **Auto white balance.** It changes the colours recorded, and may change area values. Leave it as
   it is unless there is a reason to change it.
 
+## When the rig cannot tell the lights are off
+
+The rig leaves out photos taken with the lights off or while the light is changing. It can tell only
+while Auto exposure is on, because it reads how the camera's automatic exposure reacts to the light.
+With Auto exposure off, every photo is taken the same way, lit or dark, so dark photos are counted
+like the others. The Gallery marks each such photo "Lights not checked: auto exposure was off".
+Keep Auto exposure on during an experiment unless you need fixed settings.
+
 ## Reprocessing areas (developers and scripts)
 
 Reprocess works out the plant areas of every photo of an experiment again, for example after a
@@ -226,8 +234,10 @@ calibration changed or after a fix to the area code. It is not on the Experiment
 started through the API by a developer or a script, because it replaces the saved readings and
 keeps no copy of the old ones.
 
-1. **Copy `rig.db` first.** For example `cp /var/lib/npec-rig/rig.db <somewhere safe>/rig-before-reprocess.db`,
-   or make an export of the experiment. This step is required: a Reprocess cannot be undone without it.
+1. **Export the experiment first.** A Reprocess cannot be undone: it replaces the saved readings
+   and keeps no copy. An export holds the readings as they are now, so take one whenever the old
+   numbers might be wanted again. Copying the database by hand is not a step here; it is emergency
+   recovery (`docs/database.md`, *Emergency recovery*).
 2. **Count first.** `POST /api/experiments/<id>/reprocess` with `{"dry_run": true}` returns the number
    of photos and, when an earlier Reprocess has finished on this rig, an estimated time. It changes nothing.
 3. **Start.** The same call with `{"confirm": <id>}`, the experiment's ID again. Without it nothing starts.

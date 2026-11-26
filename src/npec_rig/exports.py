@@ -657,12 +657,15 @@ def _rounded(value: float | None, digits: int) -> float | None:
     return None if value is None else round(value, digits)
 
 
+# Joins one tray's warnings in a cell: two of them hold "; " themselves, so "; " could not be split.
+WARNINGS_SEP = " | "
+
 # The columns of tray-readings.csv, one line per tray per photo read (#76): the plant area by both
 # methods side by side, named as in the Gallery (Aaron, 2026-11-11, #363), how each number was
 # made only at the end.
 TRAY_READING_COLUMNS = [
     "file", "taken_at", "tray", "location", "plant_area_grow_from_leaf_cores_mm2",
-    "plant_area_fixed_green_cutoff_mm2", "not_counted", "photo_excluded", "partly_outside", "scale_error_pct",
+    "plant_area_fixed_green_cutoff_mm2", "not_counted", "warnings", "photo_excluded", "partly_outside", "scale_error_pct",
     "validation_slot", "no_scale_error_because", "fixed_green_cutoff_floor_mm2", "grow_from_leaf_cores_soil_level",
     "grow_from_leaf_cores_cutoff", "cells_flagged", "cells_flagged_grown_area_mm2",
 ]
@@ -688,6 +691,7 @@ def _tray_rows(row: dict, readings: dict, folder: str) -> Iterator[dict]:
             "plant_area_grow_from_leaf_cores_mm2": _rounded(tray.get("grown_area_mm2"), 1),
             "plant_area_fixed_green_cutoff_mm2": _rounded(tray["area_mm2"], 1),
             "not_counted": "; ".join(tray["not_counted"]),
+            "warnings": WARNINGS_SEP.join(tray["warnings"]),
             "photo_excluded": readings["exclusion"],
             "partly_outside": tray["partly_outside"],
             "scale_error_pct": _rounded(band["band_pct"], 1),

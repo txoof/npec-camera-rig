@@ -34,4 +34,4 @@ panel(900,1350,-2,12,[0,2,4,6,8,10,12],[gr],'Grow from leaf cores only, enlarged
 d.rectangle((190,1440,214,1464),fill='white',outline=ORG,width=4); d.text((224,1452),'Green threshold, 0.1',fill=INK,font=F(20),anchor='lm')
 d.ellipse((520,1440,544,1464),fill=BLUE); d.text((554,1452),'Grow from leaf cores',fill=INK,font=F(20),anchor='lm')
 d.rectangle((860,1440,884,1464),fill=BAND); d.text((894,1452),'Validation band of the slot',fill=INK,font=F(20),anchor='lm')
-im=im.convert('P',palette=Image.ADAPTIVE,colors=32); im.save('/home/pi/wt/npec-78-acceptance-known-area/docs/figures/50/errors-by-slot-2026-11-26.png',optimize=True)
+im=im.convert('P',palette=Image.ADAPTIVE,colors=32); im.save('/home/pi/wt/npec-78-acceptance-known-area/docs/figures/51/errors-by-slot-2026-11-26.png',optimize=True)
