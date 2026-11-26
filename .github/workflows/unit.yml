@@ -9,26 +9,38 @@ on:
   push:
     branches: [main]
 
+# The tests need no write access and no secrets.
+permissions:
+  contents: read
+
+# A new push to a PR stops the run for the older commit. A run on main is never stopped.
+concurrency:
+  group: unit-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   unit:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.13"
 
-      # Dependencies as locked in uv.lock. OpenCV is imported by tags.py, timelapse.py and others
-      # but is not declared in pyproject.toml (the Pis carry it themselves), so it is added here,
-      # at the version the controller runs.
       # ffmpeg makes the time lapse videos; without it the tests marked needs_ffmpeg skip, so a
       # break in the video code would pass. The runner image does not carry it.
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
+      # Dependencies as locked in uv.lock. OpenCV is imported by tags.py, timelapse.py and others
+      # but is not declared in pyproject.toml (the Pis carry it themselves), so it is added here,
+      # at the version the controller runs. The lock does not cover it.
       - run: uv sync --frozen --extra dev
       - run: uv pip install opencv-python-headless==5.1.0.95
 
-      # pyproject.toml's addopts selects the unit tier and 4 workers, as on the Pi.
+      # A bare `pytest` runs 4 workers: tests/conftest.py (pytest_cmdline_main) sets them, and
+      # pyproject.toml's addopts selects the unit tier. The extra flags keep that.
       - run: uv run --no-sync pytest -q -rs -p no:cacheprovider
