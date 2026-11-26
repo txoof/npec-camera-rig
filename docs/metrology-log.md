@@ -8913,7 +8913,7 @@ missing state. The rig would then be able to use the state with Auto exposure of
 may read "searching" for the first frames. Does the first photo then read "searching" with the
 lights on, so that it would be wrongly left out as "lights off"?
 
-**Background.** The scheduler takes the first photo within about 0 s to one interval (60 s) of a
+**Background.** The scheduler takes the first photo within about 0 s to one interval (60 s in the experiments so far) of a
 fresh open, depending on the slot. The check forces the short gap, the worst case, by taking a
 photo straight after the restart.
 

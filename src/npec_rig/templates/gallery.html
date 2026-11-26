@@ -434,7 +434,7 @@
         lines.push(`<p class="gallery-flag">${ui.icon("warn")} Time may be wrong: the clock was not set from the network when this photo was taken.</p>`);
       }
       if (lightsUnchecked(item)) {
-        lines.push(`<p class="gallery-flag">${ui.icon("warn")} ${ui.esc(item.lights.reason)}. The areas are still counted.</p>`);
+        lines.push(`<p class="gallery-flag">${ui.icon("warn")} ${ui.esc(item.lights.reason)}</p>`);
       }
       lines.push(...(tags ? tagDetailLines(tags) : ["Tags: not searched yet. Tap Tags on the photo."])
         .map((line) => `<p>${ui.esc(line)}</p>`));
