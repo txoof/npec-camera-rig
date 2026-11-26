@@ -605,8 +605,8 @@ metrology log backs it.
   section 50). The rule was at least 11 of 12 squares inside the slot's band in every run. With the
   green threshold 0 of 12 were, in every run. With Grow from leaf cores 3, 4 and 3 of 12 were.
 - **The bands do not cover segmentation, and here that error is larger than the band.** The bands
-  are 1.2% to 3.1%. With Grow from leaf cores the squares read -0.7% to +10.5%, mostly large, and
-  the 10 mm squares the most. With the green threshold they read -93% to +18%.
+  are 1.2% to 3.1%. With Grow from leaf cores the squares read -0.7% to +10.5%, mostly large, up to
+  +10.5% on a 10 mm square. With the green threshold they read -93% to +18%.
 - **The green threshold's error depends on where in the frame an object lies.** In the four centre
   slots it lost 5% to 93% of the squares, because the light and the lens bring the greenness down
   to the fixed cut of 0.1. Grow from leaf cores does not, in these squares.

@@ -1,11 +1,8 @@
-import json, sys, urllib.request, statistics as st
+import json, urllib.request
 H='http://10.248.49.137:8000'
 def get(u): return json.load(urllib.request.urlopen(H+u, timeout=120))
 caps=[p for p in get('/api/captures?experiment_id=1&limit=200') if p['record']['experiment_id']==1]
 caps.sort(key=lambda p:p['timestamp'])
-SQ={ # slot -> square, calliper area mm2 (log 18.5)
- 'North 1':('I',3018.77),'North 2':('A',98.60),'North 3':('E',397.74),'North 4':('K',1599.87),'North 5':('B',98.97),'North 6':('F',399.27),
- 'South 1':('G',398.80),'South 2':('L',1596.00),'South 3':('C',98.87),'South 4':('H',397.40),'South 5':('J',3023.17),'South 6':('D',98.93)}
 def run(ts):
     t=ts[11:19]
     if '12:38:08'<=t<='12:44:08': return 1

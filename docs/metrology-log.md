@@ -11851,6 +11851,11 @@ Four stills fall while Aaron was handling the squares (12:45:08, 12:46:08, 13:00
 are in no run. A tray of loose tags in the lower left of the frame, outside the table, made the
 gallery warn that it saw extra tags; it is outside the 12 slots and is not used here.
 
+**Two changes from the method above.** The squares lay on blue mats (the method's list of what the
+test does not cover names blue mats, and the results therefore cover them), and the readings were
+taken through the rig's API and not from copies of the photos and of `rig.db`; the photos stay on
+production.
+
 **Two methods, both reported.** The method above named the green threshold (decision of 2026-10-27).
 Aaron decided on 2026-11-26, after seeing its result, to score the same stills with Grow from leaf
 cores as well, which researchers now see, and to report both. Both values come from the rig's own
@@ -11924,7 +11929,8 @@ in "kept" by up to 41 points (South 3, 75% against 34%) and 11 points (South 4, 
 2. **The green threshold is wrong by position.** The four centre slots (North 3, North 4, South 3,
    South 4) read 5% to 93% small, and the other slots 3% to 18% large, except North 5 (B), 4% to
    16% small. In the centre the index in the
-   square falls to 0.09 to 0.11, at the cut of 0.1, and the cut keeps only 7% to 88% of the square.
+   square falls to 0.09 to 0.11, at the cut of 0.1, and the cut keeps only 7% to 88% of the square
+   in run 1 (18% to 93% in run 3).
    The squares are one material, printed together and kept together (Aaron, 2026-11-26), so the
    difference in how green they look is the light and the lens, not the squares.
 3. **Grow from leaf cores removes the position dependence.** Its centre-slot squares are within
@@ -11938,7 +11944,7 @@ in "kept" by up to 41 points (South 3, 75% against 34%) and 11 points (South 4, 
    up to 4 points differently from run to run (B +2.8 / +6.8 / +4.6, G +2.3 / +5.0 / +5.9), as the
    background under it and its angle changed (section 18.5).
 6. **Blue is not the problem.** The blue is at -0.02 to -0.08 on the index in every slot and the
-   jump is 0.14 to 0.23, so the edge is clear. The green threshold fails because one fixed cut sits
+   jump is 0.14 to 0.24, so the edge is clear. The green threshold fails because one fixed cut sits
    at the level of the paler squares; the over-read on the others is the blurred edge (sections 18.2
    and 18.9).
 

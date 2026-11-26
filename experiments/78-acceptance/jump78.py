@@ -4,7 +4,7 @@ get=lambda u: json.load(urllib.request.urlopen(H+u,timeout=120))
 caps=[p for p in get('/api/captures?experiment_id=1&limit=200') if p['record']['experiment_id']==1]
 pick={'run1':'12:41:08','run3':'13:05:08'}
 L={'North 1':'I','North 2':'A','North 3':'E','North 4':'K','North 5':'B','North 6':'F','South 1':'D','South 2':'J','South 3':'H','South 4':'C','South 5':'L','South 6':'G'}
-size={'I':55,'A':10,'E':20,'K':40,'B':10,'F':'5?','D':20,'J':55,'H':20,'C':10,'L':40,'G':20}
+size={'I':55,'A':10,'E':20,'K':40,'B':10,'F':10,'D':20,'J':55,'H':20,'C':10,'L':40,'G':20}
 rows=[]
 for run,t in pick.items():
     p=[c for c in caps if c['timestamp'][11:19]==t][0]
@@ -20,6 +20,7 @@ for run,t in pick.items():
         r,g,b=cr[...,0],cr[...,1],cr[...,2]; exg=(2*g-r-b)/(r+g+b+1e-6)
         loose=((g>r)&(g>b)&(exg>0.03)).astype(np.uint8)
         n,lab,stt,cen=cv2.connectedComponentsWithStats(loose,8)
+        if n<2: print('no green piece in cell C3:',run,s); continue
         best=max(range(1,n),key=lambda i: stt[i,4]-3*np.hypot(*(cen[i]-[h,h])) if stt[i,4]>100 else -1e9)
         piece=(lab==best).astype(np.uint8)
         core=cv2.erode(piece,np.ones((9,9),np.uint8))
