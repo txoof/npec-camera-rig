@@ -112,13 +112,28 @@ window.addEventListener("load", () => {
     <div class="card-head"><h3 id="cam-title">Camera</h3></div>
     {%- if running %}
     {% call ui.banner("warn", "Experiment running") %}
-      <p>Changing white balance now changes the colours recorded. This may impact recorded area values and is not recommended for consistency.</p>
+      <p>Changing white balance, Auto exposure, Exposure or Gain now changes the photos recorded. This may impact recorded area values and is not recommended for consistency.</p>
     {% endcall %}
     {%- endif %}
     {{ ui.switch("awb", "Auto white balance", "Changes the colours recorded, and may change area values. Not recommended.") }}
+    {{ ui.switch("auto-exposure", "Auto exposure", "Off: the camera no longer adjusts to the light, and the rig cannot tell photos taken with the lights off. Keep it on during an experiment.") }}
+    {% call ui.help("About Auto exposure") %}
+      <p>Auto exposure lets the camera set exposure and gain for each photo as the light changes. The rig tells a photo taken with the lights off from how the camera's auto exposure reacts to the light. With Auto exposure off, the camera reports the same state for lit and dark photos (metrology log 29.4), so the rig cannot tell them apart. The Gallery marks each such photo "Lights not checked: auto exposure was off". Its plant areas are still counted, dark photos too. Keep Auto exposure on during an experiment unless you need fixed settings.</p>
+      <p>Exposure is how long the sensor collects light for one photo. Each press is one third of a camera stop, shown as a shutter speed such as 1/125 s, or tap the value to type milliseconds.</p>
+      <p>Gain brightens the image in the sensor, like a camera's ISO. 1 is the sensor's own sensitivity. More gain means more noise, so prefer a longer exposure.</p>
+    {% endcall %}
+    <p class="field-help" id="auto-using" hidden>The camera is using <span class="auto-values" id="auto-values"></span></p>
+    <div id="exposure-row" hidden>
+      {% call ui.field("exposure-field", "Exposure") %}
+        {{ ui.stepper("exposure", "Exposure", "", "ms", 0.1, 1000, 1, 3) }}
+      {% endcall %}
+    </div>
+    <div id="gain-row" hidden>
+      {% call ui.field("gain-field", "Gain") %}
+        {{ ui.stepper("gain", "Gain", "", "x", 1, 16, 1, 2) }}
+      {% endcall %}
+    </div>
     <dl class="readout">
-      <dt>Exposure</dt><dd id="cam-exposure">Reading</dd>
-      <dt>Gain</dt><dd id="cam-gain">Reading</dd>
       <dt>Lens</dt><dd>{{ lens }}</dd>
     </dl>
     <div class="card-actions">{{ ui.link_button("Change on Focus & Square", "/setup/focus") }}</div>
@@ -241,12 +256,14 @@ window.addEventListener("load", () => {
       ok: "Save", onOk: doSave });
   });
 
-  // Camera: white balance is set here; exposure, gain and lens are set on Focus & Square.
-  const awb = $("awb");
+  // Camera: white balance, Auto exposure, Exposure and Gain are set here; the lens is set on
+  // Focus & Square. While an experiment runs, each change asks first (runningNow).
+  const awb = $("awb"), ae = $("auto-exposure");
   // Off until /controls has said the real state; a second tap while the experiment check runs
   // is ignored (the confirmation then covers the page) (review of PR #475).
   ui.setDisabled(awb, true);
-  let awbChecking = false;
+  ui.setDisabled(ae, true);
+  let awbChecking = false, aeChecking = false;
   const setAwb = async (on) => {
     ui.setSwitch(awb, on);
     const r = await fetch("/controls/AwbEnable", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -265,16 +282,240 @@ window.addEventListener("load", () => {
       body: `<p>${runningText(run)} The colours of its photos change from the next photo on, and with them its plant areas. The size of the effect is not measured.</p>`,
       ok: `Turn ${on ? "on" : "off"}`, onOk: () => setAwb(on) });
   });
-  fetch("/controls").then((r) => r.json()).then(({ available, values }) => {
+
+  // Exposure and gain: steppers in 1/3 stops. DSLR series, as the camera shows them (Aaron,
+  // 2026-10-08). Each step sends the labelled value exactly (1/125 is 8000 us); the camera then
+  // reports the nearest value its sensor can make (for example 7998 us).
+  const AE_DEPENDENT = ["ExposureTime", "AnalogueGain"];
+  const exposureStepper = $("exposure"), gainStepper = $("gain");
+  const exposureField = $("exposure-value"), gainField = $("gain-value");
+  const EXPOSURE_STOP_LABELS = [
+    "1/6400", "1/5000", "1/4000", "1/3200", "1/2500", "1/2000", "1/1600", "1/1250", "1/1000",
+    "1/800", "1/640", "1/500", "1/400", "1/320", "1/250", "1/200", "1/160", "1/125", "1/100",
+    "1/80", "1/60", "1/50", "1/40", "1/30", "1/25", "1/20", "1/15", "1/13", "1/10", "1/8",
+    "1/6", "1/5", "1/4", "0.3", "0.4", "0.5", "0.6", "0.8", "1",
+  ];
+  const EXPOSURE_STOPS_US = EXPOSURE_STOP_LABELS.map((label) => {
+    const [num, den] = label.includes("/") ? label.split("/").map(Number) : [Number(label), 1];
+    return Math.round((num / den) * 1e6);
+  });
+  const GAIN_STOPS = [1, 1.25, 1.6, 2, 2.5, 3.2, 4, 5, 6.4, 8, 10, 12.5, 16, 20, 25, 32, 40, 50, 64];
+  // The steppers' stops, in the fields' units (ms and x), cut to the camera's range in
+  // loadControls(). Filled in place: the steppers hold these same arrays.
+  const exposureStops = [], gainStops = [];
+  const usToMs = (us) => Number((us / 1000).toFixed(3));
+  const msToUs = (ms) => Math.round(ms * 1000);
+  // A value read back from the camera within this share of a step is shown with that step's
+  // label: the sensor rounds to its own line time (8000 us comes back as 7998).
+  const STOP_LABEL_TOLERANCE = 0.02;
+  const nearestStopIndex = (stops, value) => {
+    // Nearest on a ratio scale, since the stops are equal ratios apart.
+    if (!(value > 0)) return 0;
+    let best = 0;
+    stops.forEach((stop, i) => {
+      if (Math.abs(Math.log(stop / value)) < Math.abs(Math.log(stops[best] / value))) best = i;
+    });
+    return best;
+  };
+
+  // What the camera is using, as last read from it or sent to it. A press that is not confirmed
+  // puts these back on the steppers.
+  const cameraHas = { exposure: null, gain: null };
+  const shownValues = { exposure: "", gain: "" };
+  const paintAutoValues = () => {
+    $("auto-values").textContent = [shownValues.exposure, shownValues.gain].filter(Boolean).join(", gain ");
+  };
+  // The shutter speed when the value is on a stop, else milliseconds; the keypad takes ms.
+  const exposureText = (us) => {
+    const stop = nearestStopIndex(EXPOSURE_STOPS_US, us);
+    const onStop = Math.abs(us / EXPOSURE_STOPS_US[stop] - 1) <= STOP_LABEL_TOLERANCE;
+    return onStop ? `${EXPOSURE_STOP_LABELS[stop]} s` : `${usToMs(us)} ms`;
+  };
+  const showExposure = (us) => {
+    if (us === null || us === undefined) return;
+    cameraHas.exposure = us;
+    shownValues.exposure = exposureText(us);
+    ui.showField(exposureField, String(usToMs(us)), shownValues.exposure, "");
+    paintAutoValues();
+  };
+  const showGain = (gain) => {
+    if (gain === null || gain === undefined) return;
+    cameraHas.gain = gain;
+    const value = String(Number(Number(gain).toFixed(2)));
+    shownValues.gain = `${value}x`;
+    ui.showField(gainField, value);
+    paintAutoValues();
+  };
+  const SHOW = { ExposureTime: showExposure, AnalogueGain: showGain };
+
+  const postControl = (name, value) => fetch(`/controls/${name}`, { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ value }) });
+
+  // Sends the latest value only: a value that arrives while one is in flight replaces any
+  // waiting one and is sent when that finishes, so the last value is never dropped, also after a
+  // failed request. A refused or failed value reloads the controls, so they never show a setting
+  // the camera is not using.
+  const latestOnlySender = (name) => {
+    let sending = false, waiting = null;
+    const send = async (value) => {
+      if (sending) { waiting = value; return; }
+      sending = true;
+      let refused = false;
+      try {
+        const response = await postControl(name, value);
+        if (!response.ok) refused = true;
+        else {
+          // The camera ignores exposure and gain while auto exposure is on (another tab may
+          // have turned it on): show the controls as the camera has them.
+          const values = await response.json();
+          refused = AE_DEPENDENT.includes(name) && values.AeEnable === true;
+        }
+      } catch (err) {
+        refused = true;
+      } finally {
+        sending = false;
+      }
+      if (waiting !== null) {
+        const next = waiting;
+        waiting = null;
+        send(next);
+      } else if (refused) {
+        loadControls().catch(() => {});
+      }
+    };
+    return send;
+  };
+  const sendExposure = latestOnlySender("ExposureTime"), sendGain = latestOnlySender("AnalogueGain");
+
+  // While Auto is on, the steppers are hidden and the values the camera uses show as text.
+  const aeOn = () => ae.getAttribute("aria-checked") === "true";
+  const showAuto = (on) => {
+    ui.setSwitch(ae, on);
+    $("exposure-row").hidden = on;
+    $("gain-row").hidden = on;
+    $("auto-using").hidden = !on;
+  };
+
+  // While Auto is on, the camera's values are read again every 2 s, so the text is never stale
+  // (Aaron, 2026-10-08). One request at a time, and none from a hidden page or another tab:
+  // each one waits for a camera frame.
+  const settingsTab = document.querySelector('[data-tab-panel="settings"]');
+  let autoRefreshInFlight = false;
+  const refreshAutoValues = async () => {
+    if (!aeOn() || document.hidden || settingsTab.hidden || autoRefreshInFlight) return;
+    autoRefreshInFlight = true;
+    try {
+      const data = await (await fetch("/controls")).json();
+      if (!aeOn()) return;
+      AE_DEPENDENT.forEach((name) => SHOW[name](data.values[name]));
+    } catch (err) {
+      // The next read tries again.
+    } finally {
+      autoRefreshInFlight = false;
+    }
+  };
+
+  // One press or typed value on a stepper: with an experiment running it asks first. The stepper
+  // has already changed its text. Presses made while the check runs are not lost: only the latest
+  // value is kept and acted on once the check ends, so the camera ends at the last value pressed.
+  // With an experiment running, the stepper goes back to what the camera has until Confirm.
+  const valueGate = (what, back) => {
+    let latest = null, checking = false;
+    return async (value, text, apply) => {
+      latest = { value, text, apply };
+      if (checking) return;
+      checking = true;
+      const run = await runningNow();
+      checking = false;
+      const { text: shown, apply: go } = latest;
+      latest = null;
+      if (run === null) return go();
+      back();
+      ui.confirmPanel({
+        title: `Change ${what} during the experiment?`,
+        body: `<p>${runningText(run)} Photos from the next one on use ${shown}. Its plant areas may change with it.</p>`,
+        ok: "Change", onOk: go });
+    };
+  };
+  const exposureGate = valueGate("exposure", () => showExposure(cameraHas.exposure));
+  const gainGate = valueGate("gain", () => showGain(cameraHas.gain));
+  ui.bindStepper(exposureStepper, (ms) => {
+    const us = msToUs(Number(ms));
+    exposureGate(us, `exposure ${exposureText(us)}`, () => { showExposure(us); sendExposure(us); });
+  }, { stops: exposureStops });
+  ui.bindStepper(gainStepper, (gain) => {
+    const g = Number(gain);
+    gainGate(g, `gain ${g}x`, () => { showGain(g); sendGain(g); });
+  }, { stops: gainStops });
+
+  const setAe = async (on) => {
+    showAuto(on);
+    const r = await postControl("AeEnable", on).catch(() => null);
+    if (!r || !r.ok) {
+      ui.toast("Auto exposure could not be changed");
+      showAuto(!on);  // never show a state the camera does not have, even if the reload fails
+      return loadControls().catch(() => {});
+    }
+    if (on) return;
+    // Auto off: keep the values the camera was just using, sent as the manual values, so the
+    // page, the camera and the values restored after a photo agree.
+    try {
+      const values = await r.json();
+      AE_DEPENDENT.forEach((name) => {
+        const v = values[name];
+        if (v === null || v === undefined) return;
+        SHOW[name](v);
+        postControl(name, v);
+      });
+    } catch (err) {
+      loadControls().catch(() => {});
+    }
+  };
+  ae.addEventListener("click", async () => {
+    if (aeChecking) return;
+    const on = !aeOn();
+    aeChecking = true;
+    const run = await runningNow();
+    aeChecking = false;
+    if (run === null) return setAe(on);
+    ui.confirmPanel({
+      title: `Turn Auto exposure ${on ? "on" : "off"} during the experiment?`,
+      body: `<p>${runningText(run)} Photos from the next one on are taken with Auto exposure ${on ? "on" : "off"}.${on ? "" : " The rig can no longer tell photos taken with the lights off, and marks each one Lights not checked."}</p>`,
+      ok: `Turn ${on ? "on" : "off"}`, onOk: () => setAe(on) });
+  });
+
+  async function loadControls() {
+    const { available, values } = await (await fetch("/controls")).json();
     ui.setSwitch(awb, Boolean(values.AwbEnable));
     ui.setDisabled(awb, !available.AwbEnable);
-    const auto = values.AeEnable ? ", auto" : "";
-    $("cam-exposure").textContent = values.ExposureTime ? `${(values.ExposureTime / 1000).toFixed(1)} ms${auto}` : "Not known";
-    $("cam-gain").textContent = values.AnalogueGain ? `${values.AnalogueGain.toFixed(2)}${auto}` : "Not known";
-  }).catch(() => {
-    $("cam-exposure").textContent = $("cam-gain").textContent = "Not known";
+    if (available.ExposureTime) {
+      const [min, max] = available.ExposureTime;
+      exposureField.dataset.min = usToMs(min);
+      exposureField.dataset.max = usToMs(max);
+      exposureStops.splice(0, Infinity, ...EXPOSURE_STOPS_US.filter((us) => us >= min && us <= max).map(usToMs));
+    }
+    if (available.AnalogueGain) {
+      const [min, max] = available.AnalogueGain;
+      gainField.dataset.min = min;
+      gainField.dataset.max = max;
+      gainStops.splice(0, Infinity, ...GAIN_STOPS.filter((g) => g >= min && g <= max));
+    }
+    showExposure(values.ExposureTime);
+    showGain(values.AnalogueGain);
+    // No AeEnable in the camera's controls: no Auto exposure row, the steppers stay.
+    const hasAuto = "AeEnable" in available;
+    ae.hidden = !hasAuto;
+    ui.setDisabled(ae, !hasAuto);
+    showAuto(hasAuto && Boolean(values.AeEnable));
+  }
+  loadControls().catch(() => {
     ui.setDisabled(awb, true);
+    ui.setDisabled(ae, true);
+    ui.setDisabled(exposureStepper, true);
+    ui.setDisabled(gainStepper, true);
+    $("exposure-row").hidden = $("gain-row").hidden = false;
   });
+  setInterval(refreshAutoValues, 2000);
   refresh();
 });
 </script>

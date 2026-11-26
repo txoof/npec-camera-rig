@@ -396,3 +396,14 @@ def test_focus_controls_have_no_camera_settings_window(page: str) -> None:
     assert response.status_code == 200
     assert "camera-settings-btn" not in response.text
     assert "Camera settings" not in response.text
+
+
+@pytest.mark.parametrize("page", ["/setup/focus", "/setup/calibration"])
+def test_focus_controls_have_no_exposure_controls(page: str) -> None:
+    # Auto exposure, Exposure and Gain moved to the Setup page's Rig settings tab (#531): the
+    # Focus page and calibration Step 2 no longer carry them.
+    response = TestClient(app).get(page)
+    assert response.status_code == 200
+    assert "auto-exposure" not in response.text
+    assert "exposure-row" not in response.text
+    assert "gain-row" not in response.text

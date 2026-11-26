@@ -204,9 +204,9 @@ The trays are shuffled over those places, so the empty spots move as well.
   tray only when its blue outline is found in the photo. The first round is whatever layout the
   trays were placed in.
 
-## Photo quality and white balance
+## Photo quality and camera settings
 
-Both are on *Setup / Rig settings*. Set them before an experiment starts and leave them for its
+All of these are on *Setup / Rig settings*. Set them before an experiment starts and leave them for its
 whole run: a change shifts the recorded plant areas from the next photo on, so the page warns and
 asks for confirmation while an experiment is running.
 
@@ -218,6 +218,10 @@ asks for confirmation while an experiment is running.
   64 MP camera scaled to the pixels of the photos this camera takes.
 - **Auto white balance.** It changes the colours recorded, and may change area values. Leave it as
   it is unless there is a reason to change it.
+- **Auto exposure, Exposure and Gain.** They are in the *Camera* card of *Setup / Rig settings*,
+  not on the Focus page. With Auto exposure on, the camera chooses exposure and gain and the page
+  shows the values it is using. Turn it off to set Exposure and Gain yourself. Keep Auto exposure on
+  unless you need fixed settings (see the next section).
 
 ## When the rig cannot tell the lights are off
 
