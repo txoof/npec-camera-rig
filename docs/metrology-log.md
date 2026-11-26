@@ -12414,6 +12414,11 @@ Every case runs while the app keeps its normal live capture and tray reading.
 | D (stand-in) | one | 5 | no | 1,560 |
 | E | the case with the highest child VmPeak, repeated once | | | |
 
+**Case F was added after A to D were run:** one tray, 5 photos an hour, with the mask. Case B (the mask)
+had the highest child VmPeak and case D (the stand-in rate) the most frames, so F puts the two together.
+It was not in the method as first written. Frame counts in the table are the estimates made before the
+run; the counts found are in 52.8.
+
 Each job is started about 20 s before the next scheduled photo is due, so the tray reading of that
 photo overlaps the video. No export and no Reprocess run (the app refuses the combination).
 **No "alone" case is run.** An "alone" run for all trays would pause the experiment. So the share
@@ -12457,10 +12462,53 @@ pushing the Pi towards an out-of-memory kill.
   not observed.
 - One experiment's photo sizes, as stored (the photo quality setting of that time).
 - 13 days of data, not 3 weeks; case D is a stand-in.
-- No "alone" case (52.3).
+- No "alone" case (52.3). The cap itself was never reached: no run ended with "ran out of memory",
+  so how a video behaves at the new, lower cap is not observed on the rig.
 - If ffmpeg reaches its own cap, the message shown does not mention memory.
 - The cap message says "GB" for a value in GiB (`_failure`); a code fix goes with the constant.
 
 ### 52.8 Results
 
-Not yet measured. To be filled in after the run.
+**Label: development check.** Run 2026-11-26 15:07 to 15:43 UTC on `npec-rig-01`, app `d6feef7`, experiment 4
+running. Every video ended `ready`. `NRestarts` of `npec-rig` stayed 0, the kernel log held no
+out-of-memory kill, and the app's journal held no error in that time. Photos stayed on time: 9 photos
+between 15:00 and 15:50 UTC, each 300 s after the one before. Every run took place alongside the live
+photo and tray reading (52.3). Raw data: `experiments/503-timelapse-memory/data/` (one CSV of the
+sampler and one JSON of the run per case); scripts `sample.py` and `run_case.py` in the folder above.
+
+Peaks are the highest value seen (sampled every 0.25 s). Memory is in GiB (1 GiB = 1,048,576 kB).
+
+| Case | Frames | Seconds | Child VmPeak | Child VmHWM | ffmpeg VmPeak | ffmpeg VmHWM | Lowest MemAvailable | Highest used (Pi-wide) |
+|---|---|---|---|---|---|---|---|---|
+| A one tray, 1 an hour | 133 | 60 | 0.93 | 0.40 | 0.74 | 0.18 | 5.42 | 2.42 |
+| B one tray, 2 an hour, mask | 256 | 155 | 1.08 | 0.56 | 0.74 | 0.18 | 5.44 | 2.43 |
+| B again | 256 | 166 | 1.08 | 0.56 | 0.74 | 0.18 | 5.29 | 2.56 |
+| C all 6 trays, 1 an hour | 664 | 289 | 0.94 | 0.41 | 0.74 | 0.18 | 5.48 | 2.35 |
+| D one tray, 5 an hour (stand-in) | 631 | 277 | 1.02 | 0.49 | 0.74 | 0.18 | 5.37 | 2.50 |
+| F one tray, 5 an hour, mask (added) | 632 | 407 | **1.15** | 0.63 | 0.74 | 0.18 | 5.18 | 2.55 |
+
+"Highest used" is MemTotal minus MemAvailable in the one-second rows; the lowest MemAvailable is from
+the 0.25 s samples, so the two do not add up to the 7.9 GiB total. The app's own figures are for its
+whole run since it started, not for the video: VmPeak 2.16 GiB and VmHWM 1.24 GiB in every case (the
+camera child is not sampled by itself). The frame counts are lower than the estimates in 52.3: steps
+with the lights off in every photo give no frame (`choose_frames`), and 9 to 52 steps with photos but
+no usable tray were skipped. The two runs of case B had the same child VmPeak (1,137,232 kB).
+
+What the figures show:
+
+- The child's VmPeak is set mostly by the mask and little by the number of frames. Going from 133 to
+  631 frames (A to D, no mask) raised it by 0.09 GiB; adding the mask (D to F) raised it by 0.14 GiB.
+  Whole-rig 3-week cases were not run, so this slope is read off these six runs and is not a
+  measurement beyond them.
+- ffmpeg's VmPeak was the same, 0.74 GiB, in all runs, and its resident peak 0.18 GiB.
+- Neither cap (2 GiB each) was reached.
+- The 4 GB budget: the highest Pi-wide use was 2.56 GiB, on a Pi whose idle use was about 0.9 GiB
+  (Hailo-10H and the development services in it). A 4 GB Pi has about 3.8 GiB usable, so about 1.2 GiB
+  would stay free. Production's idle use was not measured here, so this is a fit worked out from
+  dev's absolute figures, not observed.
+
+**Decision (not a measurement): `MEMORY_LIMIT_BYTES` = 1.5 GiB (1536 MiB).** It is the highest child
+VmPeak, 1.15 GiB, plus 25%, rounded up to 256 MiB, which is the rule of 52.6, and the 4 GB fit above
+holds. It replaces the 2 GiB placeholder. The 25% margin is Aaron's to confirm or change
+(*Open question* in 52.6). The failure message now gives the limit in decimal GB with one decimal
+(1.5 GiB shows as "1.6 GB"); before it printed GiB as "GB" rounded to a whole number.
