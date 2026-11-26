@@ -11769,8 +11769,9 @@ an edge method (section 18.9 read 55 mm squares about +6.5% and 10 mm squares ab
 **Objects.** The twelve green test squares A to L of section 18.5, with their calliper areas
 there (98.60 to 3,023.17 mm²). They are not measured again.
 
-**Placement.** Twelve tagged trays, portrait, in slots North 1 to 6 and South 1 to 6, off the
-corner tags. One square per tray, flat on the pot top of cell C3, taped underneath only:
+**Placement as planned.** Twelve tagged trays, portrait, in slots North 1 to 6 and South 1 to 6,
+off the corner tags. One square per tray, flat on the pot top of cell C3, taped underneath only.
+This is the plan as written before the run; what was placed is under *Placement as placed* below.
 
 | Slot | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|
@@ -11781,6 +11782,32 @@ Each size is in both rows; the centre slots 3 and 4 (the central low reading,
 `reference/arducam-central-error-2026-10.md`) hold three sizes. Aaron records each tray's tag ID,
 and any cell other than C3 used where a square does not fit. Cell C3 holds nothing else green: any
 plant or green soil in it would be added to the square.
+
+**Placement as placed (read from the stills and confirmed by Aaron on 2026-11-26, after the
+runs).** Aaron placed the squares by the planned table counting the South row from the other end
+than the app does, so the South row is in reverse order. Slots are the app's names, and each square
+is in cell C3. Aaron gave the size class of each slot (1 = 10 mm, 2 = 20 mm, 3 = 40 mm, 4 = 55 mm);
+the letters were read from the tags beside the squares in the stills.
+
+| Slot | North 1 | North 2 | North 3 | North 4 | North 5 | North 6 |
+|---|---|---|---|---|---|---|
+| Tray tag | 56 | 52 | 55 | 50 | 60 | 29 |
+| Square | I (55 mm) | A (10 mm) | E (20 mm) | K (40 mm) | B (10 mm) | F (10 mm) |
+
+| Slot | South 1 | South 2 | South 3 | South 4 | South 5 | South 6 |
+|---|---|---|---|---|---|---|
+| Tray tag | 35 | 53 | 36 | 26 | 34 | 59 |
+| Square | D (20 mm) | J (55 mm) | H (20 mm) | C (10 mm) | L (40 mm) | G (20 mm) |
+
+**A labelling error in section 18.5.** Aaron's sizes make D 20 mm and F 10 mm. Section 18.5 lists D
+as 10 mm (9.910 x 9.983 mm) and F as 20 mm (20.007 x 19.957 mm). The 10 mm squares placed here are
+A, B, C and F, and the 20 mm squares D, E, G and H, so the two rows of 18.5 have the letters D and F
+swapped. Aaron's callipers of F on 2026-11-26 (3 readings per side, 9.96 / 9.96 / 9.96 and
+9.92 / 9.91 / 9.90 mm, mean 9.960 x 9.910 mm, 98.7 mm²) agree with the 18.5 row labelled D (98.93 mm²)
+to 0.2%. This section therefore scores D against the 18.5 row labelled F (399.27 mm²) and F against the
+row labelled D (98.93 mm²). No calliper reading of D was taken; using the mean of its size class
+instead (398.3 mm² for 20 mm, 98.8 mm² for 10 mm) moves the errors by 0.3% or less. Section 18.5
+itself is not changed here.
 
 **Runs.** A test experiment on the Experiments page, stills taken by Aaron, at least 5 per run,
 under the steady chamber lights, no camera setting changed. Aaron notes the start and end of each
