@@ -9,14 +9,17 @@ import shutil
 import sqlite3
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TypeVar
 
 import numpy as np
 import pytest
 
 from npec_rig.tags import TagDetection
+
+_Read = TypeVar("_Read")
 
 
 def square_detection(tag_id: int, cx: float, cy: float, side_px: float) -> TagDetection:
@@ -402,6 +405,44 @@ def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: 
                                worked_out_at=taken.isoformat())
 
 
+# How long a test's own read of rig.db keeps trying while someone else is writing. 10 s is the
+# rig's real wait (settings.LOCK_WAIT_S): a read that cannot get in for that long is a stuck
+# database, not contention, and the test should say so.
+READ_RETRY_S = 10.0
+
+
+def read_rig_db(read: Callable[[], _Read]) -> _Read:
+    """`read()`, tried again for up to READ_RETRY_S while rig.db answers "database is locked".
+
+    For a read a test makes to see what the rig did, never for the rig's own work.
+
+    rig.db is in rollback-journal mode in these tests -- images.py switches it to WAL and the
+    scheduler never reaches images.py (measured: `PRAGMA journal_mode` reads "delete" in a
+    running scheduler test) -- and in that mode a reader waits for a writer that is committing.
+    A test that shortens settings.LOCK_WAIT_S to hurry the *rig's* writes along gives its own
+    reads that same short wait, because database._connect hands settings.LOCK_WAIT_S to every
+    connection it opens. So a read that lands on the scheduler committing a photo's row raises
+    with no lock held anywhere by anyone: that is what failed on the Arm64 CI runner, in
+    `captures_for_experiment: rig.db was locked, gave up after 0.0 s` (run 45954308830, #561).
+
+    Measured on the controller, one writer holding rig.db for part of every 50 ms against a
+    reader polling every 20 ms: with a 5 ms wait, a 3 ms hold raised nothing, a 6 ms hold raised
+    4.6% of reads, a 10 ms hold 14.7% and a 20 ms hold 33.8%. What a slower machine lengthens is
+    the hold, so no fixed wait is safe at every speed; this waits for the gap after the write
+    instead of guessing how long the write takes.
+    """
+    deadline = time.monotonic() + READ_RETRY_S
+    while True:
+        try:
+            return read()
+        except sqlite3.OperationalError as exc:
+            # "database is locked" is SQLITE_BUSY, someone else writing. "database table is
+            # locked" is SQLITE_LOCKED, a mistake in the code, and is left to raise.
+            if "database is locked" not in str(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.005)
+
+
 @contextmanager
 def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, readers_too: bool = False) -> Iterator[None]:
     """Another connection holds rig.db's write lock for `seconds`, or until `until` is set, as
@@ -409,7 +450,9 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
     from npec_rig import database
     from npec_rig.settings import db_path
 
-    database.list_experiments()  # the file exists and is migrated before the lock is taken
+    # The file exists and is migrated before the lock is taken. Retried: it runs with whatever
+    # short wait the caller has patched in, and the rig may be writing (#561).
+    read_rig_db(database.list_experiments)
     taken = threading.Event()
     failed: list[BaseException] = []
 

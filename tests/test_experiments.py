@@ -787,16 +787,25 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> N
 
 def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypatch, twin) -> None:
     """The lock is held through the 3 tries of the cap and let go when the run logs that it gave
-    the photo up, so the failure itself can be saved: the photo is listed as failed with the reason."""
+    the photo up, so the failure itself can be saved: the photo is listed as failed with the reason.
+
+    The lock has to be up before the run's first write and after the run row the request itself
+    writes, and the tags are stored before it so that only writes meet it (#561). Both are settled
+    here rather than raced: the tags are searched up front, and this test holds
+    `images.full_decode_slot()` from before the request, so the run cannot get past segmenting the
+    photo -- its last step before it saves anything -- until the lock is up and the slot let go."""
     import logging
     import threading
+    import time
 
     from fastapi.testclient import TestClient
 
-    from npec_rig import settings, tray_readings
+    from npec_rig import images, photo_tags, settings, tray_readings
     from npec_rig.app import app
+    from tests.helpers import lock_held
 
     experiment_id, [path] = _experiment_with_photos(twin, 1)
+    photo_tags.photo_tags_for(path)  # its tags stored before the lock, so only writes meet it
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.01)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_TRIES", 3)
@@ -809,17 +818,53 @@ def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypa
 
     handler = GaveUp()
     logging.getLogger("npec_rig.tray_readings").addHandler(handler)
-    locker = _lock_once_tags_are_stored(path, until=gave_the_photo_up, seconds=20)
     client = TestClient(app)
+    slot = images.full_decode_slot()
+    # Timed: this is the one process-global decode slot, shared with the tag search and with every
+    # other test in this xdist worker, and there is no pytest-timeout here. An untimed acquire
+    # would block the worker for ever if anything else were holding the slot -- no output, no test
+    # named, CI reporting a 20-minute timeout instead of a failure.
+    assert slot.acquire(timeout=30), "the full-decode slot was already held"  # the run waits here
+    holding_slot = True
+    # The lock is let go the moment the run gives the photo up, so this cap is only reached when
+    # something is wrong; 60 s is about 23x the 2.55 s the run spends under it on this box.
+    lock_cap_s = 60
     try:
-        locker.start()
         assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
-        progress = _wait_until_finished(client, experiment_id)
+        with lock_held(lock_cap_s, until=gave_the_photo_up):
+            slot.release()
+            holding_slot = False
+            try:
+                # The lock only proves anything if the run meets it while segmenting, so wait for
+                # the run to really take the slot. Without this the test passes even if the run
+                # never touches the slot (a recount path that skips _segment, a segmenter that
+                # does not decode full size, a scene whose trays are not outlined): the lock would
+                # then simply be up before an unheld run, which is the race this test is meant to
+                # have no part of. The run needs about 300 ms of work before _segment and holds
+                # the slot about 490 ms once there, against the 15 ms this loop takes to notice.
+                took_the_slot = time.monotonic() + 15
+                while slot.acquire(timeout=0.01):  # free: the run is not segmenting yet
+                    slot.release()
+                    assert time.monotonic() < took_the_slot, "the run never took the full-decode slot to segment"
+                    time.sleep(0.005)
+                progress = _wait_until_finished(client, experiment_id)
+                gave_up_under_the_lock = gave_the_photo_up.is_set()
+            except BaseException:
+                # Let the lock go now. lock_held joins its holder on the way out and the holder is
+                # sitting in until.wait(lock_cap_s), so a failure here would otherwise be reported
+                # only after the rest of the cap had run out.
+                gave_the_photo_up.set()
+                raise
     finally:
         gave_the_photo_up.set()
-        locker.join(25)
+        if holding_slot:
+            slot.release()
         logging.getLogger("npec_rig.tray_readings").removeHandler(handler)
 
+    assert gave_up_under_the_lock, (
+        f"the run did not give the photo up within the {lock_cap_s} s the lock was held: the lock "
+        "dropped first and the run went on to succeed, which is this box being too slow for the "
+        "cap, not the behaviour under test failing")
     assert (progress["done"], progress["failed"]) == (1, 1)
     [failure] = progress["failures"]
     assert failure["path"] == path
