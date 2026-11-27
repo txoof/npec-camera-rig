@@ -6,8 +6,7 @@ from PIL import Image
 from npec_rig.calibration import scale_field_from_dict
 from npec_rig.tags import TagDetection, detect_tags
 from npec_rig.tray_placement import BLOCK_SUSPECT, find_outlines, name_trays
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "wt/npec-577-tray-from-tags/experiments/577-tray-from-tags"))
-import methods
+import methods  # methods.py sits beside this script
 
 FACTOR = 4
 root, idx = Path(sys.argv[1]), int(sys.argv[2])

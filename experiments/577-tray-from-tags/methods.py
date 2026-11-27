@@ -248,9 +248,6 @@ def place_tags_then_blue(detections, image, scale_field, factor, ring_floor=0.0,
 # A tray placed in a re-cut block must have its centre inside the block's blue hull, grown by this
 # much to allow for the tray at the edge of the block. A decision, not a measurement.
 BLOCK_SLACK_MM = 40.0
-# What is blanked around a placed tray before the leftover blue is given back to the app's finder:
-# the outline alone leaves the tray's own rim behind as a strip (56.8 and the test of 2026-11-27).
-MASK_GROW_MM = 5.0
 
 
 def _hull_of(outlines, factor):

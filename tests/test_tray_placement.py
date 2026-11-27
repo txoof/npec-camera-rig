@@ -448,6 +448,19 @@ def test_no_tray_tag_at_all_leaves_the_outlines_alone() -> None:
     assert recut_short_blocks(outlines, [], scene, scale, 4) == outlines
 
 
+def test_a_second_tag_on_one_tray_does_not_make_a_second_tray_there() -> None:
+    """Two tags inside one tray happen: a spare tag card laid on a tray, or a tray tagged twice
+    (`name_trays` already handles it). Placing one tray per tag would put the same plants on two
+    trays, which `find_outlines` guards against with `MAX_OVERLAP` (#577)."""
+    from npec_rig.tray_placement import find_outlines, recut_short_blocks
+
+    scene, scale = _off_grid_scene(), scale_field_from_dict(EVEN_10)
+    tags = [_tag_at(n, *_tag_in_cell_a1_of(c)) for n, c in enumerate(_OFF_GRID_CENTRES, start=1)]
+    spare = _tag_at(98, tags[0].centre[0] + 1000, tags[0].centre[1])  # 100 mm along the same tray
+
+    assert len(recut_short_blocks(find_outlines(scene, scale, 4), [*tags, spare], scene, scale, 4)) == 5
+
+
 def test_a_tray_is_found_at_the_calibrations_scale_where_it_lies() -> None:
     """At 5 px/mm a tray is 1525 x 1830 px. Drawn that size it is one tray; at 10 px/mm it would
     be under half a tray and not a tray at all."""
@@ -769,3 +782,13 @@ def test_the_grid_cut_alone_puts_no_outline_on_the_off_grid_tray() -> None:
     x, y = next(t["centre_px"] for t in fixture["trays"] if t["tray_id"] == 27)
     nearest = min(math.dist((x, y), o.centre) for o in outlines) / scale.px_per_mm(x, y)
     assert nearest > 150.0
+
+
+def test_a_re_cut_tray_that_reaches_the_photo_edge_still_says_so() -> None:
+    """Production photo 319: the block of trays meets the frame, and the grid cut marks the
+    outlines there "partly outside the photo". A re-cut tray that loses the mark has its area
+    reported as if the whole tray were in the picture, and the overlay and the time lapse stop
+    saying otherwise (#577)."""
+    outlines, trays, _fixture, _scale = _fixture_recut("off-grid-tray")
+    assert sum(o.edge for o in outlines) > 0
+    assert sum(t.edge for t in trays) > 0

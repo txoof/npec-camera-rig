@@ -13178,13 +13178,66 @@ hidden, no tray tag is read, so no block is suspect and D returns the app's own 
 of them turned about 45 degrees to the table where there are about ten trays. That is the
 pre-existing limit recorded in 56.6, not something D introduces, and it is still open.
 
-*Decisions in D, not measurements.* The 40 mm of slack on the block hull, and blanking 5 mm beyond
-a placed tray before the leftover blue is re-examined (without it the tray's own rim is left as a
-strip, and two such strips either side of a gangway merge into a tray that is not there; measured
-on the validation still of 2026-10-27, where growing the mask by 5 mm removed the false tray and
-changed nothing on the other calibration and validation stills).
+*Decision in D, not a measurement.* The 40 mm of slack on the block hull, which lets a tray at the
+edge of a block reach past the blue of its neighbours.
 
-*Where the raw data is.* Scripts in `experiments/577-tray-from-tags/`; the per-still numbers in
-`cmp.jsonl` of each set, not in the repository because the photos are not either. Sheets drawn for
-inspection were put on the controller's scratch viewer, which is not kept.
+*A decision that belongs to C, recorded here because it was measured.* C hands the blue its placed
+trays do not cover back to the app's finder, and blanking only the outline leaves each tray's own
+rim behind as a strip; two such strips either side of a gangway merge into a tray that is not
+there. On the validation still of 2026-10-27, blanking 5 mm beyond each tray removed that false
+tray and changed nothing on the other calibration and validation stills. D does not hand anything
+back to the finder, so it does not need this.
+
+*Figures.* `docs/figures/56/off-grid-tray-before-after.jpg`: production photo 319, the app's
+twelve outlines above and D's eleven below, outlines in yellow and numbered; the tray at the left
+is the one the app splits. `docs/figures/56/trays-under-lids-before-after.jpg`: the still Aaron
+excepted, where D returns the app's own four outlines for about ten trays under clear lids. Both
+made by `experiments/577-tray-from-tags/draw.py` on 2026-11-27 and scaled to 1400 px wide.
+
+![Photo 319, the app's outlines above and method D's below](figures/56/off-grid-tray-before-after.jpg)
+
+![Trays under clear lids, unchanged by method D](figures/56/trays-under-lids-before-after.jpg)
+
+### 56.10 What was built into the app, measured again (2026-11-27)
+
+`tray_placement.recut_short_blocks` is D with four changes made after a review of the branch, and
+it was measured again on the same 69 stills rather than assumed to behave as D did. The changes:
+a re-cut tray keeps "partly outside the photo" when it reaches the frame (D dropped it, so a tray
+half out of the picture had its area reported as if it were whole); two placed trays may not
+overlap by more than `MAX_OVERLAP`, as the grid cut already required, so a spare tag lying on a
+tray cannot put the same plants on two trays; which outline a tag belongs to is taken from one
+rule shared with `name_trays`, so a block cannot be warned without being re-cut; and the nudge may
+leave a tray where its tag put it, which D's search could not.
+
+*Result, scored as 56.3, split on the date the 20 mm edge tags were replaced.*
+
+| Stills | Count | Same tray count as the app | Every app outline reproduced | Differ |
+|---|---|---|---|---|
+| 2026-10-20 onward, cell A1 tags as used now | 49 | 45 | 45 | **4** |
+| Before 2026-10-20, 20 mm edge tags, obsolete | 20 | 20 | 13 | 7 |
+
+On the stills using today's tags the app's answer is reproduced exactly on 45 of 49, and the four
+that differ are the off-grid layout: 12 outlines become 11, ten of the app's twelve are kept and
+the two that split a tray are replaced by one tray on it. This is better than D, which left 6
+stills differing: the overlap guard removed two of them.
+
+**On the obsolete edge-tag stills the tray count never changes but the outlines move**, on 7 of
+20, down to 5 of 12 reproduced on the worst. Those tags did not lie in a corner cell, so a tray
+placed from one lands wrongly; the block hull keeps it inside the trays' own blue, which is why
+the count holds. Neither rig has used that layout since 2026-10-19 and no experiment running now
+carries it, but **re-reading a still from before that date would move its trays**. Nothing here
+measures which of the two is nearer the truth on those stills; section 20.1 found the tag-led
+methods wrong on them and the blue finder right, so the app's own outlines should be preferred
+there.
+
+Six stills, all of that obsolete set, gain one more "partly outside the photo" than the app gives.
+A tray is never left without the mark where the app set it.
+
+*Where the raw data is.* Scripts in `experiments/577-tray-from-tags/`: `methods.py` holds B, C and
+D, `compare.py` scores A, B and C on one still, `run_method_d.py` scores D, and `draw.py` makes the
+before-and-after sheet. Each takes a folder of copied stills, so the numbers above can be produced
+again from a copy of the same photographs; the photographs themselves are not in the repository
+and the per-still output (`cmp.jsonl`, `d.jsonl`) is not either. The sheets Aaron inspected were
+served from a scratch folder that is not kept; the two that carry the result are in
+`docs/figures/56/`.
 
