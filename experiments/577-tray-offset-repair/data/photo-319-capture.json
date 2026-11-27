@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-11-27T13:20:50.172958+00:00",
+  "purpose": "capture",
+  "lens_position": 6.0,
+  "roi": {
+    "x": 909,
+    "y": 484,
+    "size": 200
+  },
+  "focus": {
+    "locked": true,
+    "lens_position": 6.0
+  },
+  "sensor_metadata": {
+    "SensorTimestamp": 184322871419000,
+    "ExposureTime": 5612,
+    "AnalogueGain": 1.0,
+    "ColourGains": [
+      1.7769200801849365,
+      1.8251240253448486
+    ],
+    "LensPosition": 6.0,
+    "AeState": 2,
+    "DigitalGain": 1.0058790445327759,
+    "Lux": 7531.22509765625
+  },
+  "lens_check": {
+    "reported": 6.0,
+    "locked": 6.0,
+    "flagged": false,
+    "reason": null
+  },
+  "uptime": {
+    "boot_id": "b1c1c2a6-6c88-4c71-8ff1-446350710ed8",
+    "pi_up_s": 184323.53,
+    "app_up_s": 174484.92,
+    "app_start": {
+      "boot_id": "b1c1c2a6-6c88-4c71-8ff1-446350710ed8",
+      "uptime_s": 9838.61,
+      "wall": "2026-11-25T12:52:45.012920+00:00",
+      "same_boot": true,
+      "gap_s": 1.48,
+      "gap_source": "uptime"
+    },
+    "cold_start_window_s": 3600.0,
+    "flagged": false,
+    "reason": null
+  },
+  "camera_fault": {
+    "last_fault": {
+      "id": 1,
+      "time_utc": "2026-11-25T09:48:05.189452+00:00",
+      "boot_id": "ba544dbb-bbd3-494d-8572-3c8d94c754f6",
+      "uptime_s": 1228.12,
+      "kind": "fault",
+      "call": "capture_array",
+      "limit_s": null,
+      "detail": "the camera program ended during capture_array",
+      "rig": "d6-daylight",
+      "camera": "arducam_64mp /base/axi/pcie@1000120000/rp1/i2c@88000/arducam_64mp@1a",
+      "app_version": "9498c0f",
+      "program_pid": 1445,
+      "lens_locked": null,
+      "recovery_s": null,
+      "reboot_needed": 0,
+      "experiment_id": null,
+      "purpose": null
+    },
+    "last_restart": {
+      "id": 2,
+      "time_utc": "2026-11-25T09:48:05.642287+00:00",
+      "boot_id": "ba544dbb-bbd3-494d-8572-3c8d94c754f6",
+      "uptime_s": 1228.57,
+      "kind": "restarted",
+      "call": null,
+      "limit_s": null,
+      "detail": null,
+      "rig": "d6-daylight",
+      "camera": "arducam_64mp /base/axi/pcie@1000120000/rp1/i2c@88000/arducam_64mp@1a",
+      "app_version": "9498c0f",
+      "program_pid": 1608,
+      "lens_locked": null,
+      "recovery_s": 0.45,
+      "reboot_needed": 0,
+      "experiment_id": null,
+      "purpose": null
+    },
+    "since_restart_s": null,
+    "camera_fault_window_s": 3600.0,
+    "flagged": false,
+    "reason": null
+  },
+  "validation": {
+    "session": "20261125T133149250777",
+    "flagged": false,
+    "reason": null
+  },
+  "flags": [],
+  "clock": {
+    "synchronized": true,
+    "reason": null
+  },
+  "photo_quality": {
+    "quality": 85,
+    "chroma": "4:4:4"
+  },
+  "experiment": {
+    "id": 2,
+    "uuid": "0d21bcf9-982b-473e-ba7b-4a7b8396078f",
+    "name": "Preliminary test parent lines",
+    "folder": "2026-11-26_0d21bcf9"
+  }
+}

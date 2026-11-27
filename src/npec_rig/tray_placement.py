@@ -76,7 +76,11 @@ class TrayOutline:
     corners: tuple[tuple[float, float], ...]  # four outside corners
     centre: tuple[float, float]
     tilt_deg: float
-    edge: bool  # the blue piece it was cut from touches the photo's edge
+    edge: bool  # this tray's own outline reaches the photo's edge
+    # Which blue piece this tray was cut from: trays cut from one piece were touching, so a wrong
+    # cut puts all of them in the wrong place (#577). -1 for an outline read back from a saved
+    # reading, where the piece is not known.
+    block: int = -1
 
 
 def _tilt_deg(tag: TagDetection) -> float:
@@ -144,6 +148,13 @@ def _inside(point: tuple[float, float], corners: tuple[tuple[float, float], ...]
     return len(signs) < 2
 
 
+# A block of touching trays whose grid cut returned more outlines than the tags read in it. The
+# cut assumes the trays lie on one grid; a tray lying off it is split across two outlines, both in
+# the wrong place, and its plants are counted on the wrong tray (#577, photo 319 of production
+# experiment 2). Every tray of such a block is suspect, not only the outline with no tag.
+BLOCK_SUSPECT = "fewer tags than trays"
+
+
 def name_trays(outlines: list[TrayOutline], detections: list[TagDetection]) -> list[TrayPlacement]:
     """Each outline found in the photo named by the tray tag whose centre lies inside it, wherever
     the tag lies in the tray (#331): its place in the tray is never used. A tray tag inside no
@@ -158,18 +169,34 @@ def name_trays(outlines: list[TrayOutline], detections: list[TagDetection]) -> l
         holding = [i for i, o in enumerate(outlines) if _inside(tag.centre, o.corners)]
         if holding:
             home[k] = min(holding, key=lambda i: math.dist(tag.centre, outlines[i].centre))
+    # A block of two or more outlines cut from one blue piece, holding at least one tag and at
+    # least one outline with no tag: fewer tags than outlines, so the cut is not to be trusted
+    # for any tray in it. A block with no tag at all is left alone: nothing there says how many
+    # trays it holds, so the count cannot be short (development's 2 x 2 trays were photographed untagged, metrology
+    # log 20). That is the blind spot of counting tags: a block whose tags were all missed, under
+    # leaves or in a dim photo, is cut just as badly and says nothing. Placing each tray from its
+    # own tag is what covers that, not a louder warning here (#577, step 2). A block of -1 is
+    # unknown: an outline read back from a saved reading.
+    in_block = Counter(o.block for o in outlines if o.block >= 0)
+    named_blocks = {outlines[i].block for i in home.values()}
+    untagged_blocks = {
+        o.block for i, o in enumerate(outlines)
+        if o.block >= 0 and in_block[o.block] > 1 and o.block in named_blocks and i not in home.values()
+    }
     out = []
     for i, outline in enumerate(outlines):
         named = [t for k, t in enumerate(tags) if home.get(k) == i]
         edge = ("partly outside the photo",) if outline.edge else ()
+        suspect = (BLOCK_SUSPECT,) if outline.block in untagged_blocks else ()
         if not named:
             out.append(TrayPlacement(
                 tray_id=None, centre=outline.centre, slot=None, a1_corner=None, tilt_deg=outline.tilt_deg,
-                outline=outline.corners, margin_mm=None, found="photo, no tag", warnings=("no tag", *edge),
+                outline=outline.corners, margin_mm=None, found="photo, no tag",
+                warnings=("no tag", *edge, *suspect),
             ))
         # A merge the cut did not split, or two tags on one tray: both trays keep the outline.
         shared = len(named) > 1
-        warnings = (*(("two tags in one tray outline",) if shared else ()), *edge)
+        warnings = (*(("two tags in one tray outline",) if shared else ()), *edge, *suspect)
         for tag in named:
             out.append(TrayPlacement(
                 tray_id=tag.tag_id, centre=outline.centre, slot=None, a1_corner=None, tilt_deg=outline.tilt_deg,
@@ -244,11 +271,13 @@ def _fits_one_tray(hull: np.ndarray, short: float, long: float, slack: float) ->
     return w <= short * slack and h <= long * slack
 
 
-def _cells(hull: np.ndarray, short: float, long: float, shape: tuple[int, int]) -> tuple[list[np.ndarray], bool]:
+def _cells(hull: np.ndarray, short: float, long: float, shape: tuple[int, int]) -> tuple[list[np.ndarray], list[bool]]:
     """`hull` cut into tray cells of the known size: its minimum-area rectangle, trays along each
     axis = round(extent / tray size) for the orientation that fits best. Along each axis the cells
     are centred on the hull, or aligned away from a frame edge the hull touches (the tray there
-    may reach past the photo). Also whether the hull touches the frame edge."""
+    may reach past the photo). Also, per cell, whether that cell reaches the frame edge: the hull
+    of a touching block reaches it wherever one of its trays does, so the block's trays well
+    inside the photo must not be marked with it (#577)."""
     (_cx, _cy), (w, h), angle = cv2.minAreaRect(hull.astype(np.float32))
     best = None
     for tu, tv in ((short, long), (long, short)):
@@ -277,10 +306,14 @@ def _cells(hull: np.ndarray, short: float, long: float, shape: tuple[int, int]) 
         for j in range(nv):
             c = u * (cu + (i - (nu - 1) / 2) * tu) + v * (cv_ + (j - (nv - 1) / 2) * tv)
             cells.append(np.array([c + a * u * tu / 2 + b * v * tv / 2 for a, b in ((-1, -1), (1, -1), (1, 1), (-1, 1))]))
-    return cells, bool(border.any())
+    edges = [
+        bool(((cell[:, 0] <= 2) | (cell[:, 1] <= 2) | (cell[:, 0] >= width - 3) | (cell[:, 1] >= height - 3)).any())
+        for cell in cells
+    ]
+    return cells, edges
 
 
-def _tray_outline(cell: np.ndarray, factor: float, edge: bool) -> TrayOutline:
+def _tray_outline(cell: np.ndarray, factor: float, edge: bool, block: int = -1) -> TrayOutline:
     """A cell in image pixels as a TrayOutline in full-size pixels: corners clockwise on the photo
     from the one nearest its top-left, tilt the turn of its sides off the image axes."""
     full = cell * factor
@@ -293,7 +326,7 @@ def _tray_outline(cell: np.ndarray, factor: float, edge: bool) -> TrayOutline:
     tilt = (math.degrees(math.atan2(dy, dx)) + 45) % 90 - 45
     return TrayOutline(
         corners=tuple((float(x), float(y)) for x, y in full), centre=(float(centre[0]), float(centre[1])),
-        tilt_deg=tilt, edge=edge,
+        tilt_deg=tilt, edge=edge, block=block,
     )
 
 
@@ -331,19 +364,19 @@ def find_outlines(image: np.ndarray, scale_field: ScaleField, factor: float) -> 
                 break
     accepted: list[np.ndarray] = []
     out = []
-    for hull in sorted(pieces, key=lambda p: -cv2.contourArea(p.astype(np.float32))):
+    for block, hull in enumerate(sorted(pieces, key=lambda p: -cv2.contourArea(p.astype(np.float32)))):
         short, long = _tray_px(hull, scale_field, factor)
         if cv2.contourArea(hull.astype(np.float32)) < MIN_TRAY_AREA * short * long:
             continue
         if min(cv2.minAreaRect(hull.astype(np.float32))[1]) < MIN_TRAY_WIDTH * short:
             continue
-        cells, edge = _cells(hull, short, long, rim.shape)
-        for cell in cells:
+        cells, edges = _cells(hull, short, long, rim.shape)
+        for cell, edge in zip(cells, edges):
             c = cell.astype(np.float32)
             if any(cv2.intersectConvexConvex(c, a)[0] > MAX_OVERLAP * cv2.contourArea(c) for a in accepted):
                 continue
             accepted.append(c)
-            out.append(_tray_outline(cell, factor, edge))
+            out.append(_tray_outline(cell, factor, edge, block))
     return out
 
 

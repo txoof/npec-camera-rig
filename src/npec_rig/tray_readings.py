@@ -34,6 +34,7 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.tags import TRAY_ID_RANGE, TagDetection
 from npec_rig.tray_placement import (
+    BLOCK_SUSPECT,
     TRAY_SIZE_MM,
     Cell,
     TrayOutline,
@@ -156,6 +157,10 @@ def _saved_outlines(saved: dict | None) -> list[TrayOutline]:
             out[corners] = TrayOutline(
                 corners=corners, centre=tuple(tray["centre_px"]), tilt_deg=tray["tilt_deg"],
                 edge="partly outside the photo" in tray["warnings"],
+                # The piece each outline was cut from is not saved. All that is needed again is
+                # whether its block was short of tags, so the saved warning puts those outlines
+                # back in one block and leaves the rest unknown (#577).
+                block=0 if BLOCK_SUSPECT in tray["warnings"] else -1,
             )
     return list(out.values())
 

@@ -156,11 +156,11 @@ def test_the_outline_is_the_trays_measured_size_at_the_tags_scale() -> None:
 EVEN_10 = {"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 10.0, "residual_std_pct": 0.0}
 
 
-def _box_outline(x0: float, y0: float, edge: bool = False):
+def _box_outline(x0: float, y0: float, edge: bool = False, block: int = -1):
     from npec_rig.tray_placement import TrayOutline
 
     corners = ((x0, y0), (x0 + 3050, y0), (x0 + 3050, y0 + 3660), (x0, y0 + 3660))
-    return TrayOutline(corners=corners, centre=(x0 + 1525, y0 + 1830), tilt_deg=0.0, edge=edge)
+    return TrayOutline(corners=corners, centre=(x0 + 1525, y0 + 1830), tilt_deg=0.0, edge=edge, block=block)
 
 
 def _tag_at(tag_id: int, x: float, y: float) -> TagDetection:
@@ -212,6 +212,40 @@ def test_a_tag_in_the_strip_two_outlines_share_names_only_the_one_whose_centre_i
         (0, False, "photo, no tag"),
         (4, True, "photo + tag"),
     ]
+
+
+def test_a_block_of_touching_trays_holding_an_untagged_outline_warns_every_tray_in_it() -> None:
+    """Photo 319: eleven trays touch, eleven tags are read, and the grid cut returns twelve
+    outlines. The untagged one already says "no tag"; the tagged tray whose plastic was cut in
+    half says nothing at all. More outlines than tags in one block means the cut cannot be
+    trusted for any tray in that block (#577)."""
+    from npec_rig.tray_placement import BLOCK_SUSPECT, name_trays
+
+    touching = [_box_outline(0, 500, block=0), _box_outline(3050, 500, block=0)]
+    trays = name_trays(touching, [_tag_at(4, 1500, 3800)])
+    assert sorted((t.tray_id or 0, t.warnings) for t in trays) == [
+        (0, ("no tag", BLOCK_SUSPECT)),
+        (4, (BLOCK_SUSPECT,)),
+    ]
+
+
+def test_touching_trays_with_no_tag_between_them_do_not_get_the_block_warning() -> None:
+    """Development's 2 x 2 trays carry no tags at all. A block with no tag cannot be short of
+    tags, so nothing there is suspect: only "no tag" on each (#577)."""
+    from npec_rig.tray_placement import name_trays
+
+    touching = [_box_outline(0, 500, block=0), _box_outline(3050, 500, block=0)]
+    trays = name_trays(touching, [])
+    assert [t.warnings for t in trays] == [("no tag",), ("no tag",)]
+
+
+def test_a_lone_untagged_tray_says_no_tag_and_not_the_block_warning() -> None:
+    """One tray on its own, nothing touching it: its tag may simply be hidden. Nothing says the
+    outline is wrong, so only "no tag" (#577)."""
+    from npec_rig.tray_placement import name_trays
+
+    [tray] = name_trays([_box_outline(1000, 500, block=0)], [])
+    assert tray.warnings == ("no tag",)
 
 
 def test_a_tag_inside_no_outline_is_a_tag_seen_with_no_tray_outline_where_the_tag_lies() -> None:
@@ -290,6 +324,32 @@ def test_a_tray_cut_off_by_the_photo_edge_is_cut_from_the_side_inside_the_photo(
     [tray] = find_outlines(_scene(boxes=[(0, 400, 2450, 4060)]), scale_field_from_dict(EVEN_10), 4)
     assert tray.centre == pytest.approx((925, 2230), abs=10)
     assert tray.edge is True
+
+
+def test_only_the_tray_of_a_touching_block_that_reaches_the_photo_edge_is_marked_edge() -> None:
+    """Two trays touching in one blue piece 5500 px wide, in a 7200 px photo, the west one running
+    600 px off the west edge: the cut puts its outline at x -600 to 2450 and the east tray's at
+    2450 to 5500, 1700 px clear of the east edge. The piece touches the edge, but only the west
+    tray does. Marking the whole piece puts a false "partly outside the photo" on every tray of a
+    touching block: all twelve on photo 319 carried it (#577)."""
+    from npec_rig.tray_placement import find_outlines
+
+    trays = find_outlines(_scene((1800, 1300), [(0, 400, 5500, 4060)]), scale_field_from_dict(EVEN_10), 4)
+    assert sorted((round(t.centre[0], -2), t.edge) for t in trays) == [(900, True), (4000, False)]
+
+
+def test_trays_cut_from_one_blue_piece_share_a_block_and_separate_pieces_do_not() -> None:
+    """Two trays touching in one blue piece, and a third well away from them. The two share a
+    block number; the lone one has its own. Which trays were cut from one piece is what says
+    whether a grid cut can be trusted (#577)."""
+    from npec_rig.tray_placement import find_outlines
+
+    scene = _scene((2600, 1300), [(400, 400, 6500, 4060), (7400, 400, 10450, 4060)])
+    trays = find_outlines(scene, scale_field_from_dict(EVEN_10), 4)
+    blocks = {round(t.centre[0], -2): t.block for t in trays}
+    assert len(blocks) == 3
+    assert blocks[1900] == blocks[5000]
+    assert blocks[8900] != blocks[1900]
 
 
 def test_a_tray_is_found_at_the_calibrations_scale_where_it_lies() -> None:
