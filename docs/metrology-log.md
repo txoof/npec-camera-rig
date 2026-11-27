@@ -13135,6 +13135,55 @@ mechanism no measurement in this test rejects. Condition 3 of 56.4 is not met an
 has been found. **C is not adopted, and no further version of it should be built until there is a
 measurement that separates a real tray from a well-placed guess.**
 
+### 56.9 Method D: the app everywhere, tags re-cutting only a block short of tags (2026-11-27)
+
+56.8 closed the line of work where tags place every tray: no measurement separated a real tray
+from a well-placed guess, so the method made trays that were not there. D takes the opposite
+shape, and it follows from what 56.6 to 56.8 measured.
+
+*The method.* The app runs unchanged. Only a block of touching trays whose grid cut returned more
+outlines than the tags read in it -- the signal already shipped as the warning "fewer tags than
+trays" (#579) -- is re-cut, by placing one tray per tag inside that block. **Every tray so placed
+must have its centre inside that block's own blue**, with 40 mm of slack for a tray at the edge of
+the block. Blue in the block that no placed tray covers keeps the app's outline. Everything
+outside such a block is the app's own answer, untouched.
+
+That constraint is what rules out the two faults Aaron found in the sheets. The gangway between
+two rows of trays is not part of a blue block, so a tray cannot be placed there (56.8). A tag that
+is not on a tray is not inside a suspect block, so it places nothing (the still of 2026-11-26 with
+23 tray tags).
+
+*Result, on the 69 stills of 56.2 plus the 10 calibration and validation stills of 56.7.*
+
+| Measure | Value |
+|---|---|
+| Stills where D's tray count equals the app's | **63 of 69** |
+| Stills where D re-cut any block at all | 11 |
+| Stills where D differs from the app | 6 |
+| Of those, the off-grid layout of section 55 | 4, each 12 outlines down to 11, one per tray |
+| Of those, 15 October stills with the obsolete 20 mm edge tags | 2 |
+
+On every still taken with the cell A1 tags in use now, D differs from the app **only** on the four
+that carry the fault it exists to fix.
+
+*Truth by inspection (Aaron, 2026-11-27).* Ten sheets covering the off-grid layout, grown plants,
+pots, empty trays, trays under clear lids, a still with 23 tray tags, production validation,
+archive calibration and validation, and a development still with two untagged trays. His verdict:
+"The before and after were similar for most and the edge cases were all better on the after with
+the exception of" the still of trays under clear lids, which he called "a legitimately hard one to
+deal with".
+
+*The one still he excepted is unchanged by D.* Trays under clear propagator lids: the blue is
+hidden, no tray tag is read, so no block is suspect and D returns the app's own four outlines, one
+of them turned about 45 degrees to the table where there are about ten trays. That is the
+pre-existing limit recorded in 56.6, not something D introduces, and it is still open.
+
+*Decisions in D, not measurements.* The 40 mm of slack on the block hull, and blanking 5 mm beyond
+a placed tray before the leftover blue is re-examined (without it the tray's own rim is left as a
+strip, and two such strips either side of a gangway merge into a tray that is not there; measured
+on the validation still of 2026-10-27, where growing the mask by 5 mm removed the false tray and
+changed nothing on the other calibration and validation stills).
+
 *Where the raw data is.* Scripts in `experiments/577-tray-from-tags/`; the per-still numbers in
 `cmp.jsonl` of each set, not in the repository because the photos are not either. Sheets drawn for
 inspection were put on the controller's scratch viewer, which is not kept.

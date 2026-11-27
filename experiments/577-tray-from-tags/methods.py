@@ -190,7 +190,7 @@ def leftover(rim, placed_list, scale_field, factor):
             "overlapping_pairs": overlaps}
 
 
-def place_tags_then_blue(detections, image, scale_field, factor, ring_floor=0.0):
+def place_tags_then_blue(detections, image, scale_field, factor, ring_floor=0.0, grow_mask_mm=0.0):
     """Method C: tags anchor, blue explains the rest.
 
     The blue chooses which corner each tag lies in and nudges each tray onto the rim beside it. A
@@ -210,7 +210,15 @@ def place_tags_then_blue(detections, image, scale_field, factor, ring_floor=0.0)
     # The blue no placed tray accounts for, given back to the app's finder as a picture of its own.
     rest = image.copy()
     for p in kept:
-        cv2.fillConvexPoly(rest, np.round(np.asarray(p.corners, float) / factor).astype(np.int32), (0, 0, 0))
+        pts = np.asarray(p.corners, float) / factor
+        if grow_mask_mm:
+            # Blank a little beyond the tray, or its own rim is left behind as a thin strip just
+            # outside the mask and two such strips either side of a gangway merge into a tray
+            # that is not there (#577, the validation still of 2026-10-27).
+            c = pts.mean(axis=0)
+            grow = grow_mask_mm * scale_field.px_per_mm(*p.centre) / factor
+            pts = pts + (pts - c) / np.linalg.norm(pts - c, axis=1, keepdims=True) * grow
+        cv2.fillConvexPoly(rest, np.round(pts).astype(np.int32), (0, 0, 0))
     extra = []
     for o in find_outlines(rest, scale_field, factor):
         if any(cv2.intersectConvexConvex(np.asarray(o.corners, np.float32),
@@ -227,3 +235,81 @@ def place_tags_then_blue(detections, image, scale_field, factor, ring_floor=0.0)
                    "tray_rings": [[round(p.ring, 3), "tag" if p.tray_id is not None else "blue"]
                                   for p in out]})
     return out, report
+
+
+# --- Method D: the app everywhere, tags re-cut only a block that is short of tags -------------
+# A, the app, is the better method on nearly every still of section 56; its one known failure is a
+# tray lying off the grid of a touching block, which it splits across two outlines (section 55).
+# A block short of tags is exactly the signal for that (#579). D therefore leaves A alone except
+# inside such a block, and places a tray per tag there, with every tray required to sit inside
+# that block's own blue. The gangway between two rows is not part of a blue block, so the phantom
+# of 56.8 cannot be made.
+
+# A tray placed in a re-cut block must have its centre inside the block's blue hull, grown by this
+# much to allow for the tray at the edge of the block. A decision, not a measurement.
+BLOCK_SLACK_MM = 40.0
+# What is blanked around a placed tray before the leftover blue is given back to the app's finder:
+# the outline alone leaves the tray's own rim behind as a strip (56.8 and the test of 2026-11-27).
+MASK_GROW_MM = 5.0
+
+
+def _hull_of(outlines, factor):
+    pts = np.vstack([np.asarray(o.corners, float) / factor for o in outlines]).astype(np.float32)
+    return cv2.convexHull(pts).reshape(-1, 2)
+
+
+def place_recut_blocks(detections, image, scale_field, factor):
+    """Method D. Returns (trays, report). Each tray is a `Placed`; `tray_id` None means the app's
+    own outline, kept unchanged."""
+    from npec_rig.tray_placement import BLOCK_SUSPECT, find_outlines, name_trays
+
+    rim = _blue_rim(image)
+    outlines = find_outlines(image, scale_field, factor)
+    named = name_trays(outlines, detections)
+    suspect = {o.block for o in outlines
+               if any(BLOCK_SUSPECT in t.warnings and t.outline == o.corners for t in named)}
+    out = [Placed(None, o.centre, o.corners, o.tilt_deg, 0.0, float("nan"))
+           for o in outlines if o.block not in suspect]
+    recut = 0
+    for block in sorted(suspect):
+        members = [o for o in outlines if o.block == block]
+        hull = _hull_of(members, factor)
+        ppm_small = scale_field.px_per_mm(*members[0].centre) / factor
+        slack = BLOCK_SLACK_MM * ppm_small
+        inside = [t for t in _tray_tags(detections)
+                  if cv2.pointPolygonTest(hull.astype(np.float32),
+                                          (t.centre[0] / factor, t.centre[1] / factor), True) >= -slack]
+        if not inside:
+            out += [Placed(None, o.centre, o.corners, o.tilt_deg, 0.0, float("nan")) for o in members]
+            continue
+        placed = []
+        for tag in inside:
+            ppm = scale_field.px_per_mm(*tag.centre)
+            band = max(2.0, RIM_BAND_MM * ppm / factor)
+            best = None
+            for sign in (1, -1):
+                centre, tilt = _centre_from_tag(tag, ppm, sign)
+                if cv2.pointPolygonTest(hull.astype(np.float32),
+                                        (centre[0] / factor, centre[1] / factor), True) < -slack:
+                    continue  # outside this block's blue: not a tray of this block
+                corners = tray_outline_at(centre, tilt, ppm)
+                score = _ring_score(rim, np.asarray(corners, float) / factor, band)
+                if best is None or score > best[0]:
+                    best = (score, centre, corners, tilt)
+            if best is None:
+                continue
+            placed.append(nudge_onto_blue(
+                Placed(tag.tag_id, best[1], best[2], best[3], 0.0, best[0]), rim, scale_field, factor))
+        if not placed:
+            out += [Placed(None, o.centre, o.corners, o.tilt_deg, 0.0, float("nan")) for o in members]
+            continue
+        # Blue of this block that no placed tray covers keeps the app's own outline for it.
+        for o in members:
+            c = np.asarray(o.corners, np.float32)
+            if any(cv2.intersectConvexConvex(c, np.asarray(p.corners, np.float32))[0] > 0.25 * cv2.contourArea(c)
+                   for p in placed):
+                continue
+            placed.append(Placed(None, o.centre, o.corners, o.tilt_deg, 0.0, float("nan")))
+        out += placed
+        recut += 1
+    return out, {"blocks_recut": recut, "app_outlines": len(outlines)}
