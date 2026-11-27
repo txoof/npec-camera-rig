@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 from collections import Counter
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -528,6 +528,13 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE tray_reading ADD COLUMN grown_blue_coverage REAL",
         ),
     ),
+    (
+        29,
+        "capture: whether the photo's row was added after the photo was taken (#488)",
+        # 1 for a row added later from the photo's info file, because rig.db was locked when the
+        # photo was saved (#439); 0 or NULL for a row written as the photo was taken.
+        ("ALTER TABLE capture ADD COLUMN added_later INTEGER",),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -619,14 +626,16 @@ def record_capture(
     jpeg_quality: int | None = None,
     jpeg_chroma: str | None = None,
     ae_state: str | None = None,
+    added_later: bool = False,
 ) -> int:
-    """Add one photo's row, return its id."""
+    """Add one photo's row, return its id. `added_later` marks a row added after the photo was
+    taken (#488)."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO capture (taken_at, path, purpose, experiment_id, calibration,"
             " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags,"
-            " clock_synced, jpeg_quality, jpeg_chroma, ae_state)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " clock_synced, jpeg_quality, jpeg_chroma, ae_state, added_later)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
@@ -643,6 +652,7 @@ def record_capture(
                 jpeg_quality,
                 jpeg_chroma,
                 ae_state,
+                int(added_later),
             ),
         )
         return cursor.lastrowid
@@ -1347,27 +1357,38 @@ def unlinked_slots(experiment_id: int) -> list[dict]:
 def link_unlinked_slots(
     experiment_id: int, interval_s: float, *, not_found: str,
     unreadable: Sequence[str] = (), unreadable_reason: str | None = None,
+    photo_paths: Mapping[tuple[str, int], str] | None = None,
 ) -> None:
-    """Link each of `unlinked_slots` to the experiment's photo taken within its interval and held
-    by no other slot (#439). A slot with no such photo is missed with the reason
+    """Link each of `unlinked_slots` to its photo (#439). `photo_paths` maps `(schedule start,
+    slot)` to the path of the photo whose info file names that slot (#488): a slot is linked to
+    its own photo, whenever it was saved. A slot no info file names, as for photos saved before
+    #488, is linked to the experiment's earliest `capture` photo taken within its interval that
+    no slot holds and no info file names. A slot with no photo is missed with the reason
     `unreadable_reason` when a photo whose info file could not be read was taken within its
     interval (`unreadable`, UTC times, #481), otherwise with the reason `not_found`."""
+    named = photo_paths or {}
+    claimed = set(named.values())
     unreadable_at = [datetime.fromisoformat(t) for t in unreadable]
     with _connect() as conn:
         for slot in conn.execute(
-            "SELECT id, due_at FROM scheduled_photo WHERE experiment_id = ?"
+            "SELECT id, schedule_since, slot, due_at FROM scheduled_photo WHERE experiment_id = ?"
             " AND capture_id IS NULL AND missed_reason IS NULL ORDER BY due_at",
             (experiment_id,),
         ).fetchall():
-            photo = conn.execute(
-                "SELECT id FROM capture WHERE experiment_id = ? AND purpose = 'capture'"
-                " AND julianday(taken_at) >= julianday(?)"
-                " AND julianday(taken_at) < julianday(?) + ? / 86400.0"
-                " AND id NOT IN (SELECT capture_id FROM scheduled_photo"
-                "  WHERE experiment_id = ? AND capture_id IS NOT NULL)"
-                " ORDER BY taken_at LIMIT 1",
-                (experiment_id, slot["due_at"], slot["due_at"], interval_s, experiment_id),
-            ).fetchone()
+            path = named.get((slot["schedule_since"], slot["slot"]))
+            if path is not None:
+                photo = conn.execute("SELECT id FROM capture WHERE path = ?", (path,)).fetchone()
+            else:
+                candidates = conn.execute(
+                    "SELECT id, path FROM capture WHERE experiment_id = ? AND purpose = 'capture'"
+                    " AND julianday(taken_at) >= julianday(?)"
+                    " AND julianday(taken_at) < julianday(?) + ? / 86400.0"
+                    " AND id NOT IN (SELECT capture_id FROM scheduled_photo"
+                    "  WHERE experiment_id = ? AND capture_id IS NOT NULL)"
+                    " ORDER BY taken_at",
+                    (experiment_id, slot["due_at"], slot["due_at"], interval_s, experiment_id),
+                ).fetchall()
+                photo = next((c for c in candidates if c["path"] not in claimed), None)
             if photo is not None:
                 conn.execute("UPDATE scheduled_photo SET capture_id = ? WHERE id = ?", (photo["id"], slot["id"]))
                 continue
@@ -1375,28 +1396,6 @@ def link_unlinked_slots(
             in_slot = any(due <= t < due + timedelta(seconds=interval_s) for t in unreadable_at)
             reason = unreadable_reason if in_slot and unreadable_reason else not_found
             conn.execute("UPDATE scheduled_photo SET missed_reason = ? WHERE id = ?", (reason, slot["id"]))
-
-
-def calibration_around(experiment_id: int, taken_at: str) -> str | None:
-    """The calibration of a photo added after it was taken (#439), which is not known for
-    certain: the one the experiment's photos just before and just after it were measured with,
-    when both agree, or the one before when there is none after; otherwise None."""
-    with _connect() as conn:
-        before = conn.execute(
-            "SELECT calibration FROM capture WHERE experiment_id = ? AND julianday(taken_at) < julianday(?)"
-            " ORDER BY taken_at DESC LIMIT 1",
-            (experiment_id, taken_at),
-        ).fetchone()
-        after = conn.execute(
-            "SELECT calibration FROM capture WHERE experiment_id = ? AND julianday(taken_at) > julianday(?)"
-            " ORDER BY taken_at LIMIT 1",
-            (experiment_id, taken_at),
-        ).fetchone()
-    if before is None:
-        return None
-    if after is None or after[0] == before[0]:
-        return before[0]
-    return None
 
 
 def save_photo_quality(changed_at: str, quality: int, chroma: str) -> None:

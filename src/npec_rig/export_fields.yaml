@@ -98,6 +98,14 @@ package:
               Whether the camera's automatic exposure had settled when the photo was taken:
               "converged" (settled), "searching" (still adjusting) or "idle". Empty for photos
               from before 7 November 2026.
+          - name: added_later
+            type: integer
+            description: >-
+              1 when the photo's line was added after the photo was taken, because the rig's
+              database could not be written at that moment. The photo is not changed; its
+              calibration and the slot it filled are read from its record (the .json file), which
+              names the calibration it was taken under. 0 otherwise. Empty for photos recorded by an
+              earlier version of the rig software.
 
     - name: time-in-table-location
       path: time-in-table-location.csv
@@ -356,7 +364,9 @@ table_drawing: |
 
 other_files:
   - path: stills/
-    description: Every photo (.jpg) and its record (.json), in a folder per UTC day.
+    description: >-
+      Every photo (.jpg) and its record (.json), in a folder per UTC day. The record names the
+      calibration the photo was taken under and, for a scheduled photo, the slot it filled.
   - path: experiment.json
     description: The experiment's name, researcher, tray height, notes and running periods.
   - path: records/

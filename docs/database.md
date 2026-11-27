@@ -225,8 +225,12 @@ experiment is purged, as the record of the schedule.
 A slot with both `capture_id` and `missed_reason` NULL is one whose photo was saved to disk while
 rig.db could not be written (another writer held it longer than `settings.LOCK_WAIT_S`, #439).
 Before #439 such slots stayed that way; since then the scheduler adds the photo's `capture` row
-from its JSON record, with the calibration of the photos either side of it
-(`database.calibration_around`), and links the slot. Since #481 the photo is always taken first:
+from its JSON record, with the calibration the record names, and links the slot. Since #488 the
+record of a scheduled photo names its slot (`schedule`: the schedule's start, the slot number and
+when it was due), and the slot is linked to the photo that names it, however long after its due
+time, and on whichever UTC day, the photo was saved. A record from before #488 names no slot: its
+slot is linked to the experiment's earliest `capture` photo taken within one interval of its due
+time that no other slot holds. Since #481 the photo is always taken first:
 the slots wait in memory while rig.db stays locked, counted as recorded so no slot's photo is
 taken twice, and are written after a later photo, or between photos when a full wait for the
 lock fits before the next one, or when the experiment stops.
@@ -283,6 +287,23 @@ in `sensor_metadata`, with the digital gain and the camera's light estimate (`Lu
 
 ```sql
 SELECT ae_state, count(*) FROM capture WHERE experiment_id = ? GROUP BY 1
+```
+
+### `capture`: whether the row was added after the photo
+
+From version 29 (#488). When rig.db is locked as a photo is taken, the photo and its JSON record
+are saved first and the row is added later (#439). The JSON record holds the `calibration` the
+photo was taken under (the stem of the active calibration, or null), written by
+`captures.take_photo`; the row added later reads it from there. A record from before #488 has
+none: the calibration of the validation session it names is used, or none. The Gallery marks such
+a photo, and the column is in the export's `captures.csv`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `added_later` | integer | 1 when the row was added after the photo was taken, 0 when it was written as the photo was taken. NULL for photos from before version 29 |
+
+```sql
+SELECT taken_at, path FROM capture WHERE added_later = 1 ORDER BY taken_at
 ```
 
 ### `photo_quality_change`

@@ -6457,6 +6457,18 @@ measured by Aaron on 2026-10-26 with the NEIKO callipers, 3 readings per side an
 | I | 55 mm | 54.957 | 0.04 | 54.930 | 0.09 | 0.657 | 3,018.77 |
 | J | 55 mm | 54.973 | 0.09 | 54.993 | 0.07 | not measured | 3,023.17 |
 
+**Correction (2026-11-27): the letters D and F are swapped in this section.** The square called
+D here, 10 mm, is the one Aaron calls F, and the square called F here, 20 mm, is the one he calls
+D. Found while placing the squares for the M5 acceptance test (section 51, issue #78): his
+callipers of F on 2026-11-26, 3 readings per side (9.96 / 9.96 / 9.96 and 9.92 / 9.91 / 9.90 mm,
+mean 9.960 x 9.910 mm, 98.7 mm²), agree to 0.2% with the row labelled D above (98.93 mm²), and
+his size list makes D 20 mm and F 10 mm. No reading in this section changes: each square's error
+was worked out against the calliper area in its own row, so each row's size and area still belong
+together and only the two letters are wrong. The letters are left as they were written, here, in
+the sections that follow, in `figures/18/*.csv` and in `experiments/round2-tagedge/`; section 51
+uses Aaron's letters and scores D and F against the rows labelled the other way round (issue
+#573).
+
 The callipers are not trusted beyond 0.1 mm (section 3): about ±2% in area on a 10 mm square, ±1% on
 20 mm, ±0.5% on 40 mm and ±0.4% on 55 mm. The repeat readings spread by 0.01 to 0.12 mm. Thickness
 (about 0.65 mm) raises a square's top about +0.09% in area (0.145% per mm), not corrected.
@@ -6590,6 +6602,9 @@ part set against the rescored validation median of the square's slot:
 
 Medians over the 334 stills. D (North 1, tray 8) and G (South 4, tray 7) have no tag sheet on their
 tray; their scale comes from the other trays' sheets and is left out of the comparison.
+
+D and F are named as in 18.5, where the two letters are swapped (the correction of 2026-11-27
+there): the square called F here, 20 mm, is the one Aaron calls D.
 
 - **The scale part agrees with validation**: within 0.5 points of the slot's median in every slot,
   inside the slot bands (95% at ±1.2% to ±1.7%). The bands are right for what they measure.
@@ -12157,8 +12172,8 @@ swapped. Aaron's callipers of F on 2026-11-26 (3 readings per side, 9.96 / 9.96 
 9.92 / 9.91 / 9.90 mm, mean 9.960 x 9.910 mm, 98.7 mm²) agree with the 18.5 row labelled D (98.93 mm²)
 to 0.2%. This section therefore scores D against the 18.5 row labelled F (399.27 mm²) and F against the
 row labelled D (98.93 mm²). No calliper reading of D was taken; using the mean of its size class
-instead (398.3 mm² for 20 mm, 98.8 mm² for 10 mm) moves the errors by 0.3% or less. Section 18.5
-itself is not changed here.
+instead (398.3 mm² for 20 mm, 98.8 mm² for 10 mm) moves the errors by 0.3% or less. No reading of
+section 18.5 changes; it carries a note of the swap since 2026-11-27 (issue #573).
 
 **Runs.** A test experiment on the Experiments page, stills taken by Aaron, at least 5 per run,
 under the steady chamber lights, no camera setting changed. Aaron notes the start and end of each

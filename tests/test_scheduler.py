@@ -535,6 +535,71 @@ def test_a_damaged_info_file_leaves_its_photo_without_a_row_and_says_so_and_the_
     assert reasons == {"the photo was saved but its record could not be read": 1}
 
 
+OLD_SINCE = "2026-10-25T00:00:00+00:00"
+
+
+def _scheduled_photo_without_a_row(started: dict, experiment_id: int, *, due_at: str, taken_at: str) -> str:
+    """A scheduled photo saved while rig.db was locked, as the scheduler since #488 leaves it:
+    its info file records its slot (720 of the schedule from OLD_SINCE), its row is not there and
+    its slot is neither taken nor missed. It is due at `due_at` and saved at `taken_at`, in the
+    folder of that UTC day. Returns its path as rig.db stores it."""
+    taken = datetime.fromisoformat(taken_at)
+    stills = captures.experiments_root() / started["folder"] / "stills"
+    first = next(stills.rglob("*.jpg"))
+    day = stills / f"{taken:%Y-%m-%d}"
+    day.mkdir(exist_ok=True)
+    name = f"{taken:%H%M%S_%f}"
+    shutil.copy(first, day / f"{name}.jpg")
+    record = json.loads(first.with_suffix(".json").read_text())
+    record["timestamp"] = taken_at
+    record["schedule"] = {"since": OLD_SINCE, "slot": 720, "due_at": due_at}
+    (day / f"{name}.json").write_text(json.dumps(record))
+    database.record_scheduled_photos(experiment_id, OLD_SINCE, [(720, due_at, None, None)])
+    return f"experiments/{started['folder']}/stills/{taken:%Y-%m-%d}/{name}"
+
+
+def test_a_manual_photo_in_the_same_interval_is_not_linked_to_the_slot() -> None:
+    """#488: a slot was linked to the earliest Capture photo within its interval, which could be
+    one taken by hand. The scheduled photo's info file names its slot, so that is the one."""
+    with TestClient(app) as client:
+        experiment, started = _start(client, INTERVAL_S)
+        _wait_for(lambda: _photos(experiment["id"]) >= 1)
+        database.record_capture(
+            taken_at="2026-10-25T12:00:00.000001+00:00", path="experiments/x/stills/2026-10-25/120000_000001",
+            purpose="capture", experiment_id=experiment["id"], calibration=None, validation=None,
+            lens_position=None, focus_locked_at=None, exposure_us=None, analogue_gain=None, flags=[],
+        )
+        path = _scheduled_photo_without_a_row(
+            started, experiment["id"], due_at="2026-10-25T12:00:00+00:00",
+            taken_at=f"2026-10-25T12:00:00.{_LATE_BY_US:06d}+00:00",
+        )
+        _wait_for(lambda: not database.unlinked_slots(experiment["id"]), timeout_s=5)
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    assert database.scheduled_photos_taken(experiment["id"], OLD_SINCE) == [
+        {"due_at": "2026-10-25T12:00:00+00:00", "taken_at": f"2026-10-25T12:00:00.{_LATE_BY_US:06d}+00:00"}
+    ]
+    assert path in database.captures_by_path([path])
+
+
+def test_a_slow_photo_saved_after_its_interval_and_after_midnight_is_still_linked_to_its_slot() -> None:
+    """#488: a photo saved more than one interval after its slot was due was marked "not found",
+    and one saved on the next UTC day was never looked for. Due at 23:59:59 on 25 October, saved
+    at 00:00:30 on the 26th, with a 0.05 s interval here."""
+    with TestClient(app) as client:
+        experiment, started = _start(client, INTERVAL_S)
+        _wait_for(lambda: _photos(experiment["id"]) >= 1)
+        path = _scheduled_photo_without_a_row(
+            started, experiment["id"], due_at="2026-10-25T23:59:59+00:00", taken_at="2026-10-26T00:00:30+00:00",
+        )
+        _wait_for(lambda: not database.unlinked_slots(experiment["id"]), timeout_s=5)
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    assert database.schedule_progress(experiment["id"], OLD_SINCE)["missed_reasons"] == {}
+    assert database.scheduled_photos_taken(experiment["id"], OLD_SINCE) == [
+        {"due_at": "2026-10-25T23:59:59+00:00", "taken_at": "2026-10-26T00:00:30+00:00"}
+    ]
+    assert path in database.captures_by_path([path])
+
+
 # The photos the lock in the next test has to hold, and how much longer than their measured cost
 # it is held. The 7 is the behaviour under test: on main after #464 it was 0. The margin is over
 # measured work that does not shrink with INTERVAL_S, so the lock is a multiple of
@@ -635,3 +700,23 @@ def test_a_photo_taken_during_a_lock_gets_its_row_before_the_next_photo(monkeypa
         monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
         client.post(f"/api/experiments/{experiment['id']}/stop")
     assert (on_disk, recorded) == (1, 1)
+
+
+def _info_file(path: str) -> dict:
+    """The info file of the photo at `path`, as rig.db stores it."""
+    return json.loads((captures.experiments_root().parent / path).with_suffix(".json").read_text())
+
+
+def test_a_scheduled_photos_info_file_records_its_slot() -> None:
+    """#488: the slot is written into the photo's own info file, so a row added later is linked to
+    its slot by name, not by guessing from the time."""
+    with TestClient(app) as client:
+        experiment, started = _start(client, INTERVAL_S)
+        _wait_for(lambda: _photos(experiment["id"]) >= 1)
+        client.post(f"/api/experiments/{experiment['id']}/stop")
+    since = started["periods"][-1]["started_at"]
+    first = database.captures_for_experiment(experiment["id"])[0]
+    schedule = _info_file(first["path"])["schedule"]
+    assert schedule["since"] == since
+    assert schedule["slot"] >= 1
+    assert datetime.fromisoformat(schedule["due_at"]) > datetime.fromisoformat(since)

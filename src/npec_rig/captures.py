@@ -215,6 +215,9 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
     # Read before the capture, so the lens check compares the photo against the lock it was
     # taken under.
     focus = manager.focus_status()
+    # Read once, here: the info file and the photo's database row both name this calibration, so
+    # a calibration replaced while the photo is saved cannot make them disagree (#488).
+    calibration = _active_calibration_stem()
     with health.photo_purpose(purpose):
         array, sensor_metadata = manager._capture_full_res()
     health.record_good_photo()
@@ -238,6 +241,9 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "lens_position": manager.get_lens_position(),
         "roi": manager.get_roi(),
         "focus": focus,
+        # The calibration the photo is measured with, None when there is none: a row added to
+        # rig.db later reads it from here, never guesses it (#488).
+        "calibration": calibration,
         "sensor_metadata": sensor_metadata,
         **checks,
         # Every reason this photo is not covered by the validation bands, one list for the pages.
@@ -300,24 +306,28 @@ def _record_in_database(record: dict) -> int | None:
     photo and its sidecar are already saved, and the sidecar is the full record, from which
     `adopt_unrecorded_photos` adds the row later (#439)."""
     try:
-        return _record_capture(record, record["path"], calibration=_active_calibration_stem())
+        return _record_capture(record, record["path"], calibration=record["calibration"])
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not add the photo %s to the database", record["filename"])
         return None
 
 
 class Adopted(NamedTuple):
-    """What `adopt_unrecorded_photos` did: how many rows it added, and when each photo it could
-    not add was taken (UTC, ISO 8601), read from its file name since its info file could not be."""
+    """What `adopt_unrecorded_photos` did: how many rows it added, when each photo it could not
+    add was taken (UTC, ISO 8601), read from its file name since its info file could not be, and
+    the photo each scheduled slot's info file names, `(schedule start, slot)` to path, for the
+    photos it added and the ones that had a row already (#488)."""
 
     added: int
     unreadable: list[str]
+    slots: dict[tuple[str, int], str]
 
 
 def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> Adopted:
     """Add a `capture` row for each of `experiment`'s photos saved in the `days` folders
-    (YYYY-MM-DD) without one: saved while rig.db could not be written (#439). Each gets the
-    calibration of the photos around it (`database.calibration_around`).
+    (YYYY-MM-DD) without one: saved while rig.db could not be written (#439). Each row is marked
+    as added later and gets the calibration its info file names (#488). An older info file has
+    none: the calibration of its recorded validation is used, or none.
 
     A photo whose info file cannot be read (empty or damaged, as after a power cut) is left
     without a row and logged; the others are still added (#481). A rig.db error is raised, to be
@@ -331,17 +341,22 @@ def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> Adopted:
     known = database.captures_by_path([path for path, _ in found])
     added = 0
     unreadable = []
+    slots = {}
     for path, sidecar in found:
-        if path in known:
-            continue
         try:
             record = json.loads(sidecar.read_text())
-            calibration = database.calibration_around(experiment["id"], record["timestamp"])
-            _record_capture(record, path, calibration=calibration)
+            slot = _slot_of(record)
+            if slot is not None:
+                slots[slot] = path
+            if path in known:
+                continue
+            _record_capture(record, path, calibration=_calibration_of(record), added_later=True)
         # Only the file's contents: empty or damaged (ValueError covers JSON and text decoding),
         # or missing what a row needs. A database error, a refusal from `database._connect`
         # (RuntimeError) or a failed read (OSError) is raised, to be tried again later.
         except (ValueError, KeyError, TypeError, AttributeError):
+            if path in known:  # it has its row; only its slot could not be read
+                continue
             logger.exception("Could not add the photo %s to the database: its info file cannot be read", path)
             taken_at = _taken_at_from_name(sidecar)
             if taken_at is not None:
@@ -349,7 +364,16 @@ def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> Adopted:
             continue
         logger.warning("Added the photo %s to the database after it was taken", path)
         added += 1
-    return Adopted(added, unreadable)
+    return Adopted(added, unreadable, slots)
+
+
+def _slot_of(record: dict) -> tuple[str, int] | None:
+    """The scheduled slot a photo's info file names, `(schedule start, slot)`; None for a photo
+    taken by hand, or saved before #488."""
+    schedule = record.get("schedule")
+    if not isinstance(schedule, dict):
+        return None
+    return schedule["since"], int(schedule["slot"])
 
 
 def _taken_at_from_name(sidecar: Path) -> str | None:
@@ -362,7 +386,24 @@ def _taken_at_from_name(sidecar: Path) -> str | None:
     return taken.replace(tzinfo=timezone.utc).isoformat()
 
 
-def _record_capture(record: dict, path: str, *, calibration: str | None) -> int:
+def _calibration_of(record: dict) -> str | None:
+    """The calibration a photo was measured with, from its info file: written there since #488.
+    An older info file only names its validation session, and that session names the calibration
+    it checked; None when there is no such session or it cannot be read."""
+    if "calibration" in record:
+        return record["calibration"]
+    session = (record.get("validation") or {}).get("session")
+    if session is None:
+        return None
+    from npec_rig import validation_store  # imported here: calibration_store, which it imports, imports this module
+
+    try:
+        return validation_store.load_session(session)["calibration_stem"]
+    except (LookupError, ValueError, OSError):
+        return None
+
+
+def _record_capture(record: dict, path: str, *, calibration: str | None, added_later: bool = False) -> int:
     sensor = record["sensor_metadata"]
     return database.record_capture(
         taken_at=record["timestamp"],
@@ -382,6 +423,7 @@ def _record_capture(record: dict, path: str, *, calibration: str | None) -> int:
         jpeg_quality=(record.get("photo_quality") or {}).get("quality"),
         jpeg_chroma=(record.get("photo_quality") or {}).get("chroma"),
         ae_state=AE_STATES.get(sensor.get("AeState")),
+        added_later=added_later,
     )
 
 

@@ -658,6 +658,33 @@ def test_a_late_adopted_photos_row_does_not_join_the_frozen_parts(monkeypatch: p
     assert names == {f"stills/{first_photo}.jpg", f"stills/{first_photo}.json", "MANIFEST-part01.sha256"}
 
 
+def test_captures_csv_says_which_photos_had_their_row_added_after_they_were_taken(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#488: a photo saved while rig.db stayed locked, and given its row afterwards, reads 1 in
+    `added_later`; a photo recorded as it was taken reads 0."""
+    from npec_rig import settings
+    from npec_rig.camera import CameraManager
+    from tests.helpers import lock_held
+
+    experiment = captures.start_experiment(captures.create_experiment(name="Late rows")["id"])
+    _array, normal = captures.take_photo("capture")
+    del _array
+    CameraManager.instance()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(1.0):
+        _array, late = captures.take_photo("capture")
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert captures.adopt_unrecorded_photos(experiment, {late["date"]}).added == 1
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = {r["path"]: r for r in csv.DictReader(io.StringIO(files["captures.csv"].decode()))}
+
+    assert rows[normal["path"]]["added_later"] == "0"
+    assert rows[late["path"]]["added_later"] == "1"
+
+
 def test_a_photo_parts_files_agree_with_captures_csv(monkeypatch: pytest.MonkeyPatch) -> None:
     """#482: the same fixed list is used for captures.csv and the photo parts, so the two never
     disagree on which photos the export holds."""

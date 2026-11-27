@@ -386,6 +386,7 @@
           ${item.flags && item.flags.length
             ? '<div class="gallery-flag">Not covered by the validation bands. Info says why.</div>' : ""}
           ${clockUnset(item) ? `<div class="gallery-flag">${ui.icon("warn")} Time may be wrong: clock not set</div>` : ""}
+          ${item.added_later ? `<div class="gallery-flag">${ui.icon("warn")} ${ui.esc(item.added_later)}</div>` : ""}
           ${lightsUnchecked(item) ? `<div class="gallery-flag">${ui.icon("warn")} ${ui.esc(item.lights.reason)}</div>` : ""}
           <!-- Two buttons side by side in the 200 px card: each 88 px wide, the 24 px gap between. -->
           <div class="row" style="flex-wrap: nowrap"><button type="button" class="btn hit" style="flex: 1; min-width: 0; padding: 0 8px" data-tags="${item.path}">Tags</button>
