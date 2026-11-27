@@ -12593,7 +12593,7 @@ It does not cover:
 - The other scenes in the file. They were halved without moving onto the grid and they still read
   the areas expected of them, but their margin to the cutoff was not measured.
 
-## 54. M4 acceptance: 12 trays identified, a tray moved, a tag smeared with soil (issue #72, method written 2026-11-27, before the session)
+## 54. M4 acceptance: 12 trays identified, a tray moved, a tag covered by black marker on clear plastic (issue #72, method written 2026-11-27, before the session)
 
 **Label: development check.** The known answer is the layout a person sets out and records, not an
 independent measurement of the trays, so this is not a reference comparison. It is the M4
@@ -12634,14 +12634,20 @@ previous photo (SM to SE and SE to SM); about 65 minutes later the Experiments p
 locations panel shows, for each of the two, a move from the old to the new location and "Now in" the
 new one; no other tray of the experiment shows a move.
 
-**Check 3, a smeared tag.** On one spare tray, soil is smeared over its tag in up to four steps, each
-adding to the last (a dusting of dry soil, a damp streak over a quarter of the tag, half of it, all of
-it), 3 photos after each step, then the tag is wiped clean and 3 photos follow. Pass, from the
-decision of 2026-10-27 (today's behaviour): at no step is any tag number read that is not on the
-layout or any other tray named by this tray's number; the rig keeps taking a photo a minute and its
-pages load; a tag that is no longer read shows as a tray outlined with "No tag" or as "not seen"
-with its warning; the other 11 trays keep reading as in check 1; after cleaning, the tag is read
-again within 3 photos.
+**Check 3, a covered tag.** Soil cannot be brought into the chamber (it could interfere with the
+running experiment), so dirt is stood in for by clear plastic sheets about 7 x 7 cm with solid black
+permanent marker on them, made beforehand over a printed copy of the tag. There are five, one per
+level: 0, no marker (a control: does clear plastic alone change the reading); 1, about 10% of the
+tag's area covered (a 13 mm blotch over one corner of a 40 mm tag); 2, about 25% (a band across one
+side); 3, about 50%; 4, all of it. The fractions are a choice, not measurements, and the tag size is
+to be measured when the sheets are made. On one spare tray, a sheet is taped by one edge over its tag
+for each level in turn, 3 photos after each level, then the sheet is taken off and 3 photos follow.
+Levels after the first one at which the tag is no longer read are skipped. Pass, from the decision
+of 2026-10-27 (today's behaviour): at no level is any tag number read that is not on the layout or
+any other tray named by this tray's number; the rig keeps taking a photo a minute and its pages
+load; a tag that is no longer read shows as a tray outlined with "No tag" or as "not seen" with its
+warning; the other 11 trays keep reading as in check 1; with the sheet off, the tag is read again
+within 3 photos.
 
 **What is recorded.** Every check command of `~/scratch/72-m4-acceptance/m4.py` (read only: GET
 requests to the rig and one ssh read) is appended with its UTC time to `session-log.txt`, and each
@@ -12651,7 +12657,7 @@ experiment's folder on `npec-rig-01`. At the write-up the session log is copied 
 beside it, as `docs/figures/README.md` asks.
 
 **What it covers and does not.** One rig, one calibration, one layout of 12 empty or lightly planted
-4 x 5 trays, one tag per tray in cell A1, one smeared tag, soil as the dirt. Not covered: other
+4 x 5 trays, one tag per tray in cell A1, one covered tag, black marker on clear plastic as the stand-in for dirt. Not covered: other
 rotations (any angle other than 0 and 180), fewer than 12 trays, a tag half hidden by a leaf,
-dirt other than soil, a tray out of the chamber for over 48 hours, and centroids against a tape
+real dirt (sharp-edged covers are not irregular soil or smears), a tray out of the chamber for over 48 hours, and centroids against a tape
 measure (the issue asks for identification, movement and degradation). The layout is not random.
