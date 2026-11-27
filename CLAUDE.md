@@ -88,6 +88,16 @@ leaving a number that is only aspiration.
 
 No pre-commit hook that runs tests. Formatting and linting hooks are fine.
 
+**A failing unit test blocks.** There is no accepted-failure category: not "known flaky", not
+"it is a race in the test, not in the rig", not "CI was green". A unit test that fails on any run
+is a bug, and it is fixed before the commit. A test whose result depends on machine load is a bug
+in the test, and almost always one of two bugs: it asserts something the code does not promise, or
+it races the code for a moment it should be holding still. Fix the assertion to the guarantee the
+code actually makes, and reach the moment on purpose rather than by luck
+(`tests/test_scheduler.py`, `HeldBackend`, #570). Writing the failure off in a PR body and moving
+on teaches everyone to read red as noise, and the next real failure goes through with it
+(Aaron, 2026-11-27).
+
 ### Test-first
 
 Logic modules and bug fixes are built test-first. Pages, CSS and copy are not: look at them in a

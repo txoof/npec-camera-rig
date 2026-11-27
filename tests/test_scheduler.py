@@ -49,6 +49,13 @@ PHOTO_WORK_S = 0.025
 SHORT_DB_WAIT_S = 0.005
 
 
+# How long a stopped schedule is watched for a photo it should not take. Absolute, not a
+# fraction of a slot: it has to cover one scheduler poll and the start of a photo, which is work
+# that does not get faster when INTERVAL_S is lowered (the note above, #547 review). At the
+# INTERVAL_S above it is 10 slots.
+NO_PHOTO_WINDOW_S = 0.5
+
+
 def _slots(n: float) -> float:
     """`n` photo intervals, in seconds."""
     return n * INTERVAL_S
@@ -170,27 +177,107 @@ def test_a_running_schedule_takes_photos_into_the_experiment() -> None:
         _wait_for(lambda: len(database.captures_for_experiment(experiment["id"])) >= 2)
 
 
+class HeldBackend(SyntheticBackend):
+    """A camera whose stills wait, one at a time, for the test to let them through.
+
+    It exists so a test about the moment a stop lands mid-photo can reach that moment every run
+    instead of racing the scheduler for it (#570).
+
+    Counting semaphores, not events: a still that begins while the test is between calls still
+    registers on `_begun`, and one `let_the_still_finish()` lets exactly one still through. With
+    events, a release left set lets an unknown number of stills run free, which is how the first
+    version of this fix was itself flaky."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._begun = threading.Semaphore(0)  # one per still that has begun and is waiting
+        self._allowed = threading.Semaphore(0)  # one per still the test has let through
+
+    def capture_full_res(self):
+        self._begun.release()
+        assert self._allowed.acquire(timeout=10.0), "the test never let the still finish"
+        return super().capture_full_res()
+
+    def wait_for_a_still_to_begin(self) -> None:
+        """Block until the scheduler is inside a still, held there until it is let through."""
+        assert self._begun.acquire(timeout=10.0), "the scheduler began no photo"
+
+    def let_the_still_finish(self) -> None:
+        self._allowed.release()
+
+    def no_still_begins_within(self, seconds: float) -> bool:
+        """True when the scheduler starts no still at all in `seconds`.
+
+        A still that does begin is let through rather than left waiting. Otherwise a failing run
+        strands the scheduler thread inside `capture_full_res` for its whole 10 s timeout: the
+        `no_scheduler_left_running` fixture's `join(5.0)` gives up, the thread outlives the test,
+        and its own assertion is raised on top of the real failure, hiding it."""
+        if self._begun.acquire(timeout=seconds):
+            self._allowed.release()
+            return False
+        return True
+
+    def let_everything_through(self) -> None:
+        """Teardown. Release enough permits that any still now waiting, and any the scheduler
+        begins before it notices the app is going down, finishes instead of blocking."""
+        for _ in range(100):
+            self._allowed.release()
+
+
 def test_stopping_the_experiment_stops_the_photos() -> None:
-    # Twice the usual interval. The stop has to reach rig.db within one slot of the photo the
-    # wait below saw, or the scheduler starts the next photo while the stop is on its way and
-    # that photo lands after it: a race in the test, not in the rig, where a slot is 10 s.
-    interval_s = _slots(2)
-    with TestClient(app) as client:
-        experiment, _started = _start(client, interval_s)
-        # Polled finely, so the stop goes out as soon after a photo as it can: the poll's own
-        # delay comes straight off the slot the stop has to fit in.
-        _wait_for(
-            lambda: len(database.captures_for_experiment(experiment["id"])) >= 1, poll_s=0.005
-        )
-        stopped = client.post(f"/api/experiments/{experiment['id']}/stop").json()
-        time.sleep(3.4 * interval_s)  # three or four more slots come due
-        # A photo after the stop would be a rig photo, so every photo is looked at.
-        photos_after_stop = [
-            c for c in captures.list_recent_captures()
-            if c["record"]["taken_at"] > stopped["periods"][-1]["ended_at"]
-        ]
-        assert photos_after_stop == []
-        assert client.get("/api/experiments").json()[0]["schedule"] is None
+    """The stop ends the schedule: no further photo is even begun. The photo already being taken
+    when it lands is kept out of the experiment and its slot is recorded as missed.
+
+    What the rig promises is that no *new* photo starts after the stop. It cannot promise that no
+    photo is saved after it: `scheduler._tick` reads the running experiment, then takes the photo,
+    so a still already underway when the stop reaches rig.db finishes afterwards and its
+    `taken_at` is later than `ended_at`. `_tick` handles that on purpose, recording the slot with
+    the reason asserted below and leaving the photo out of the experiment as a rig photo.
+
+    Until #570 this test asserted that no photo at all followed the stop, which is the one thing
+    the rig does not promise. It passed only when the stop happened to reach rig.db inside the gap
+    between two stills, and on a loaded controller it failed about half the time. `HeldBackend`
+    removes the luck: the stop always lands mid-photo, so the case the rig was built for is the
+    case the test measures."""
+    camera = HeldBackend()
+    CameraManager.set_instance(CameraManager(camera))
+    try:
+        with TestClient(app) as client:
+            experiment, started = _start(client, INTERVAL_S)
+            since = started["schedule"]["since"]
+
+            camera.wait_for_a_still_to_begin()
+            camera.let_the_still_finish()
+            _wait_for(lambda: len(database.captures_for_experiment(experiment["id"])) >= 1)
+
+            # The next still is held open, so the stop lands in the middle of it every run. No
+            # other still can finish meanwhile: each one needs a release of its own.
+            camera.wait_for_a_still_to_begin()
+            photos_in_the_experiment = len(database.captures_for_experiment(experiment["id"]))
+            stopped = client.post(f"/api/experiments/{experiment['id']}/stop")
+            # Checked here, so a refused stop says so instead of surfacing as a timeout below.
+            assert stopped.status_code == 200, stopped.text
+            camera.let_the_still_finish()
+
+            # Its slot is recorded as missed, with the photo left out of the experiment.
+            _wait_for(
+                lambda: database.schedule_progress(experiment["id"], since)["missed_reasons"].get(
+                    "experiment stopped during the photo"
+                )
+                == 1
+            )
+            assert (
+                len(database.captures_for_experiment(experiment["id"]))
+                == photos_in_the_experiment
+            )
+
+            # The schedule has stopped: no still is begun at all from here on.
+            assert camera.no_still_begins_within(
+                NO_PHOTO_WINDOW_S
+            ), "a photo was started after the stop"
+            assert client.get("/api/experiments").json()[0]["schedule"] is None
+    finally:
+        camera.let_everything_through()
 
 
 def test_after_a_restart_the_schedule_resumes_and_counts_the_photos_missed_while_down() -> None:
