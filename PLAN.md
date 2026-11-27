@@ -667,6 +667,14 @@ scrub the timelapse · download `captures.csv` and open it in Excel · disk head
 tape-measure tolerance, rotations correct · remove one, return it rotated 180° in a new region →
 dwell table reflects the move · smear a tag with soil → degrades gracefully, doesn't crash or lie.
 
+**Status, 2026-11-27: met, with limits.** The acceptance test was run on the development rig on 2026-11-27
+(`docs/metrology-log.md`, section 54), with the changes made since this was written: 6 table locations in place of
+12 regions (#332), a layout of 12 trays at 0 and 180 degrees chosen by hand, black pieces covering the tag in place
+of soil, and the checks read from the rig's own readings. All 12 tags were read in the planned location and corner
+in 4 photos; two swapped trays showed as moved in the Table locations panel after over an hour; a covered tag was
+never read as another number and was reported as not seen. Not shown: random positions, rotations other than 0 and
+180, real dirt, and a patch smaller than 1.5% of the tag (about one of its squares), which already hides it.
+
 ---
 
 ### M5 — Canopy area (~2 weeks)

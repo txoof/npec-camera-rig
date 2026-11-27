@@ -12592,3 +12592,177 @@ It does not cover:
   is already soft.
 - The other scenes in the file. They were halved without moving onto the grid and they still read
   the areas expected of them, but their margin to the cutoff was not measured.
+
+## 54. M4 acceptance: 12 trays identified, a tray moved, a tag covered by black marker on clear plastic (issue #72, method written 2026-11-27, before the session)
+
+**Label: development check.** The known answer is the layout a person sets out and records, not an
+independent measurement of the trays, so this is not a reference comparison. It is the M4
+acceptance test of `PLAN.md`, run on the development rig `npec-rig-01` with the app at `bfb5de2`
+(no code change, no migration). The results are in 54.1.
+
+**Changes since the issue was written (2026-10-08).** The 12 regions of `PLAN.md` became 6 table
+locations (NW NM NE along the top of the photo, SW SM SE along the bottom) in #332. A tray counts as
+moved after it has been found in another location for over 1 hour (`dwell.MOVE_AFTER`, a decision of
+Aaron, 2026-10-30). Trays are placed from their cell A1 tag (#247); the app stores no rotation, so
+the check reads it from the cell readings: cell A1 in the south-west corner of the tray outline is 0 degrees,
+in the north-east corner 180. Dirty tags have no special handling: an unreadable tag gives a tray
+outlined with "No tag" and a "not seen" report for 48 hours (#331, #318); measuring a tray with no
+tag is #471, not part of this test (triage of #68, Aaron, 2026-10-27).
+
+**Setup.** Experiment 4 (Dario 13 Emergence, 6 trays: tags 8, 9, 11, 12, 25, 51) keeps running with its
+5 minute interval, and none of its settings is changed. Its 6 trays stay on the table, slid a few
+centimetres to touch, each in the table location it had before, and are put back at the end (a
+`restore` check compares each tray's location, cell A1 corner and centre with a snapshot taken
+before). Six spare 4 x 5 trays (tags 55, 29, 49, 36, 50, 33, named A to F), each with its own unused
+tag in cell A1, take the other slots. The test photos are taken by hand with the Capture button of
+the Gallery, which puts them into the running experiment, so they are read for trays like the
+scheduled ones; the scheduled photos continue and also count. The spare trays and the hand-taken
+photos therefore appear in experiment 4's own readings and Table locations panel (a decision of
+Aaron, 2026-11-27: leaving the experiment running is acceptable). Chamber lights are steady from about
+08:35 to 00:00 UTC.
+
+The layout was chosen by hand before the session, not drawn at random: 12 trays in 2 rows of 6
+(North 1 to 6, South 1 to 6, trays touching), every tray at 0 or 180 degrees (A1 south-west or
+north-east, the 12-tray rule of `reference/trays.md`), with a mix of both, and experiment 4's trays
+kept in their table locations so that its own dwell record does not change. The layout is in the
+rig's `m4.py` (below) and in the figures.
+
+**Check 1, 12 trays identified.** After the layout is set and nobody is in the chamber, the newest
+5 photos with the lights on are read for trays. Pass: in every one of them, all 12 tags are read
+with the tray found in the photo, each tray is in the planned table location with cell A1 in the
+planned corner, no tag is read that is not on the layout, and no tag is read twice.
+
+**Check 2, a moved tray.** Two spare trays (E, in South 3 turned 180 degrees, and F, in South 6 at 0)
+are lifted off and put back in each other's slots, each turned 180 degrees. Nothing else moves for the
+next hour and a few minutes. Pass: the first photo after the swap lists both as moved since the
+previous photo (SM to SE and SE to SM); about 65 minutes later the Experiments page's Table
+locations panel shows, for each of the two, a move from the old to the new location and "Now in" the
+new one; no other tray of the experiment shows a move.
+
+**Check 3, a covered tag.** Soil cannot be brought into the chamber (it could interfere with the
+running experiment), so dirt is stood in for by clear plastic sheets about 7 x 7 cm with solid black
+permanent marker on them, made beforehand over a printed copy of the tag. There are five, one per
+level: 0, no marker (a control: does clear plastic alone change the reading); 1, about 10% of the
+tag's area covered (a 13 mm blotch over one corner of a 40 mm tag); 2, about 25% (a band across one
+side); 3, about 50%; 4, all of it. The fractions are a choice, not measurements, and the tag size is
+to be measured when the sheets are made. On one spare tray, a sheet is taped by one edge over its tag
+for each level in turn, 3 hand-taken photos after each level (a burst), then the sheet is taken off and 3 photos follow.
+Levels after the first one at which the tag is no longer read are skipped. Pass, from the decision
+of 2026-10-27 (today's behaviour): at no level is any tag number read that is not on the layout or
+any other tray named by this tray's number; the rig keeps taking a photo a minute and its pages
+load; a tag that is no longer read shows as a tray outlined with "No tag" or as "not seen" with its
+warning; the other 11 trays keep reading as in check 1; with the sheet off, the tag is read again
+within 3 photos.
+
+**What is recorded.** Every check command of `~/scratch/72-m4-acceptance/m4.py` (read only: GET
+requests to the rig and one ssh read) is appended with its UTC time to `session-log.txt`. The person
+writes nothing down: the photos carry their own times, hand-taken photos come in bursts (3 after the
+layout is set, 2 after the swap, 3 per cover level, 3 after the sheet is off), and the person's
+messages to the checker mark each step. The photos and their tray readings stay in the
+experiment's folder on `npec-rig-01`. At the write-up the session log is copied to
+`docs/figures/54/` and the overlays the Gallery draws for the first photo of each check are copied
+beside it, as `docs/figures/README.md` asks.
+
+**What it covers and does not.** One rig, one calibration, one layout of 12 empty or lightly planted
+4 x 5 trays, one tag per tray in cell A1, one covered tag, black marker on clear plastic as the stand-in for dirt. Not covered: other
+rotations (any angle other than 0 and 180), fewer than 12 trays, a tag half hidden by a leaf,
+real dirt (sharp-edged covers are not irregular soil or smears), a tray out of the chamber for over 48 hours, and centroids against a tape
+measure (the issue asks for identification, movement and degradation). The layout is not random.
+
+### 54.1 Results (session of 2026-11-27, 08:51 to 10:26 UTC, written the same day)
+
+**Label: development check.** Development rig `npec-rig-01`, app `bfb5de2`, inside the running experiment 4
+(folder `2026-11-13_f991a199`), calibration `20261113T080210445944`, validation `20261113T080345991857`, lens 5.75
+locked. Experiment 4 kept its 5 minute interval; no setting was changed and none of its photos was missed (271 taken
+since its last start, 0 missed, read from the rig at 11:41 UTC). 54 photos from 08:51:15 to 10:26:15 UTC were
+analysed, 21 on the 5 minute schedule and the rest taken by hand with the Capture button. None carried an exclusion.
+Spares A to F were tags 55, 29, 49, 36, 50 and 33. Data: `docs/figures/54/photos72.csv` (one row per photo),
+`data72.json`, `session-log.txt`; scripts in `experiments/72-m4-acceptance/`; run with `analyse72.py` after the session
+(read only, GET requests).
+
+*Figure 54-a.* `docs/figures/54/timeline-54.png`: every photo of the session. A circle is read or as planned, a cross is
+not read or not as planned; the grey bars are what lay on tag 49. Made with `make_figure72.py` from `photos72.csv`.
+The layouts are `layout-1.png` and `layout-2.png` (`make_layouts.py`) and experiment 4's trays before the session are
+in `before-exp4-layout.jpg` (numbered by `m4.py snapshot`, taken from experiment 4's photo of 08:36:15 UTC).
+
+**Check 1, 12 trays identified: met.** The spares were placed between 08:51 and 08:56. In the 4 photos from 08:56:15
+to 08:57:16 UTC (3 taken by hand, 1 scheduled) all 12 tags were read with the tray found in the photo, each in its
+planned table location with cell A1 in the planned corner (0 degrees for 9 trays, 180 for 3: tags 29, 49 and 50), no
+tag read that is not on the layout and none read twice. Tray 36, at the east edge of the frame, carried the warning
+"partly outside the photo" and was read correctly. The method asked for 5 photos; there were 4 (the photo of 08:51:15
+is from before the spares were placed). Not met in the 4 photos: nothing.
+
+**Check 2, a moved tray: met.** Tray 50 was lifted from South 3 and put in South 6, tray 33 from South 6 to South 3,
+each turned 180 degrees (tags 50 and 33). The first photo after (09:01:18 UTC, `2026-11-27T090118_293174`) lists
+"tray 33 SE to SM" and "tray 50 SM to SE" as moved since the previous photo, and it and the next 3 photos (09:01:18
+to 09:01:27) read all 12 trays as planned for layout 2. The Table locations panel was read at 10:18 UTC, after the
+first photo more than an hour later (10:06:15): tray 50 shows "SM to SE, 27 Nov 09:01" and "Now in SE"; tray 33 shows
+"SE to SM, 27 Nov 09:01" and "Now in SM". No other tray showed a move that day: trays 25, 29, 36, 49, 51 and 55 had
+none, and trays 8, 9, 11 and 12 show only their moves of 16 November, from experiment 4's own shuffle. A first read at
+10:18 gave tray 50 as "now SW" because the checking script attached tray 51's line to tray 50 (warned trays have an
+extra line in the panel); the panel was right, the script was fixed and run again.
+
+**Check 3, a covered tag: met for the claim tested, with a result the claim did not ask for.** The plan was five
+clear plastic sheets with black marker. The first, a control with no marker, hid the tag (Aaron: "control tag reflects
+too much light"), so from the second the pieces were the black parts cut out of the plastic, ink side up,
+taped by their outer edge. Aaron measured them (instrument and number of readings not stated to me) and the share is of a
+nominal 40 x 40 mm tag, whose own size was not measured here.
+
+| What lay on tag 49 | Size (mm) | Share of tag | Photos | Tag 49 read | Other 11 trays as planned | Wrong or repeated tag |
+|---|---|---|---|---|---|---|
+| Nothing (before), 08:56 to 09:01 | | 0% | 8 | 8 of 8 | 8 of 8 | 0 |
+| Clear plastic, no marker | not measured | 0% of black | 3 | 0 of 3 | 3 of 3 | 0 |
+| Plastic off | | 0% | 2 | 2 of 2 | 2 of 2 | 0 |
+| Black piece 1, centre of tag | 13.99 x 10.65 | 9.3% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Black piece 2 | 21.29 x 20.8 | 27.7% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Black piece 3 | 31.92 x 29.64 | 59.1% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Black piece 4 | 40.45 x 39.36 | 99.5% | 4 | 0 of 4 | 4 of 4 | 0 |
+| Black piece 1 again, just inside the black edge | 13.99 x 10.65 | 9.3% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Nothing, all covers off, 09:16 to 10:16 (scheduled) | | 0% | 13 | 13 of 13 | 13 of 13 | 0 |
+| Small piece | 4.83 x 4.85 | 1.5% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Medium piece | 6.71 x 7.34 | 3.1% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Large piece | 9.65 x 9.44 | 5.7% | 4 | 0 of 4 | 4 of 4 | 0 |
+
+The photos are assigned to what lay on the tag from Aaron's messages (times in chamber time, +1 hour) and from the
+bursts of hand-taken photos, 3 per piece; the windows are in `analyse72.py`, `STATES`. Where a photo's state is a
+guess, it is a scheduled photo that fell inside a burst: 09:06:15 (taken as clear plastic, since the next photo 29 s
+later reads the tag), 09:11:15 (piece 4) and 10:21:16 (large piece). Aaron's first piece was not "too large": it was
+9.3%, a little under the 10% planned; the planned 25% and 50% came out at 27.7% and 59.1%.
+
+- **No wrong number.** In all 54 photos no tag was read that is not on the layout and none was read twice. In all 29
+  photos with something on tag 49 (3 plastic, 16 in the first series of pieces, 10 in the second), the tag was not read,
+  the tray was outlined with no tag and the rig reported "not seen" for tray 49. That is today's behaviour decided on
+  2026-10-27 (#68).
+- **The other 11 trays were unaffected** in all 29 covered photos and in every photo with the spares on the table
+  except one taken during the put-back.
+- **The rig kept running.** The scheduled photos of the experiment followed 5 minutes apart and none was missed, including the 13 from 09:16 to 10:16 after the first covers;
+  every reading above was made through the rig's API while the covers were on.
+- **Tag 49 was read again after the covers came off:** in 2 photos within 1 minute of the plastic coming off (09:06:44
+  and 09:06:48) and in all 13 scheduled photos from 09:16:15 to 10:16:15 after the black pieces (the first photo after the pieces came off, 09:16:15, already read it). After the small, medium
+  and large pieces no photo of the tag followed, because the trays were being removed; so recovery is shown after the
+  first two series only.
+- **A cover of about one square of the tag loses it.** The smallest piece, 4.83 x 4.85 mm, about one of the 8 x 8
+  squares of a 40 mm tag (to be checked on the tag itself), was enough, in the centre of the tag (9.3% piece) and just
+  inside the black edge. No smaller piece was tried, so no size below which the tag still reads is known. The reader
+  reads a tag fully or not at all: no partly read tag gave a wrong number.
+
+**Restore.** Experiment 4's trays were put back by Aaron. Trays 8, 9, 11 and 12 lie in the same table location with A1
+in the same corner (centres about 39 to 81 mm east of before, up to 23 mm south, at about 4.85 pixels per millimetre). Trays 25 and 51 lay on the line between the
+north and the south row and are now in NW instead of SW (40 and 23 mm north of before). Aaron accepted this on
+2026-11-27 ("the location is fine"). The rig recorded it: experiment 4's panel shows "SW to NW, 27 Nov 10:26" for both
+at 11:41 UTC. This is a move of the trays as the rig reads them, in a running experiment.
+
+**Where it differs from the method.** 4 photos for check 1, not 5. The levels of check 3 are not the 10, 25, 50 and 100%
+planned, and the clear sheets were dropped for black pieces cut to size, after the control failed. A second 10% run and
+three smaller pieces were added at Aaron's choice. The test went into experiment 4's own data (decision of Aaron,
+2026-11-27): its readings, export and Table locations panel now hold the 6 spare trays for 48 hours, and its photos
+hold 33 hand-taken photos.
+
+**What it covers and does not.** One rig, one calibration, one hand-chosen layout, 12 empty or lightly planted 4 x 5
+trays at 0 and 180 degrees, one swap of one pair, one covered tag with black pieces on a tag in cell A1. Not covered:
+random positions and rotations, other angles, fewer than 12 trays, soil or other dirt, a patch smaller than 1.5%,
+other tags, how often a tag is hit by dirt in a real run, a tray left more than 48 hours, and centroids against a tape
+measure. The covered tag results come from one tag. The time-in-location rule (1 hour) was checked with one pair of
+trays: the panel could show the move from the scheduled photo of 10:06:15, 1 hour 5 minutes after the swap photo, and
+showed it at the first read, 10:18; when it first showed it was not read.
+

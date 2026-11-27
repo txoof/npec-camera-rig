@@ -1,0 +1,839 @@
+[
+ {
+  "key": "2026-11-27T085115_807618",
+  "timestamp": "2026-11-27T08:51:15.807618+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T085615_804193",
+  "timestamp": "2026-11-27T08:56:15.804193+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T085630_592807",
+  "timestamp": "2026-11-27T08:56:30.592807+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T085711_665399",
+  "timestamp": "2026-11-27T08:57:11.665399+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T085716_656053",
+  "timestamp": "2026-11-27T08:57:16.656053+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090118_293174",
+  "timestamp": "2026-11-27T09:01:18.293174+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": [
+    {
+     "tray_id": 33,
+     "from": "SE",
+     "to": "SM"
+    },
+    {
+     "tray_id": 50,
+     "from": "SM",
+     "to": "SE"
+    }
+   ]
+  }
+ },
+ {
+  "key": "2026-11-27T090118_294914",
+  "timestamp": "2026-11-27T09:01:18.294914+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090123_154369",
+  "timestamp": "2026-11-27T09:01:23.154369+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090127_661314",
+  "timestamp": "2026-11-27T09:01:27.661314+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090243_134112",
+  "timestamp": "2026-11-27T09:02:43.134112+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:02:43.134112+00:00",
+     "photos": 1,
+     "last_seen": "2026-11-27T09:01:27.661314+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090314_901769",
+  "timestamp": "2026-11-27T09:03:14.901769+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:02:43.134112+00:00",
+     "photos": 2,
+     "last_seen": "2026-11-27T09:01:27.661314+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090615_802117",
+  "timestamp": "2026-11-27T09:06:15.802117+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:02:43.134112+00:00",
+     "photos": 3,
+     "last_seen": "2026-11-27T09:01:27.661314+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090644_035297",
+  "timestamp": "2026-11-27T09:06:44.035297+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090648_508123",
+  "timestamp": "2026-11-27T09:06:48.508123+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090735_442587",
+  "timestamp": "2026-11-27T09:07:35.442587+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 1,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090739_512978",
+  "timestamp": "2026-11-27T09:07:39.512978+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 2,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090744_032232",
+  "timestamp": "2026-11-27T09:07:44.032232+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 3,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090839_931911",
+  "timestamp": "2026-11-27T09:08:39.931911+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 4,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090844_809468",
+  "timestamp": "2026-11-27T09:08:44.809468+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 5,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T090849_551263",
+  "timestamp": "2026-11-27T09:08:49.551263+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 6,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091000_591306",
+  "timestamp": "2026-11-27T09:10:00.591306+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 7,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091005_481655",
+  "timestamp": "2026-11-27T09:10:05.481655+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 8,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091009_614178",
+  "timestamp": "2026-11-27T09:10:09.614178+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 9,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091049_010511",
+  "timestamp": "2026-11-27T09:10:49.010511+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 10,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091053_731844",
+  "timestamp": "2026-11-27T09:10:53.731844+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 11,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091058_096309",
+  "timestamp": "2026-11-27T09:10:58.096309+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 12,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091115_875194",
+  "timestamp": "2026-11-27T09:11:15.875194+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 13,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091217_412376",
+  "timestamp": "2026-11-27T09:12:17.412376+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 14,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091221_731444",
+  "timestamp": "2026-11-27T09:12:21.731444+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 15,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091225_872207",
+  "timestamp": "2026-11-27T09:12:25.872207+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T09:07:35.442587+00:00",
+     "photos": 16,
+     "last_seen": "2026-11-27T09:06:48.508123+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T091615_808218",
+  "timestamp": "2026-11-27T09:16:15.808218+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T092115_806104",
+  "timestamp": "2026-11-27T09:21:15.806104+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T092615_809657",
+  "timestamp": "2026-11-27T09:26:15.809657+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T093115_802637",
+  "timestamp": "2026-11-27T09:31:15.802637+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T093615_815644",
+  "timestamp": "2026-11-27T09:36:15.815644+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T094115_806836",
+  "timestamp": "2026-11-27T09:41:15.806836+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T094615_807347",
+  "timestamp": "2026-11-27T09:46:15.807347+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T095115_807505",
+  "timestamp": "2026-11-27T09:51:15.807505+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T095615_818585",
+  "timestamp": "2026-11-27T09:56:15.818585+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T100115_802514",
+  "timestamp": "2026-11-27T10:01:15.802514+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T100615_812845",
+  "timestamp": "2026-11-27T10:06:15.812845+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T101115_811833",
+  "timestamp": "2026-11-27T10:11:15.811833+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T101615_807365",
+  "timestamp": "2026-11-27T10:16:15.807365+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T101859_389232",
+  "timestamp": "2026-11-27T10:18:59.389232+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 1,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T101903_946369",
+  "timestamp": "2026-11-27T10:19:03.946369+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 2,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T101908_527375",
+  "timestamp": "2026-11-27T10:19:08.527375+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 3,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T101947_629382",
+  "timestamp": "2026-11-27T10:19:47.629382+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 4,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T101951_867656",
+  "timestamp": "2026-11-27T10:19:51.867656+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 5,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T101956_083508",
+  "timestamp": "2026-11-27T10:19:56.083508+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 6,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T102044_135675",
+  "timestamp": "2026-11-27T10:20:44.135675+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 7,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T102048_155935",
+  "timestamp": "2026-11-27T10:20:48.155935+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 8,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T102052_745443",
+  "timestamp": "2026-11-27T10:20:52.745443+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 9,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T102116_023926",
+  "timestamp": "2026-11-27T10:21:16.023926+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 10,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    }
+   ],
+   "moved": []
+  }
+ },
+ {
+  "key": "2026-11-27T102615_813182",
+  "timestamp": "2026-11-27T10:26:15.813182+00:00",
+  "reading": {
+   "status": "read",
+   "exclusion": null,
+   "not_found": [
+    {
+     "tray_id": 29,
+     "since": "2026-11-27T10:26:15.813182+00:00",
+     "photos": 1,
+     "last_seen": "2026-11-27T10:21:16.023926+00:00",
+     "location": "NW"
+    },
+    {
+     "tray_id": 33,
+     "since": "2026-11-27T10:26:15.813182+00:00",
+     "photos": 1,
+     "last_seen": "2026-11-27T10:21:16.023926+00:00",
+     "location": "SM"
+    },
+    {
+     "tray_id": 36,
+     "since": "2026-11-27T10:26:15.813182+00:00",
+     "photos": 1,
+     "last_seen": "2026-11-27T10:21:16.023926+00:00",
+     "location": "NE"
+    },
+    {
+     "tray_id": 49,
+     "since": "2026-11-27T10:18:59.389232+00:00",
+     "photos": 11,
+     "last_seen": "2026-11-27T10:16:15.807365+00:00",
+     "location": "NM"
+    },
+    {
+     "tray_id": 50,
+     "since": "2026-11-27T10:26:15.813182+00:00",
+     "photos": 1,
+     "last_seen": "2026-11-27T10:21:16.023926+00:00",
+     "location": "SE"
+    },
+    {
+     "tray_id": 55,
+     "since": "2026-11-27T10:26:15.813182+00:00",
+     "photos": 1,
+     "last_seen": "2026-11-27T10:21:16.023926+00:00",
+     "location": "NW"
+    }
+   ],
+   "moved": [
+    {
+     "tray_id": 25,
+     "from": "SW",
+     "to": "NW"
+    },
+    {
+     "tray_id": 51,
+     "from": "SW",
+     "to": "NW"
+    }
+   ]
+  }
+ }
+]
