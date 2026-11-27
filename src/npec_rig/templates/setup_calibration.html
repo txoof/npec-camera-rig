@@ -6,8 +6,7 @@
 
 {% block head_extra %}<script src="/static/validation-status.js"></script>{% endblock %}
 
-{#- The wizard frame (mockup 7, #136): the head names the step and holds its About button (and
-    Camera settings on Step 2); the steps bar under it stays put while the step scrolls. -#}
+{#- The wizard frame (mockup 7, #136): the head names the step and holds its About button; the steps bar under it stays put while the step scrolls. -#}
 {% block breadcrumb %}
   <a class="btn btn-back hit" href="/setup" aria-label="Back to Setup">{{ ui.icon("back") }}<span class="lbl">Setup</span></a>
   <div style="min-width: 0;">
@@ -15,7 +14,6 @@
     <p class="sub" id="step-title">Step 1 of 6</p>
   </div>
   <div class="head-actions">
-    {{ ui.button("Camera settings", id="camera-settings-btn", attrs={"hidden": true}) }}
     <button type="button" class="btn hit help-btn" id="wizard-about" data-about="about-cal-1" aria-label="About this step">{{ ui.icon("help") }}<span class="lbl">About this step</span></button>
   </div>
 {% endblock %}
@@ -199,8 +197,8 @@
       return wizardStep === n;
     }
 
-    // Step 2's whole focus-control panel (images, autofocus/coarse/fine/peaking/lock, sharpness,
-    // camera settings) is templates/_focus_controls.html -- also used standalone by
+    // Step 2's whole focus-control panel (images, autofocus/coarse/fine/peaking/lock, sharpness)
+    // is templates/_focus_controls.html -- also used standalone by
     // setup_focus.html.
     const focusControls = initFocusControls({ isActiveStep, step: 2 });
 
@@ -409,7 +407,6 @@
     const stepButtons = document.querySelectorAll(".step-btn");
     const stepTitle = document.getElementById("step-title");
     const wizardAbout = document.getElementById("wizard-about");
-    const cameraSettingsBtn = document.getElementById("camera-settings-btn");
     const wizardBackBtn = document.getElementById("wizard-back-btn");
     const wizardNextBtn = document.getElementById("wizard-next-btn");
 
@@ -423,9 +420,8 @@
         b.classList.toggle("done", done.has(n) && n !== wizardStep);
       });
       stepTitle.textContent = `Step ${wizardStep} of ${STEP_TITLES.length}: ${STEP_TITLES[wizardStep - 1]}`;
-      // Step 2's About page and Camera settings come from the shared focus controls.
+      // Step 2's About page comes from the shared focus controls.
       wizardAbout.dataset.about = wizardStep === 2 ? "about-focus" : `about-cal-${wizardStep}`;
-      cameraSettingsBtn.hidden = wizardStep !== 2;
       wizardBackBtn.disabled = wizardStep === 1;
       wizardNextBtn.disabled = wizardStep === STEP_TITLES.length;
       document.querySelector(".scroll").scrollTop = 0;

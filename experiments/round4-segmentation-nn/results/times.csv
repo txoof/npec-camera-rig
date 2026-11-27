@@ -1,0 +1,10 @@
+file,step,median_s,min_s,max_s,n
+sam3,encoder_s,0.6073,0.5985,0.6122,42
+sam3,plant_s,0.0715,0.0698,0.0736,42
+sam3,leaf_s,0.0704,0.0685,0.0734,42
+sam3,potato_plant_s,0.0703,0.0683,0.0723,42
+sam2,encoder_s,0.1507,0.1476,0.1569,42
+sam2,p1m_s,0.0132,0.0,0.2402,42
+sam2,p1s_s,0.0108,0.0,0.1321,42
+sam2,p5s_s,0.0143,0.0,0.1002,42
+"grow (crop rebuild, CPU, not the method)",crop_s,0.0034,0.0009,0.0074,42

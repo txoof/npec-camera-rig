@@ -479,3 +479,50 @@ def test_the_photos_database_row_records_whether_the_auto_exposure_had_settled()
 
     row = database.captures_by_path([record["path"]])[record["path"]]
     assert row["ae_state"] == "searching"
+
+
+def test_a_photo_taken_with_auto_exposure_off_is_saved_as_idle() -> None:
+    """#507: libcamera's AeState 0 is idle (0 idle, 1 searching, 2 converged), what the camera
+    reports with auto exposure off. It is saved as "idle", not left empty."""
+    from npec_rig import database
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Idle(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            return frame, {**metadata, "AeState": 0}
+
+    CameraManager.set_instance(CameraManager(Idle(width=64, height=48)))
+    _array, record = take_photo("capture")
+    del _array
+
+    row = database.captures_by_path([record["path"]])[record["path"]]
+    assert row["ae_state"] == "idle"
+
+
+def test_a_photos_info_file_names_the_calibration_it_was_taken_under(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """#488: the info file is the one record that cannot be wrong about which calibration was
+    active, so a row added later reads it from there."""
+    from tests.helpers import TABLE_STEM, table_calibration
+
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    table_calibration()
+
+    _array, record = take_photo("capture")
+
+    on_disk = json.loads((photos_root() / record["date"] / record["filename"]).with_suffix(".json").read_text())
+    assert on_disk["calibration"] == "20270101T000000000000" == TABLE_STEM
+
+
+def test_a_photo_taken_with_no_calibration_says_so_in_its_info_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+
+    _array, record = take_photo("capture")
+
+    on_disk = json.loads((photos_root() / record["date"] / record["filename"]).with_suffix(".json").read_text())
+    assert "calibration" in on_disk
+    assert on_disk["calibration"] is None

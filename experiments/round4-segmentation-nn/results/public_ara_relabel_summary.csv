@@ -1,0 +1,4 @@
+subset,images,plant_px,to_not_plant,to_ignore,class1_px,class1_share_to_not_plant,class1_share_to_ignore,class2_px,class2_share_to_not_plant,class2_share_to_ignore,class3_px,class3_share_to_not_plant,class3_share_to_ignore,share_to_not_plant,share_to_ignore,median_image_share_to_not_plant
+ara_rosetteSet,152,4705299,0,0,4705299,0.0,0.0,0,,,0,,,0.0,0.0,0.0
+ara_senescentSet,169,1556819,7413,0,1549406,0.0,0.0,7413,1.0,0.0,0,,,0.0048,0.0,0.0
+ara_anthoSet,1578,52037470,8775225,0,28598680,0.0,0.0,8775225,1.0,0.0,14663565,0.0,0.0,0.1686,0.0,0.0

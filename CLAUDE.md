@@ -57,12 +57,23 @@ default did not.
 `pyproject.toml` sets `addopts = -m unit`. Expensive tiers are opt-in and unreachable by accident.
 
 ```
-pytest                 # unit only, no hardware, budget <15s, 4 workers in parallel (-n 0: serial)
+pytest                 # unit only, no hardware, 4 workers in parallel (-n 0: serial)
 pytest -m hardware     # needs the camera
 pytest -m hailo        # needs the accelerator
 pytest -m integration  # full pipeline against fixture images
 pytest -m slow         # soak
 ```
+
+Measured on 2026-11-26, after #547: **47 s in parallel, 151 s serially**, 1067 tests, on an
+8-core/16-thread AMD Ryzen 7 5700X. Before #547 the same suite was 83 s and 254 s. On the
+Arm64 CI runner (#546) it is 50 s. The Pi controller has not been re-measured since; it was over
+300 s before. `tests/conftest.py` carries
+the same figures, and they are updated together.
+
+The `budget <15s` that stood here came from #169, when `tests/` was 5,565 lines, a third of its
+present size. It had been unreachable for weeks, so nobody checked it. A budget nobody can hit is
+a budget nobody reads: when these figures go stale again, re-measure and rewrite them rather than
+leaving a number that is only aspiration.
 
 | Change | Run |
 |---|---|
@@ -72,9 +83,20 @@ pytest -m slow         # soak
 | Logic across modules | `pytest` |
 | Camera code | `pytest`, then one manual check on real hardware |
 | Before a commit | `pytest` |
+| Before opening a PR that changes code | `/code-review` on the branch's diff, then `pytest` after any fixes. Post the findings and what was done with each as one PR comment (CONTRIBUTING.md). No findings comment means no review: not ready for Aaron |
 | Milestone sign-off | Full suite plus the physical acceptance tests |
 
 No pre-commit hook that runs tests. Formatting and linting hooks are fine.
+
+**A failing unit test blocks.** There is no accepted-failure category: not "known flaky", not
+"it is a race in the test, not in the rig", not "CI was green". A unit test that fails on any run
+is a bug, and it is fixed before the commit. A test whose result depends on machine load is a bug
+in the test, and almost always one of two bugs: it asserts something the code does not promise, or
+it races the code for a moment it should be holding still. Fix the assertion to the guarantee the
+code actually makes, and reach the moment on purpose rather than by luck
+(`tests/test_scheduler.py`, `HeldBackend`, #570). Writing the failure off in a PR body and moving
+on teaches everyone to read red as noise, and the next real failure goes through with it
+(Aaron, 2026-11-27).
 
 ### Test-first
 
@@ -119,8 +141,27 @@ stop, not one branch of a parallel batch.
 Explore agent or a fork, not inline in the main conversation. Keep only the findings, not the raw
 search output, in context.
 
+**Model choice.** Start each session on Sonnet 5.5. Switch with `/model`.
+
+- Sonnet 5.5: normal coding, one module, test-first loops, page work.
+- Opus 5.5: planning a milestone, `/code-review`, bugs across modules, error bands and validation design.
+- Haiku 5.5: docs, copy, CSS, board chores, and Explore subagents.
+
+Run `/clear` between tasks. Agents with a set model are in `.claude/agents/`.
+
 **Check-ins.** Between the ends of rounds, show progress as a picture or table in `~/scratch`
 with 2 or 3 lines on what to look at, then wait for Aaron before going on (PLAN.md, *Rounds*).
+
+**Leave each check-in resumable from GitHub.** The controller has gone down several times, and a
+session cannot be resumed on another box. So at each check-in, before waiting for Aaron:
+
+1. Push the task's branch, work-in-progress commits allowed. A push with no PR open sends no
+   email.
+2. Edit a short *State* section at the end of the issue body: what is done, what is next, and
+   the decisions Aaron made in the session. Edit the body, do not comment: edits send no email.
+
+A new session anywhere then resumes from "resume #N": read the issue, check out the branch. A
+task finished in one sitting needs neither (Aaron, 2026-11-20, #455).
 
 **Pictures for Aaron.** Put them on the controller in `~/scratch/<branch>/` and link them as
 `http://testpi-02:8001/<branch>/<file>`. That is the one scratch viewer (`imgview.service`, from
@@ -150,9 +191,15 @@ Since 2026-10-28 (#322), with the controller since 2026-10-29 (#324). The full r
 |---|---|---|
 | **controller** | `testpi-02`, where agent sessions run | Agent sessions, worktrees, unit tests, `~/ansible-npec` |
 | **development** | `npec-rig-01` (`10.248.49.102`), red leaf in the tab, Arducam 64MP | The app as the `npec-rig` service on port 8000, managed from `~/ansible-npec` |
-| **production** | `ac-testing`, the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
+| **production** | `d6-daylight` (`10.248.49.137`), the chamber Pi | Running experiments: `~/npec_camera_rig` and its port 8000 server |
 
-Reach the rigs from the controller with `ssh pi@npec-rig-01`. Agent
+Production is a replacement Pi since 2026-11-25: the old production `ac-testing` had issues and is
+out of service. The camera is the same Arducam 64MP; the Pi is new, with no Hailo and 4 GB of
+memory (Pi 5). Older records (`docs/metrology-log.md`, `experiments/`, issues, PRs) say
+`ac-testing` for the production role; the log keeps that name because it is the device the
+measurement was taken on.
+
+Reach the rigs from the controller with `ssh pi@npec-rig-01` and `ssh pi@d6-daylight`. Agent
 sessions run on the controller. They may run jobs on the development rig over ssh (scripts, Hailo
 models, offline analysis of copied production photos), only while their task holds the `hardware`
 label, with memory capped (`ulimit -v`). Production is read only, as before (Aaron, 2026-11-09,
@@ -161,7 +208,7 @@ label, with memory capped (`ulimit -v`). Production is read only, as before (Aar
 A new app version runs on development first. It reaches production only after it has passed on
 development (health OK and a live snapshot) **and** Aaron has approved that update.
 
-- **Updating production** means changing the code in `~/npec_camera_rig` on `ac-testing` (pull,
+- **Updating production** means changing the code in `~/npec_camera_rig` on `d6-daylight` (pull,
   checkout, merge) or restarting its port 8000 server. After a PR is merged, leave production as
   it is and say in the reply that it can be promoted. Reading production (its API, logs, photos,
   a read-only look at `rig.db`) is fine; nothing else is done there without Aaron's approval.
@@ -169,6 +216,34 @@ development (health OK and a live snapshot) **and** Aaron has approved that upda
   `make update-app HOST=npec-rig-01 ARGS="-e npec_rig_version=<branch>"`. It restarts the app.
   If `curl -s 10.248.49.102:8000/api/experiments` shows an experiment `"state": "running"`, ask
   Aaron first.
+
+**A migration goes one way (#521, #524).** The app brings `rig.db` up to the schema version its
+own code knows the first time it starts, and nothing migrates downwards. An older app meeting the
+migrated file refuses to start (`RuntimeError: rig.db is at schema version N, this app knows up to
+N-1`), systemd starts it again 5 s later, and the rig sits in that loop: no pages, no scheduled
+photos. Checking out the earlier commit does not undo it; the database is already migrated. So,
+before a branch goes on development or production:
+
+1. **Check for a new migration.** `git diff <commit>..<branch> -- src/npec_rig/database.py`, with
+   `<commit>` the version the rig runs
+   (`ssh pi@npec-rig-01 'git -C ~/npec_camera_rig log --oneline -1'`): an entry appended to
+   `MIGRATIONS` is one. The housekeeping tables made in `settings.py`, `images.py` and `health.py`
+   carry no version and this check does not cover them.
+2. **Say so upfront** when there is one, in the reply that asks Aaron to try the branch, in the PR
+   body and in the `hardware` claim comment: "this branch migrates `rig.db` to version N; the rig
+   cannot go back to `<commit>` once it has run".
+3. **The way out is forward.** A rig in the restart loop is put right by putting the newer code
+   back on it: the migrated file is the one that code expects. Do not hunt for a way to run the
+   older code.
+4. **Never delete, move or empty `rig.db` to make an older app start.** It is the one move that
+   always works and it throws the rig's whole record away: the focus lock and the camera settings,
+   experiment records, scheduled photos, tray and cell readings, exclusions and tray layouts.
+   Development's record is not scratch; it is what the work is tried against.
+
+Running older code again on a rig that has already migrated is emergency recovery, not a step in
+normal work. It needs a copy of the database from before the migration, which is not routinely
+taken, and it loses everything written since. The method is in `docs/database.md`,
+*Emergency recovery*. On production it is Aaron's decision (Aaron, 2026-11-26).
 
 ## Parallel work
 
@@ -263,22 +338,27 @@ use the development camera, put its branch on development, or ask Aaron to try i
 Take it only when `gh issue list --label hardware` is empty. In the claim comment, write the app
 version development was running
 (`ssh pi@npec-rig-01 'git -C ~/npec_camera_rig log --oneline -1'`). When Aaron has tried the
-work, put development back on that version and remove the label. Everyone else writes code and
+work, put development back on that version and remove the label. If the branch migrated
+`rig.db`, development cannot go back: leave it on the branch, remove the label anyway, and say so
+in the reply (*A migration goes one way*). Everyone else writes code and
 runs unit tests with the synthetic camera on the controller, then waits for the label. No task
 uses the production camera or server.
 
-**Restarting the production server.** Only on a promotion Aaron approved, on `ac-testing`, over
-ssh. Stop it with SIGTERM, never SIGINT or Ctrl+C (a second
-SIGINT makes uvicorn skip the app's shutdown, and the camera is not closed), and wait until the
-old PID is gone before relaunching. Launch it with `--timeout-graceful-shutdown 5`, so open
-browser tabs with a live view hold a restart for 5 s at most instead of until they are closed
-(#139):
+**Restarting the production server.** Only on a promotion Aaron approved, on `d6-daylight`, over
+ssh. Production runs the app as the `npec-rig` service since #513, so it is restarted through
+systemd, not by hand:
 
 ```bash
-/home/pi/npec_camera_rig/.venv/bin/python3 /home/pi/npec_camera_rig/.venv/bin/uvicorn \
-  npec_rig.app:app --app-dir /home/pi/npec_camera_rig/src --host 0.0.0.0 --port 8000 \
-  --timeout-graceful-shutdown 5
+sudo systemctl restart npec-rig
 ```
+
+The unit stops it with SIGTERM and launches uvicorn with `--timeout-graceful-shutdown 5`, so the
+camera is closed cleanly and open browser tabs with a live view hold the restart for 5 s at most
+instead of until they are closed (#139). Never stop the app by its PID: the service starts the
+main checkout again 5 s later, and the two fight over port 8000 and the camera
+(`deploy/README.md`). A server run by hand, which happens on development and never on production,
+is stopped with SIGTERM too, never SIGINT or Ctrl+C: a second SIGINT makes uvicorn skip the app's
+shutdown and the camera is not closed.
 
 **Area map.** Which files a task may change. A test file goes with its module.
 
@@ -292,10 +372,12 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | web-experiments | `routes/experiments.py`, `templates/experiments.html` |
 | web-calibration | `routes/calibration.py`, `templates/setup_calibration*.html`, `templates/setup_health_check.html` |
 | web-validation | `routes/validation.py`, `templates/setup_validation.html` |
-| web-photo-quality | `routes/photo_quality.py` (the JPEG setting of full-size photos through the API, #359), `tests/web/test_photo_quality_routes.py` |
+| web-photo-quality | `routes/photo_quality.py` (the JPEG setting of full-size photos through the API, #359), `photo_size.py` (the photo quality presets and the estimate of photo size and disk use per setting, from metrology log 26.1, #473), `tests/web/test_photo_quality_routes.py`, `tests/test_photo_size.py` |
 | web-randomize | `routes/randomize.py`, `templates/randomize.html` (the Randomize page, #343) |
 | web-about | `about.py` (the facts the About page shows, read when asked), `routes/about.py`, `templates/about.html` (the About page from the (i) button at the foot of the rail, later also manuals and links, #390) |
+| web-data | `routes/data.py`, `templates/data.html`, `tests/web/test_data_routes.py` (the Data page from the Data tab on the rail: time lapse videos, later exports, #64) |
 | images | `images.py`, `text_render.py` |
+| timelapse | `timelapse.py` (time lapse videos: which photos become frames, each frame drawn upright with its label, the video made in a child process and kept until downloaded, #64) |
 | segmentation | `segmentation.py` (plant masks: the `Segmenter` interface, the green threshold and the Hailo stub, #74) |
 | randomization | `randomization.py` (restricted randomization of the tray layout and the check against it, #343) |
 | database | `database.py` (the experiment's tables in `rig.db` and their migrations) |
@@ -304,6 +386,7 @@ browser tabs with a live view hold a restart for 5 s at most instead of until th
 | docs | `docs/` (except the shared files below), `reference/`, `README.md`, `GLOSSARY.md` |
 | cad | `hardware/` |
 | deploy | `deploy/` |
+| agents | `.claude/agents/` (agent files that set the model for search, docs and review helpers, #492) |
 | experiments | `experiments/<folder>/`, each folder its own area: research scripts for one investigation. They may import `src/npec_rig/`, never the reverse (`tests/test_experiments_boundary.py`), and are not deployed (`.gitattributes` leaves them out of release archives) |
 | ci | `.github/`, `.gitattributes`, `pyproject.toml`, `uv.lock` |
 
@@ -316,7 +399,7 @@ The web areas (#181):
   exception: their tests are in `tests/test_experiments.py`, `test_exports.py` and
   `test_purge.py`, so web-experiments also overlaps database and exports.
 - web holds what more than one page uses. `base.html` loads `squareness-guides.js` on every
-  page, and `validation-status.js` is used by three pages, so both are in web.
+  page, and `validation-status.js` is used by two pages (Focus and Calibration), so both are in web.
 - The Calibration page includes the focus and squareness panels: changing a panel is
   web-focus work even in a calibration task.
 - An issue whose Area says only `web`, written before the split, overlaps every web area until
@@ -380,7 +463,7 @@ Low `feb93a98`. Set it with the same `item-edit` command.
 
 Round: field id `PVTIF_lAHOANmg6c4BmGmAzhl5GEo`, iteration ids Round 1 (15 to 22 Oct) `5fb3e246`,
 Round 2 (23 Oct to 5 Nov) `6f459427`, Round 3 (6 to 19 Nov) `62ef7908`, Round 4 (20 Nov to 3 Dec)
-`bc9ee329`. Set it with `item-edit` and `--iteration-id <id>` in place of
+`bc9ee329`, Round 5 (4 to 24 Dec) `bca6f5ab`. Set it with `item-edit` and `--iteration-id <id>` in place of
 `--single-select-option-id`.
 
 **Email.** Every GitHub action emails Aaron. Push in batches, post one combined comment, and do not
@@ -469,11 +552,11 @@ limits: where one does not work for a page, choose what does and say why in the 
   (metrology log 15.5h to 15.5k, #220); cell A1 holds no plant. Tray
   tags (IDs 0 to 299) are read with finer bit sampling, calibration and corner tags with the frozen
   settings (`tags._tray_detector_parameters`, metrology log 15.3e, #192).
-- **Corner tags (450 to 499) lie inside the table edge on development since 2026-11-03 09:22 UTC;
-  production keeps them on the outer-edge mounts until Round 2 ends** (#349, metrology log 31).
-  Keep trays off them; no distance is set, a calibration names any hidden tag (31.3). Moving a tag needs a new
-  calibration: the old corner baseline means nothing after it. A calibration whose photo misses
-  one is saved and names it (#397).
+- **Corner tags (450 to 499) lie inside the table edge on both rigs**: development since
+  2026-11-03 09:22 UTC (#349, metrology log 31), production since the tags were moved there
+  (#404). Keep trays off them; no distance is set, a calibration names any hidden tag (31.3).
+  Moving a tag needs a new calibration: the old corner baseline means nothing after it. A
+  calibration whose photo misses one is saved and names it (#397).
 - **Trays touch.** Researchers will not reliably leave gaps, so tray splitting must work with trays
   touching (`reference/trays.md`).
 

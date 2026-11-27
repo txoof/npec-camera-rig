@@ -203,3 +203,17 @@ def test_red_favicon_is_served() -> None:
     response = TestClient(app).get("/static/favicon-dev.svg")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("image/svg+xml")
+
+
+def test_the_app_starts_and_logs_the_error_when_old_videos_cannot_be_cleared(caplog) -> None:
+    from npec_rig import timelapse
+
+    # A plain file where the videos folder should be: clearing it raises NotADirectoryError.
+    timelapse.videos_root().parent.mkdir(parents=True, exist_ok=True)
+    timelapse.videos_root().write_text("not a folder")
+
+    with caplog.at_level("ERROR"), TestClient(app) as client:
+        assert client.get("/gallery").status_code == 200
+
+    errors = [r for r in caplog.records if r.levelname == "ERROR" and r.exc_info]
+    assert any(r.exc_info[0] is NotADirectoryError for r in errors)

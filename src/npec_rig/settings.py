@@ -12,6 +12,12 @@ def db_path() -> Path:
     return Path(os.environ.get("NPEC_RIG_DB_PATH", "/var/lib/npec-rig/rig.db"))
 
 
+# How long a connection to rig.db waits for another writer before it fails with "database is
+# locked" (#439). A choice, not a measurement: the shortest photo interval
+# (scheduler.MIN_INTERVAL_S), so a waiting photo cannot hold up the next one more than one slot.
+# Writes that still fail are retried by their callers, not lost.
+LOCK_WAIT_S = 10.0
+
 CAMERA_SETTINGS_DDL = "CREATE TABLE IF NOT EXISTS camera_settings (name TEXT PRIMARY KEY, value TEXT NOT NULL)"
 
 
@@ -19,7 +25,7 @@ def _connect() -> sqlite3.Connection:
     """Open the settings DB, creating the parent directory and table if needed."""
     path = db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, timeout=LOCK_WAIT_S)
     conn.execute(CAMERA_SETTINGS_DDL)
     return conn
 

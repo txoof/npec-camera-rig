@@ -1,5 +1,8 @@
 # Why the rig's area measurements can be trusted
 
+**Update 2026-11-26:** the M5 acceptance test was not met (see the last paragraph of *The claim*
+and *Limits of the evidence*).
+
 **Status:** 2026-10-14. The camera was replaced on 2026-10-07 (old SN000, new SN001); the current
 calibration and bands are SN001's, made 2026-10-14 at lens 6.05. The M2 physical acceptance tests
 were run on SN000 on 2026-10-05 and repeated on SN001 from 2026-10-12 to 10-14
@@ -21,6 +24,13 @@ The band has a precise meaning. **For flat objects at tray-top height, at the ri
 current setup (replacement camera, 2026-10-08, lens position 6.04) the bands run from ±1.3%
 (South 5) to ±2.7% (South 4). The camera used before it (2026-10-05, lens 6.27) gave ±1.58% to
 ±2.93%, and an earlier setup that day (lens 6.15) ±1.43% to ±3.36%.
+
+**What the claim does not cover (2026-11-26).** It is a claim for flat objects. For a plant, the area
+is an estimate: segmentation adds an error that the band does not include. In the M5 acceptance
+test (`docs/metrology-log.md`, section 51) twelve flat green squares on blue mats read -0.7% to
++10.5% of their true area with Grow from leaf cores, and -93% to +18% with the green threshold,
+against bands of 1.2% to 3.1%. The test was not met with either method, and the rig does not
+give a definite plant area. No measured error range exists yet for living plants.
 
 This document explains why that claim holds, and the steps taken to make it hold. Each step says
 what could go wrong, what the rig does about it, and the evidence.
@@ -391,9 +401,14 @@ leaf found by the threshold outward to a lower cutoff (-0.045) reads 0.96 of the
 soil it counts whole soil cells as plant, so the cutoff has to follow each tray's own soil (24.7,
 24.8), and on the greenest soil no colour rule separates soil from leaf, which the rig must report
 instead of a number. A blue mat laid under green squares changes every rule's area at the edge,
-13 to 24% on a 10 mm square (24.4). SAM 2.1 small, given each plant alone, does worse (IoU 0.77)
+13 to 24% on a 10 mm square (24.4). On real potato plants, mats laid by researchers in experiment 18 lowered grow from leaf cores by about a fifth (21% to 24% on two trays) with nothing changed in the plants: on a mat the leaf's edge pixels turn slightly blue and are left out (36.2). SAM 2.1 small, given each plant alone, does worse (IoU 0.77)
 and takes 7 to 10 s a plant (24.5). These are one still and 15 plants of one person: they show
-which rules fail and how, not a band for plant area.
+which rules fail and how, not a band for plant area. A small neural network trained on grow from leaf
+cores' own labels and compiled for both Hailo chips scored about the same as grow from leaf cores
+(metrology log 44.2 to 44.5, development checks, 2026-11-21). On 8 cells outlined from nothing, mean IoU
+was 0.75 for the network and 0.73 for grow from leaf cores. Both mark seedlings 1.4 to 1.8 times the
+outlined area, and plants on blue mats 0.82 to 0.94 times. Grow from leaf cores stays, and the network
+is compared again when the development rig holds other crops.
 
 **How photos are saved.** Until #359 every photo was saved as a JPEG at quality 75 with colour at
 half resolution, a library default nobody chose. Against the same stills kept uncompressed
@@ -463,7 +478,10 @@ metrology log backs it.
   No correction is made; it needs a measured depth source (CLAUDE.md, *Evidence gates*).
 - **Very small plants.** Flat red shapes of 50 to 80 mm² read 16% to 21% small on average, likely
   because most of their pixels are blurred edge pixels (not measured, 15.5). Young seedlings may
-  be this small.
+  be this small. *Added 2026-11-21* (metrology log 44.4, a development check): on 5 real seedlings of
+  261 to 1,382 px, outlined once by Aaron from nothing, grow from leaf cores read 1.38 to 1.80 times
+  the outlined area. That is large, and in the other direction from the flat shapes. How much the
+  outline itself varies at a seedling's edge is not measured.
 - **Colour drift.** With nothing moved, the camera's white balance gains drifted 0.8% to 0.9% in 30
   minutes (15.3d). What that does to green area is not measured.
 - **One photo against the next, over a long run** (*added 2026-11-09*, metrology log 16.9, a
@@ -475,6 +493,72 @@ metrology log backs it.
   its pale pixels with no leaf over it. The worse periods are described, not explained, and leaf
   movement is not separated from the rig's error. The new rules of #352 are to be checked the same
   way (#395).
+- **Blue mats** (*added 2026-11-16*, metrology log 36.2, a development check). Laying mats round
+  the plants puts a step of about -20% into their area by grow from leaf cores, and moves the leaves
+  (up to 47% less leaf showing in single cells). The step is not marked on the page yet (#424). A
+  comparison of treatments on one day holds while all trays carry mats; a comparison of a plant
+  before and after its mat does not. Measured on one morning, plants of one size.
+- **Each plant's growth over a run** (*added 2026-11-17*, metrology log 38.1, a development check,
+  both rules). On production's Round 2 run, 114 potato plants, 22 Oct to 17 Nov: before the mats,
+  every plant's growth showed over a week by grow from leaf cores (114 of 114 cells grew from 23 to
+  30 Oct), and from one day to the next a day's growth was about once to twice the change from one
+  hour to the next. Above about 100 mm² an hour's change is 1.7 to 2.4 times a minute's (leaf
+  movement and a daily cycle), so whole days or the same time of day should be compared. The mats
+  of 6 Nov lowered every plant's area by grow from leaf cores, by a median of 30%, so areas before
+  and after a mat cannot be compared. Moves and harvests after 9 Nov are not recorded.
+- **Soil hidden under mats** (*added 2026-11-17*, metrology log 39, a development check). With mats
+  over nearly all the soil, the tray's soil level can land on the leaves' edge pixels instead, and
+  grow from leaf cores then left out most of each leaf: tray 1 of experiment 18 read about a tenth of
+  its area on 3,438 photos, with nothing on the page. Since #373 the rig used its usual cutoff there
+  and marked the tray "soil hidden"; Reprocess grows those photos again. Checked by eye
+  on 15 more flagged plant-tray photos (*2026-11-20*, metrology log 39.2): the usual cutoff marked no
+  soil, mat or tray, and still missed parts of leaves on every photo; on tray 5's 3 counted photos it
+  came within 4% of the same tray an hour before, against about half as saved. The full Reprocess of
+  experiment 18 (#444, metrology log 41.1, a development check, finished on an x86_64 box, not the
+  rig) grew again exactly the predicted readings (10,965) and marked them; 24 photos could not be
+  read again, 11 of them still hold pre-444 values, and 667 readings have no grown area at all
+  (the chamber's light changes, log 41.1), so the experiment is not yet one method throughout.
+- **Soil turning green, not under mats** (*added 2026-11-25*, metrology log 50, a decision plus a
+  placeholder, not a measurement). The case the previous entry called "not seen on production" was
+  seen: plant-tray soil rose from -0.155 to -0.085 between 16 and 23 Nov, about 0.04 a week, heading
+  toward the top-bin threshold the mats case above also lands in. Until #486, the two cases were not
+  told apart: any tray landing in the top bin, mat-covered or merely green, got the mats-covered
+  treatment (the usual cutoff, marked "soil hidden"), which can read a green soil's whole surface as
+  plant. #486 tells them apart by how much of the tray is blue, not by the soil colour alone: a tray
+  counts as hidden only when blue covers most of it (`GROWN_BLUE_COVERAGE_MIN`); otherwise the
+  soil-based cutoff is kept and the tray is marked "soil looks unusually green" instead, with its
+  area unaffected. Checked against real photos of a mat-free tray, the tray's own blue plastic (an
+  empty cell's bare bottom, the walls and rim — about 57% of a 2 x 2 tray, 37% of a 4 x 5) read the
+  same as a mat would, so blue coverage is counted only inside cells holding a leaf core, which
+  cannot cost plant-area accuracy (a coreless cell grows no mask regardless of the cutoff chosen).
+  **The 50% threshold is a placeholder, not yet measured**, chosen to make the fix testable; "most
+  of the tray" still needs setting from stored photos with and without mats (logs 39 and 42), now
+  against this same cell-only measure, per metrology log 50. A tray whose true blue coverage sits
+  near 50% is not yet covered by a measurement either way.
+- **Soil-only trays** (*added 2026-11-20*, metrology log 42, a development check). Grow from leaf
+  cores reads a tray of bare soil close to 0: a daily median of at most 17 mm² and at most 64 mm² in
+  any single photo (under 0.1% of a tray), on two soils and two rigs, where the fixed green cutoff
+  read the same trays 2 to 30 times higher. It therefore had no floor *for soil*; **this does not
+  cover dark empty pots, and "no floor needed" is withdrawn for them** (the next entry). The fixed
+  green cutoff's floor of 100 mm² rests on production's soil only. Empty cells whose drainage hole shows the table
+  read up to 174 mm² in single photos; they hold no plant. Not shown: soil lighter or darker than
+  these two, green soil, soil under mats.
+- **Dark empty pots** (*added 2026-11-24*, metrology log 46 and 48, a development check). After the harvest of
+  23 November, grow from leaf cores read the empty dark pots of production tray 4 as plant, 4,856 to
+  11,789 mm² against 19 to 54 mm² by the fixed cutoff, with nothing on the page (near-black pixels have a
+  greenness set by a few levels of JPEG noise). Log 42's "no floor needed" is withdrawn for dark pots.
+  No pixel rule is to be coded: a fixed brightness limit depends on the light, a floor on how far a
+  pixel's greenness clears its cutoff (3 levels) took 99.3% of the false plant but cost 0.038 of IoU on the
+  60 reference cells against 0.005 allowed (0.066 on production's 30) and 11% to 47% of one dark-leaved
+  plant, and a floor scaled by the photo's own noise fails because that estimate is 3.4 times higher (2.9 to 4.8) over
+  canopy than over pots at the same gain. Dark pots are handled by flagging, not correcting (Aaron,
+  2026-11-24): a cell whose grown area is much larger than its fixed-cutoff area is marked as probably
+  empty, and the tray keeps its total and adds the flagged cells and their area (#484). On ordinary
+  readings the grown area is 0.98 to 1.65 times the fixed area for a tray (548 readings) and 0.94 to 1.9
+  (5th to 95th percentile) for a plant cell. The flag is a cell whose grown area is more than 5 times its fixed area and at least 100 mm² larger (Aaron's decision, 2026-11-24): on the data 30 of 33 false-plant cells and 15 of 7,989 plant-cell readings, from one harvest on one rig. Tested at gain 1.0 on counted
+  production photos only. The flag is now coded (#484), worked out from the two areas already stored
+  per cell reading, so no past reading needs Reprocess; metrology log 48 confirms the same counts
+  against the rule as coded.
 
 ### Trays and tags (round 1, 2026-10-19)
 
@@ -526,6 +610,29 @@ metrology log backs it.
   a measured tray edge (outlines were judged by eye on quarter-size pictures); stills picked at
   random; 1x1 or black trays.
 
+- **A tray lying off its touching neighbours' grid is outlined wrongly (2026-11-27).** The
+  outlines above are cut from one blue blob by a uniform grid of tray-sized cells. On production
+  photo 319 of 2026-11-27, eleven touching trays gave twelve outlines: one tray sitting half a
+  tray lower than the block was split across two of them, its plants counted on an outline with
+  no tray ID (82.3 mm² there against 6.6 mm² reported for the tray), both outlines about 170 to
+  200 mm from the tray's real centre. None of the 68 stills behind the result above holds such a
+  layout, so that evidence does not cover it. Since 2026-11-27 a block of touching trays holding
+  fewer tags than outlines warns every tray in it ("fewer tags than trays"), so the numbers are
+  no longer reported as if they were sound; a block whose tags were all missed is still not
+  caught (metrology log 55, #577).
+
+- **A block of touching trays short of tags is re-cut from its tags (2026-11-27).** Where a block
+  holds fewer tags than outlines, one tray is placed per tag inside that block instead of taking
+  the grid cut, each tray required to sit inside the block's own blue. On production photo 319
+  that returns eleven trays, one per tray, the odd one within 30 mm of the outline marked by eye.
+  Across 69 stills from three rigs it leaves the app's answer unchanged on 63, and on stills using
+  today's cell A1 tags it differs only on the four carrying this fault. Aaron inspected ten
+  before-and-after sheets and judged the edge cases better after, except trays under clear
+  propagator lids, which the change does not touch and where the outlines remain wrong. Not shown:
+  a tray turned sideways, two trays offset at once, a tray offset along its row, or any
+  independent measurement of a re-cut tray's edges; the agreement above is with the app, which is
+  not truth (metrology log 56.9, #577).
+
 ### Cells placed in each tray (round 3, 2026-11-06)
 
 - **Area per cell.** Each 4x5 and 2x2 tray's cells are placed from its outline and tag, and each
@@ -541,6 +648,40 @@ metrology log backs it.
   that holds a plant they add at most about 0.1 mm2 (90th percentile of 3792 pictures, both rigs,
   metrology log 28), so plant areas are not changed by them and no rule is added. Not shown: an
   empty cell filled with soil (none existed in the data).
+
+### Tray identity, a moved tray and a covered tag (M4 acceptance, 2026-11-27)
+
+- **12 trays named correctly.** In 4 photos, all 12 tags were read, each tray in its planned table location with cell
+  A1 in the planned corner (0 and 180 degrees), and no tag was read wrongly or twice. Across all 54 photos of the
+  session (595 tag readings with the 12 trays on the table) no tag outside the layout appeared. One hand-chosen layout,
+  one day (`docs/metrology-log.md`, section 54).
+- **A moved tray shows in the dwell table.** Two trays swapped places and each turned 180 degrees. The first photo
+  after listed both as moved, and the Table locations panel showed both moves, dated to the swap, once the trays had
+  been over an hour in their new places. No other tray showed a move.
+- **A covered tag is lost, never misread.** With a clear plastic sheet alone, and with each of 7 black pieces (8 runs) from
+  4.8 x 4.9 mm (1.5% of a 40 mm tag) to 40 x 39 mm, tag 49 was not read in any of 29 photos, the tray was outlined with
+  no tag and reported "not seen", the other 11 trays kept reading as planned, and no wrong number appeared. Tag 49 read
+  again as soon as the covers came off. **A speck of about one square of the tag therefore costs the tray its name for
+  as long as it stays;** the rig warns, and it does not measure the tray without its tag (#471). No smaller patch was
+  tried, and soil was not used.
+- **Not shown.** Random positions and rotations, other angles, fewer than 12 trays, real dirt, other tags, a tag half
+  under a leaf, and how often a real tag is hit by dirt in a run.
+
+### Known-area squares in all 12 slots (M5 acceptance, 2026-11-26)
+
+- **The acceptance test fails with both methods.** Twelve flat green squares of known area, one in
+  each slot on blue mats, were read in 3 runs (26 stills, production, `docs/metrology-log.md`,
+  section 51). The conclusions are in section 51.1. The rule was at least 11 of 12 squares inside the slot's band in every run. With the
+  green threshold 0 of 12 were, in every run. With Grow from leaf cores 3, 4 and 3 of 12 were.
+- **The bands do not cover segmentation, and here that error is larger than the band.** The bands
+  are 1.2% to 3.1%. With Grow from leaf cores the squares read -0.7% to +10.5%, mostly large, up to
+  +10.5% on a 10 mm square. With the green threshold they read -93% to +18%.
+- **The green threshold's error depends on where in the frame an object lies.** In the four centre
+  slots it lost 5% to 93% of the squares, because the light and the lens bring the greenness down
+  to the fixed cut of 0.1. Grow from leaf cores does not, in these squares.
+- **Not shown.** Plants of any kind, plant height, soil, overlapping leaves and backgrounds other
+  than blue mats. These results are for flat squares, so they do not say how large the error is for
+  a living plant on a blue mat. The size of the error for plants still has to be measured.
 
 ### Flat-target bands (M2, to 2026-10-14)
 

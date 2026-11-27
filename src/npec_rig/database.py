@@ -14,15 +14,21 @@ here.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+import sys
 import threading
+import time
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from npec_rig import settings
 from npec_rig.settings import db_path
+
+_log = logging.getLogger(__name__)
 
 # (number, what it does, statements). Append only.
 MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
@@ -465,6 +471,70 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "ALTER TABLE cell_reading ADD COLUMN grown_over_other_cells INTEGER",
         ),
     ),
+    (
+        26,
+        "reprocess_run and reprocess_failure: each Reprocess of an experiment, its progress and the photos it could not redo (#483)",
+        (
+            """
+            CREATE TABLE reprocess_run (
+                id INTEGER PRIMARY KEY,
+                experiment_id INTEGER NOT NULL REFERENCES experiment (id),
+                started_at TEXT NOT NULL,        -- UTC
+                finished_at TEXT,                -- UTC; NULL while running
+                state TEXT NOT NULL,             -- running, finished, stopped (by a Stop), interrupted (the app stopped under it)
+                total INTEGER NOT NULL,          -- photos to read
+                done INTEGER NOT NULL,           -- photos read so far, failed ones included
+                failed INTEGER NOT NULL          -- photos left as they were
+            )
+            """,
+            "CREATE INDEX reprocess_run_experiment ON reprocess_run (experiment_id, id)",
+            """
+            CREATE TABLE reprocess_failure (
+                id INTEGER PRIMARY KEY,
+                run_id INTEGER NOT NULL REFERENCES reprocess_run (id),
+                path TEXT NOT NULL,              -- the gallery path of the photo
+                reason TEXT NOT NULL,            -- why it was left as it was
+                failed_at TEXT NOT NULL          -- UTC
+            )
+            """,
+            "CREATE INDEX reprocess_failure_run ON reprocess_failure (run_id)",
+        ),
+    ),
+    (
+        27,
+        "export_part_file: each photo part's files, fixed with their sizes and capture ids when"
+        " the export is built, so a download or Purge reads the stored list, never recomputes it (#482)",
+        (
+            """
+            CREATE TABLE export_part_file (
+                id INTEGER PRIMARY KEY,
+                export_id INTEGER NOT NULL REFERENCES export (id),
+                part INTEGER NOT NULL,           -- 1 and up: a photo part (part 0 is one file, export.file)
+                capture_id INTEGER NOT NULL REFERENCES capture (id),
+                name TEXT NOT NULL,               -- its name in the zip, under the export's top folder
+                bytes INTEGER                     -- its size when the export was built; NULL: missing then
+            )
+            """,
+            "CREATE INDEX export_part_file_export ON export_part_file (export_id, part)",
+            "CREATE INDEX export_part_file_capture ON export_part_file (export_id, capture_id)",
+        ),
+    ),
+    (
+        28,
+        "tray_reading: how much of the tray grow from leaf cores found blue, leaf left out (#486)",
+        # NULL for readings saved before this version: "hidden" cannot be re-read from them, only
+        # from their saved grown_soil_level and grown_lower_cutoff (the pre-#486 way).
+        (
+            "ALTER TABLE tray_reading ADD COLUMN grown_blue_coverage REAL",
+        ),
+    ),
+    (
+        29,
+        "capture: whether the photo's row was added after the photo was taken (#488)",
+        # 1 for a row added later from the photo's info file, because rig.db was locked when the
+        # photo was saved (#439); 0 or NULL for a row written as the photo was taken.
+        ("ALTER TABLE capture ADD COLUMN added_later INTEGER",),
+    ),
 )
 
 SCHEMA_VERSION = MIGRATIONS[-1][0]
@@ -515,18 +585,28 @@ def _connect() -> Iterator[sqlite3.Connection]:
     with _migrate_guard:
         if path not in _migrated:
             path.parent.mkdir(parents=True, exist_ok=True)
-            with closing(sqlite3.connect(path, timeout=10)) as conn:
+            with closing(sqlite3.connect(path, timeout=settings.LOCK_WAIT_S)) as conn:
                 migrate(conn)
             _migrated.add(path)
-    conn = sqlite3.connect(path, timeout=10)
+    conn = sqlite3.connect(path, timeout=settings.LOCK_WAIT_S)
     conn.row_factory = sqlite3.Row
     # Off by default in SQLite, per connection, and only outside a transaction.
     conn.execute("PRAGMA foreign_keys = ON")
+    caller = sys._getframe(2).f_code.co_name  # past contextlib's __enter__
+    started = time.monotonic()
     try:
         yield conn
         conn.commit()
+    except sqlite3.OperationalError as exc:
+        if "locked" in str(exc):
+            _log.warning("%s: rig.db was locked, gave up after %.1f s", caller, time.monotonic() - started)
+        raise
     finally:
         conn.close()
+        # A long hold makes every other writer wait (#439): name it, so the holder can be found.
+        held = time.monotonic() - started
+        if held > settings.LOCK_WAIT_S / 2:
+            _log.warning("%s kept a rig.db connection open for %.1f s", caller, held)
 
 
 def record_capture(
@@ -546,14 +626,16 @@ def record_capture(
     jpeg_quality: int | None = None,
     jpeg_chroma: str | None = None,
     ae_state: str | None = None,
+    added_later: bool = False,
 ) -> int:
-    """Add one photo's row, return its id."""
+    """Add one photo's row, return its id. `added_later` marks a row added after the photo was
+    taken (#488)."""
     with _connect() as conn:
         cursor = conn.execute(
             "INSERT INTO capture (taken_at, path, purpose, experiment_id, calibration,"
             " validation, lens_position, focus_locked_at, exposure_us, analogue_gain, flags,"
-            " clock_synced, jpeg_quality, jpeg_chroma, ae_state)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " clock_synced, jpeg_quality, jpeg_chroma, ae_state, added_later)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 taken_at,
                 path,
@@ -570,6 +652,7 @@ def record_capture(
                 jpeg_quality,
                 jpeg_chroma,
                 ae_state,
+                int(added_later),
             ),
         )
         return cursor.lastrowid
@@ -605,8 +688,8 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
             " centre_x_px, centre_y_px, tilt_deg, margin_mm, area_mm2, segmenter,"
             " plant_px, plant_centre_x_px, plant_centre_y_px, calibration, outside_mm, found, warnings, outline,"
             " a1_bearing_deg, grown_method, grown_area_mm2, grown_plant_px, grown_plant_centre_x_px,"
-            " grown_plant_centre_y_px, grown_soil_level, grown_lower_cutoff)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " grown_plant_centre_y_px, grown_soil_level, grown_lower_cutoff, grown_blue_coverage)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [
                 (capture_id, t["tray_id"], t["slot"], t["a1_corner"], t["placement"],
                  t["centre_px"][0], t["centre_px"][1], t["tilt_deg"], t["margin_mm"],
@@ -614,7 +697,8 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
                  *(t.get("plant_centre_px") or (None, None)), t.get("calibration"), t.get("outside_mm"),
                  t.get("found"), _json_or_none(t.get("warnings")), _json_or_none(t.get("outline_px")),
                  t.get("a1_bearing_deg"), t.get("grown_method"), t.get("grown_area_mm2"), t.get("grown_plant_px"),
-                 *(t.get("grown_plant_centre_px") or (None, None)), t.get("grown_soil_level"), t.get("grown_lower_cutoff"))
+                 *(t.get("grown_plant_centre_px") or (None, None)), t.get("grown_soil_level"), t.get("grown_lower_cutoff"),
+                 t.get("grown_blue_coverage"))
                 for t in trays
             ],
         )
@@ -633,6 +717,7 @@ def record_tray_readings(capture_id: int, *, read_at: str, status: str, trays: l
                 for t in trays for c in t.get("cells", [])
             ],
         )
+    _readings_changed()
 
 
 def first_a1_bearing(experiment_id: int | None, tray_id: int) -> float | None:
@@ -672,17 +757,55 @@ def first_a1_reading(experiment_id: int | None, tray_id: int) -> dict | None:
 def first_warning_at(experiment_id: int | None, tray_id: int, warning: str, until: str) -> str | None:
     """When tray `tray_id` first carried `warning` in experiment `experiment_id`: the `taken_at`
     of its earliest photo taken up to `until` whose reading has it, whichever photos were read
-    first. None when none has, or the photo is in no experiment."""
+    first. None when none has, or the photo is in no experiment. That is the experiment's earliest
+    such photo whenever it was taken on or before `until` (`first_warnings`)."""
     if experiment_id is None:
         return None
+    first = first_warnings(experiment_id, warning).get(tray_id)
+    return first if first is not None and first <= until else None
+
+
+# The answers of `first_warnings`, by database file, experiment and warning, dropped whenever tray
+# readings are saved (`_readings_changed`). The Gallery asks for every tray of every photo of an
+# hour, and one search of a long experiment takes 50 ms or more (#408).
+_first_warnings: dict[tuple[Path, int, str], dict[int, str]] = {}
+_readings_saved = 0
+_first_warnings_lock = threading.Lock()
+
+
+def _readings_changed() -> None:
+    """Tray readings were saved or deleted: every answer of `first_warnings` is searched again.
+    Called after the change is committed, so a search started before it is not kept."""
+    global _readings_saved
+    with _first_warnings_lock:
+        _readings_saved += 1
+        _first_warnings.clear()
+
+
+def first_warnings(experiment_id: int, warning: str) -> dict[int, str]:
+    """Each tray of experiment `experiment_id` whose reading in some photo has `warning`, with the
+    `taken_at` of the earliest such photo. Searched once, then kept until tray readings are next
+    saved or deleted by this process. The app is the only writer of rig.db: after a change made
+    to it by hand, restart the app for the "names may be swapped" marks to follow it."""
+    key = (db_path(), experiment_id, warning)
+    with _first_warnings_lock:
+        saved, kept = _readings_saved, _first_warnings.get(key)
+    if kept is not None:
+        return dict(kept)
     with _connect() as conn:
-        row = conn.execute(
-            "SELECT MIN(capture.taken_at) FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id"
-            " WHERE capture.experiment_id = ? AND tray_reading.tray_id = ? AND capture.taken_at <= ?"
-            " AND EXISTS (SELECT 1 FROM json_each(tray_reading.warnings) WHERE json_each.value = ?)",
-            (experiment_id, tray_id, until, warning),
-        ).fetchone()
-    return row[0]
+        rows = conn.execute(
+            "SELECT tray_reading.tray_id, MIN(capture.taken_at) FROM tray_reading"
+            " JOIN capture ON capture.id = tray_reading.capture_id"
+            " WHERE capture.experiment_id = ? AND tray_reading.tray_id IS NOT NULL"
+            " AND EXISTS (SELECT 1 FROM json_each(tray_reading.warnings) WHERE json_each.value = ?)"
+            " GROUP BY tray_reading.tray_id",
+            (experiment_id, warning),
+        ).fetchall()
+    found = {tray_id: taken_at for tray_id, taken_at in rows}
+    with _first_warnings_lock:
+        if _readings_saved == saved:
+            _first_warnings[key] = found
+    return dict(found)
 
 
 def _point(row: sqlite3.Row, name: str) -> list[float] | None:
@@ -694,7 +817,7 @@ def _json_or_none(value: object) -> str | None:
     return None if value is None else json.dumps(value)
 
 
-def tray_readings(capture_id: int) -> dict | None:
+def tray_readings(capture_id: int, *, history: bool = True) -> dict | None:
     """Photo `capture_id`'s tray readings: when it was read, its status, the trays found in tray
     ID order, and `not_found`: each tray found in an earlier photo of the same experiment but not
     in this one, with where it was last found (`seen_in`: that photo's path and calibration and
@@ -706,7 +829,10 @@ def tray_readings(capture_id: int) -> dict | None:
     been read.
 
     A removed tray, a swapped tag and a dirty tag all look the same here: the rig cannot tell them
-    apart, so each is shown as not found since a time, never guessed at."""
+    apart, so each is shown as not found since a time, never guessed at.
+
+    `history` False leaves `not_found` and `in_both` empty: the export uses neither, and their
+    search of the photos before took 38% of the time of its data file (#437)."""
     with _connect() as conn:
         read = conn.execute(
             "SELECT tray_read.*, capture.taken_at, capture.experiment_id FROM tray_read"
@@ -731,7 +857,7 @@ def tray_readings(capture_id: int) -> dict | None:
                 "grown_over_other_cells": None if c["grown_over_other_cells"] is None else bool(c["grown_over_other_cells"]),
             })
         not_found, in_both = [], []
-        if read["experiment_id"] is not None and read["status"] == "read":
+        if history and read["experiment_id"] is not None and read["status"] == "read":
             # Photos read with trays placed only: one not read, too dark to find any tag, or with
             # no calibration says nothing about which trays are in it.
             in_experiment = (
@@ -799,6 +925,7 @@ def tray_readings(capture_id: int) -> dict | None:
             "grown_method": r["grown_method"], "grown_area_mm2": r["grown_area_mm2"], "grown_plant_px": r["grown_plant_px"],
             "grown_plant_centre_px": _point(r, "grown_plant_centre"),
             "grown_soil_level": r["grown_soil_level"], "grown_lower_cutoff": r["grown_lower_cutoff"],
+            "grown_blue_coverage": r["grown_blue_coverage"],
             # Cells are saved only for a tray named by one tag (#364).
             "cells": cells.get(r["tray_id"], []) if r["tray_id"] is not None else [],
         }
@@ -866,26 +993,36 @@ def experiment_tray_areas(experiment_id: int) -> dict[int, dict[int, float]]:
     return areas
 
 
-def experiment_tray_positions(experiment_id: int) -> list[dict]:
+def experiment_tray_positions(experiment_id: int, capture_ids: Iterable[int] | None = None) -> list[dict]:
     """Where each tray was found in each of the experiment's read photos (status `read`), oldest
-    first: tray ID, the photo's time, path and calibration, and the tray's centre in full-size
-    photo pixels. A tray with no tag cannot be followed from photo to photo and is left out; so is
-    a tag two trays carry in one photo, from that photo (#302)."""
+    first, or in those of `capture_ids` only: capture ID, tray ID, the photo's time, path and
+    calibration, and the tray's centre in full-size photo pixels. A tray with no tag cannot be
+    followed from photo to photo and is left out; so is a tag two trays carry in one photo, from
+    that photo (#302)."""
+    query = (
+        "SELECT tray_reading.capture_id, tray_reading.tray_id, capture.taken_at, capture.path, capture.calibration,"
+        " tray_reading.centre_x_px, tray_reading.centre_y_px FROM tray_reading"
+        " JOIN tray_read ON tray_read.capture_id = tray_reading.capture_id"
+        " JOIN capture ON capture.id = tray_reading.capture_id"
+        " WHERE capture.experiment_id = ? AND tray_read.status = 'read' AND tray_reading.tray_id IS NOT NULL"
+        " AND (SELECT COUNT(*) FROM tray_reading AS other WHERE other.capture_id = tray_reading.capture_id"
+        " AND other.tray_id = tray_reading.tray_id) = 1"
+    )
+    order = " ORDER BY capture.taken_at, tray_reading.tray_id"
     with _connect() as conn:
-        rows = conn.execute(
-            "SELECT tray_reading.tray_id, capture.taken_at, capture.path, capture.calibration,"
-            " tray_reading.centre_x_px, tray_reading.centre_y_px FROM tray_reading"
-            " JOIN tray_read ON tray_read.capture_id = tray_reading.capture_id"
-            " JOIN capture ON capture.id = tray_reading.capture_id"
-            " WHERE capture.experiment_id = ? AND tray_read.status = 'read' AND tray_reading.tray_id IS NOT NULL"
-            " AND (SELECT COUNT(*) FROM tray_reading AS other WHERE other.capture_id = tray_reading.capture_id"
-            " AND other.tray_id = tray_reading.tray_id) = 1"
-            " ORDER BY capture.taken_at, tray_reading.tray_id",
-            (experiment_id,),
-        ).fetchall()
+        if capture_ids is None:
+            rows = conn.execute(query + order, (experiment_id,)).fetchall()
+        else:
+            ids, rows = sorted(capture_ids), []
+            for i in range(0, len(ids), 500):  # under SQLite's limit on bound values
+                chunk = ids[i:i + 500]
+                rows += conn.execute(
+                    query + f" AND capture.id IN ({','.join('?' * len(chunk))})" + order, (experiment_id, *chunk)
+                ).fetchall()
+            rows.sort(key=lambda r: (r["taken_at"], r["tray_id"]))
     return [
-        {"tray_id": r["tray_id"], "taken_at": r["taken_at"], "path": r["path"], "calibration": r["calibration"],
-         "centre_px": (r["centre_x_px"], r["centre_y_px"])}
+        {"capture_id": r["capture_id"], "tray_id": r["tray_id"], "taken_at": r["taken_at"], "path": r["path"],
+         "calibration": r["calibration"], "centre_px": (r["centre_x_px"], r["centre_y_px"])}
         for r in rows
     ]
 
@@ -976,22 +1113,18 @@ def experiment_calibrations(experiment_id: int) -> list[str | None]:
     return [row[0] for row in rows]
 
 
-def experiment_tray_reads_mark(experiment_id: int) -> tuple:
-    """A mark that changes whenever a photo of the experiment is read or read again (#332): the
-    database, its photos read and when the newest was, and its tray readings' rows, newest row and
-    centres."""
+def experiment_tray_reads(experiment_id: int) -> dict[int, str]:
+    """When each of the experiment's photos the tray reader has handled was last read, by capture
+    ID, whatever the result (`read`, `read failed`, no trays found and the rest): a photo read or
+    read again changes its time, so a cached reading of the experiment knows which photos to look
+    at again (#332, #416)."""
     with _connect() as conn:
-        reads = conn.execute(
-            "SELECT COUNT(*), MAX(tray_read.read_at) FROM tray_read JOIN capture ON capture.id = tray_read.capture_id"
-            " WHERE capture.experiment_id = ?",
-            (experiment_id,),
-        ).fetchone()
         rows = conn.execute(
-            "SELECT COUNT(*), MAX(tray_reading.id), TOTAL(centre_x_px), TOTAL(centre_y_px), TOTAL(tray_id)"
-            " FROM tray_reading JOIN capture ON capture.id = tray_reading.capture_id WHERE capture.experiment_id = ?",
+            "SELECT tray_read.capture_id, tray_read.read_at FROM tray_read"
+            " JOIN capture ON capture.id = tray_read.capture_id WHERE capture.experiment_id = ?",
             (experiment_id,),
-        ).fetchone()
-    return (str(db_path()), *reads, *rows)
+        ).fetchall()
+    return {capture_id: read_at for capture_id, read_at in rows}
 
 
 def experiment_shared_tray_photos(experiment_id: int) -> set[int]:
@@ -1141,6 +1274,8 @@ def discard_experiment(experiment_id: int) -> None:
         if _experiment(conn, experiment_id)["state"] != "set up":
             raise ExperimentError("only an experiment that has never started can be discarded")
         conn.execute("DELETE FROM experiment_hidden_tray WHERE experiment_id = ?", (experiment_id,))
+        conn.execute("DELETE FROM reprocess_failure WHERE run_id IN (SELECT id FROM reprocess_run WHERE experiment_id = ?)", (experiment_id,))
+        conn.execute("DELETE FROM reprocess_run WHERE experiment_id = ?", (experiment_id,))
         conn.execute("DELETE FROM experiment WHERE id = ?", (experiment_id,))
 
 
@@ -1207,6 +1342,62 @@ def record_scheduled_photos(
         )
 
 
+def unlinked_slots(experiment_id: int) -> list[dict]:
+    """Slots recorded as neither taken nor missed: their photo was saved to disk while rig.db
+    could not be written, so it has no row yet (#439). Oldest first."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT id, due_at FROM scheduled_photo WHERE experiment_id = ?"
+            " AND capture_id IS NULL AND missed_reason IS NULL ORDER BY due_at",
+            (experiment_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def link_unlinked_slots(
+    experiment_id: int, interval_s: float, *, not_found: str,
+    unreadable: Sequence[str] = (), unreadable_reason: str | None = None,
+    photo_paths: Mapping[tuple[str, int], str] | None = None,
+) -> None:
+    """Link each of `unlinked_slots` to its photo (#439). `photo_paths` maps `(schedule start,
+    slot)` to the path of the photo whose info file names that slot (#488): a slot is linked to
+    its own photo, whenever it was saved. A slot no info file names, as for photos saved before
+    #488, is linked to the experiment's earliest `capture` photo taken within its interval that
+    no slot holds and no info file names. A slot with no photo is missed with the reason
+    `unreadable_reason` when a photo whose info file could not be read was taken within its
+    interval (`unreadable`, UTC times, #481), otherwise with the reason `not_found`."""
+    named = photo_paths or {}
+    claimed = set(named.values())
+    unreadable_at = [datetime.fromisoformat(t) for t in unreadable]
+    with _connect() as conn:
+        for slot in conn.execute(
+            "SELECT id, schedule_since, slot, due_at FROM scheduled_photo WHERE experiment_id = ?"
+            " AND capture_id IS NULL AND missed_reason IS NULL ORDER BY due_at",
+            (experiment_id,),
+        ).fetchall():
+            path = named.get((slot["schedule_since"], slot["slot"]))
+            if path is not None:
+                photo = conn.execute("SELECT id FROM capture WHERE path = ?", (path,)).fetchone()
+            else:
+                candidates = conn.execute(
+                    "SELECT id, path FROM capture WHERE experiment_id = ? AND purpose = 'capture'"
+                    " AND julianday(taken_at) >= julianday(?)"
+                    " AND julianday(taken_at) < julianday(?) + ? / 86400.0"
+                    " AND id NOT IN (SELECT capture_id FROM scheduled_photo"
+                    "  WHERE experiment_id = ? AND capture_id IS NOT NULL)"
+                    " ORDER BY taken_at",
+                    (experiment_id, slot["due_at"], slot["due_at"], interval_s, experiment_id),
+                ).fetchall()
+                photo = next((c for c in candidates if c["path"] not in claimed), None)
+            if photo is not None:
+                conn.execute("UPDATE scheduled_photo SET capture_id = ? WHERE id = ?", (photo["id"], slot["id"]))
+                continue
+            due = datetime.fromisoformat(slot["due_at"])
+            in_slot = any(due <= t < due + timedelta(seconds=interval_s) for t in unreadable_at)
+            reason = unreadable_reason if in_slot and unreadable_reason else not_found
+            conn.execute("UPDATE scheduled_photo SET missed_reason = ? WHERE id = ?", (reason, slot["id"]))
+
+
 def save_photo_quality(changed_at: str, quality: int, chroma: str) -> None:
     """Save the photo quality setting (`camera_settings`, settings.PHOTO_QUALITY_SETTING) and
     record the change, in one transaction, so a setting never changes without its row (#359)."""
@@ -1246,6 +1437,16 @@ def app_starts(after: str) -> list[str]:
             "SELECT started_at FROM app_start WHERE started_at > ? ORDER BY started_at", (after,)
         ).fetchall()
     return [started_at for (started_at,) in rows]
+
+
+def last_photo_taken_at(experiment_id: int, until: str) -> str | None:
+    """When the experiment's newest photo taken up to `until` was taken; None before its first.
+    One index lookup, for the schedule's downtime on every page refresh (#416)."""
+    with _connect() as conn:
+        (taken_at,) = conn.execute(
+            "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ? AND taken_at <= ?", (experiment_id, until)
+        ).fetchone()
+    return taken_at
 
 
 def scheduled_photos_taken(experiment_id: int, schedule_since: str) -> list[dict]:
@@ -1298,8 +1499,8 @@ def captures_for_experiment(experiment_id: int, until: str | None = None) -> lis
 
 
 def create_export(experiment_id: int, *, now: str, data: bool = True, photos: bool = True) -> dict:
-    """A new export, refused for an experiment that has never started, or while an export of it
-    is still being prepared. A running experiment can be exported: the export holds its photos
+    """A new export, refused for an experiment that has never started, or while an export, of it
+    or of another experiment, is still being prepared. A running experiment can be exported: the export holds its photos
     up to `now` (Aaron, 2026-10-09). `data` and `photos`: what the user ticked to go in it."""
     with _connect() as conn:
         # Take the write lock before checking, so two clicks cannot both start one.
@@ -1309,12 +1510,12 @@ def create_export(experiment_id: int, *, now: str, data: bool = True, photos: bo
             raise ExperimentError("an experiment that has not started has nothing to export")
         if state == "purged":
             raise ExperimentError("this experiment was purged: there is nothing left to export")
-        busy = conn.execute(
-            "SELECT 1 FROM export WHERE experiment_id = ? AND finished_at IS NULL",
-            (experiment_id,),
-        ).fetchone()
-        if busy:
+        # One data file built at a time on the rig (#437): two at once doubled the time of each.
+        busy = conn.execute("SELECT experiment_id FROM export WHERE finished_at IS NULL").fetchone()
+        if busy and busy[0] == experiment_id:
             raise ExperimentError("an export of this experiment is already being prepared")
+        if busy:
+            raise ExperimentError("an export of another experiment is being prepared: export again when it is done")
         cursor = conn.execute(
             "INSERT INTO export (experiment_id, started_at, data, photos) VALUES (?, ?, ?, ?)",
             (experiment_id, now, int(data), int(photos)),
@@ -1331,12 +1532,23 @@ def finish_export(export_id: int, *, now: str, file: str, bytes: int, files: int
         )
 
 
-def ready_export(export_id: int, *, now: str, photo_parts: int) -> None:
-    """An export in parts (#368) is ready at once: its parts are zipped as they download."""
+def ready_export(export_id: int, *, now: str, photo_parts: int, file: str, bytes: int) -> bool:
+    """An export in parts (#368) is ready once its data file, part 0, is built (#437): `file`, its
+    path from the rig's data folder, and its size. False, and nothing changed, when the export was
+    already ended (stopped, or failed by a restart) while it was built."""
     with _connect() as conn:
-        conn.execute(
-            "UPDATE export SET finished_at = ?, photo_parts = ? WHERE id = ?", (now, photo_parts, export_id)
-        )
+        return conn.execute(
+            "UPDATE export SET finished_at = ?, photo_parts = ?, file = ?, bytes = ?"
+            " WHERE id = ? AND finished_at IS NULL",
+            (now, photo_parts, file, bytes, export_id),
+        ).rowcount == 1
+
+
+def unfinished_export() -> dict | None:
+    """The export being prepared on the rig, if any: at most one at a time (#437)."""
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM export WHERE finished_at IS NULL ORDER BY id LIMIT 1").fetchone()
+    return dict(row) if row else None
 
 
 def record_part_sent(export_id: int, part: int, *, now: str) -> None:
@@ -1356,7 +1568,7 @@ def parts_sent(export_id: int) -> set[int]:
 def fail_export(export_id: int, *, now: str, error: str) -> None:
     with _connect() as conn:
         conn.execute(
-            "UPDATE export SET finished_at = ?, error = ? WHERE id = ?", (now, error, export_id)
+            "UPDATE export SET finished_at = ?, error = ? WHERE id = ? AND finished_at IS NULL", (now, error, export_id)
         )
 
 
@@ -1411,24 +1623,115 @@ def cell_reading_count(experiment_id: int) -> int:
         ).fetchone()[0]
 
 
-def complete_export(experiment_id: int) -> dict | None:
-    """The newest export that holds every photo of the experiment: the photos ticked (#368),
-    finished, no error, its zip not removed, and started after the last photo; for an export in
-    parts, every photo part sent in full. A partial export taken while running does not count
-    unless no photo came after it."""
+def save_export_part_files(export_id: int, parts: list[list[tuple[int, str, int | None]]]) -> None:
+    """Record every photo part's files once, when the export's data file is built (#482): `parts`
+    holds part 1 first, then part 2, and so on; each file is (the capture's id, its name in the
+    zip, its size, or None when it was missing on the rig at that moment). A download or Purge
+    reads this stored list from then on, never recomputing it from what is on disk now."""
+    rows = [
+        (export_id, part, capture_id, name, size)
+        for part, files in enumerate(parts, start=1)
+        for capture_id, name, size in files
+    ]
+    if not rows:
+        return
     with _connect() as conn:
-        last = conn.execute(
-            "SELECT MAX(taken_at) FROM capture WHERE experiment_id = ?", (experiment_id,)
-        ).fetchone()[0]
+        conn.executemany(
+            "INSERT INTO export_part_file (export_id, part, capture_id, name, bytes) VALUES (?, ?, ?, ?, ?)",
+            rows,
+        )
+
+
+def export_part_files(export_id: int, part: int) -> list[dict]:
+    """The stored files of one photo part (1 and up) of the export, oldest capture first: each
+    file's capture id, its name in the zip and the size recorded when the export was built (None:
+    missing on the rig then)."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT capture_id, name, bytes FROM export_part_file WHERE export_id = ? AND part = ? ORDER BY id",
+            (export_id, part),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def export_sent_coverage(export_id: int) -> dict:
+    """Of the export's stored photo-part files: the capture ids verifiably sent (every one of
+    their files' sizes was recorded at build time, in a part sent in full — a capture is two
+    files, .jpg and .json, and one being sent does not cover the other, #482 review), and the
+    (capture id, name) of files recorded missing on the rig when the export was built, from a
+    part that was sent. Whether a missing file has since appeared is for the caller, which can
+    read the rig's disk; this module only reads rig.db."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT f.capture_id, f.name, f.bytes FROM export_part_file f"
+            " JOIN export_part_sent s ON s.export_id = f.export_id AND s.part = f.part"
+            " WHERE f.export_id = ?",
+            (export_id,),
+        ).fetchall()
+    by_capture: dict[int, list[sqlite3.Row]] = {}
+    for row in rows:
+        by_capture.setdefault(row["capture_id"], []).append(row)
+    return {
+        "sent_capture_ids": {
+            capture_id for capture_id, files in by_capture.items()
+            if all(f["bytes"] is not None for f in files)
+        },
+        "missing_at_build": [
+            {"capture_id": row["capture_id"], "name": row["name"]} for row in rows if row["bytes"] is None
+        ],
+    }
+
+
+def reprocessed_since(experiment_id: int, after: str) -> bool:
+    """Whether a Reprocess of the experiment finished, whole or stopped partway through, after
+    `after` (an export's build time, #482): a Reprocess changes readings already inside a
+    downloaded zip, which Purge must not then rely on."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM reprocess_run WHERE experiment_id = ? AND finished_at IS NOT NULL"
+            " AND finished_at > ? LIMIT 1",
+            (experiment_id, after),
+        ).fetchone()
+    return row is not None
+
+
+def newest_export_for_purge(experiment_id: int) -> dict | None:
+    """The experiment's newest export that finished without error and was not removed, whatever
+    it was ticked to hold: the one candidate Purge checks part 0 and photo coverage against
+    (#482), so the two are never a mix of two different exports."""
+    with _connect() as conn:
         row = conn.execute(
             "SELECT * FROM export WHERE experiment_id = ? AND finished_at IS NOT NULL"
-            " AND photos = 1 AND error IS NULL AND removed_at IS NULL AND (? IS NULL OR started_at >= ?)"
-            " AND (photo_parts IS NULL OR photo_parts = (SELECT COUNT(DISTINCT part) FROM export_part_sent s"
-            " WHERE s.export_id = export.id AND s.part >= 1))"
-            " ORDER BY id DESC LIMIT 1",
-            (experiment_id, last, last),
+            " AND error IS NULL AND removed_at IS NULL ORDER BY id DESC LIMIT 1",
+            (experiment_id,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def complete_export(experiment_id: int) -> dict | None:
+    """The newest export that holds every current photo of the experiment, verifiably: the photos
+    and data ticked (#368), finished, no error, its zip not removed, part 0 sent in full, no
+    Reprocess finished since, and every capture row covered by a photo part sent in full (#482). A
+    photo added, or reappeared, after the export's list was fixed is not covered, however recent
+    the export."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM export WHERE experiment_id = ? AND finished_at IS NOT NULL"
+            " AND data = 1 AND photos = 1 AND error IS NULL AND removed_at IS NULL"
+            " ORDER BY id DESC LIMIT 1",
+            (experiment_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    export = dict(row)
+    if 0 not in parts_sent(export["id"]):
+        return None
+    if reprocessed_since(experiment_id, export["finished_at"]):
+        return None
+    all_ids = {c["id"] for c in captures_for_experiment(experiment_id)}
+    if all_ids - export_sent_coverage(export["id"])["sent_capture_ids"]:
+        return None
+    return export
 
 
 def purge_experiment(experiment_id: int, *, now: str) -> dict:
@@ -1443,10 +1746,97 @@ def purge_experiment(experiment_id: int, *, now: str) -> dict:
         conn.execute(f"DELETE FROM cell_reading WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM tray_read WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute(f"DELETE FROM exclusion WHERE capture_id IN ({photos})", (experiment_id,))
+        conn.execute(f"DELETE FROM export_part_file WHERE capture_id IN ({photos})", (experiment_id,))
         conn.execute("DELETE FROM capture WHERE experiment_id = ?", (experiment_id,))
         conn.execute(
             "UPDATE export SET removed_at = ? WHERE experiment_id = ? AND removed_at IS NULL",
             (now, experiment_id),
         )
         conn.execute("UPDATE experiment SET purged_at = ? WHERE id = ?", (now, experiment_id))
-        return _experiment(conn, experiment_id)
+        purged = _experiment(conn, experiment_id)
+    _readings_changed()
+    return purged
+
+
+# --- Reprocess runs (#483) ------------------------------------------------------------------------
+
+
+def create_reprocess_run(experiment_id: int, *, total: int, started_at: str) -> int:
+    """Record a Reprocess of `experiment_id` that has started, over `total` photos; its id."""
+    with _connect() as conn:
+        return conn.execute(
+            "INSERT INTO reprocess_run (experiment_id, started_at, state, total, done, failed)"
+            " VALUES (?, ?, 'running', ?, 0, 0)",
+            (experiment_id, started_at, total),
+        ).lastrowid
+
+
+def update_reprocess_run(run_id: int, *, done: int, failed: int, state: str | None = None, finished_at: str | None = None) -> None:
+    """Save how far run `run_id` has got; with `state` and `finished_at`, how it ended."""
+    with _connect() as conn:
+        conn.execute(
+            "UPDATE reprocess_run SET done = ?, failed = ?, state = COALESCE(?, state),"
+            " finished_at = COALESCE(?, finished_at) WHERE id = ?",
+            (done, failed, state, finished_at, run_id),
+        )
+
+
+def add_reprocess_failure(run_id: int, *, path: str, reason: str, failed_at: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            "INSERT INTO reprocess_failure (run_id, path, reason, failed_at) VALUES (?, ?, ?, ?)",
+            (run_id, path, reason, failed_at),
+        )
+
+
+def _reprocess_run(conn: sqlite3.Connection, row: sqlite3.Row | None, *, failures: bool = True) -> dict | None:
+    if row is None:
+        return None
+    run = dict(row)
+    if failures:
+        run["failures"] = [
+            {"path": f["path"], "reason": f["reason"]}
+            for f in conn.execute("SELECT path, reason FROM reprocess_failure WHERE run_id = ? ORDER BY id", (run["id"],))
+        ]
+    return run
+
+
+def latest_reprocess_run(experiment_id: int, *, failures: bool = True) -> dict | None:
+    """The newest Reprocess of the experiment with its failed photos (`failures`: path and reason;
+    left out, and not read, with `failures` False), None when it has had none."""
+    with _connect() as conn:
+        return _reprocess_run(conn, conn.execute(
+            "SELECT * FROM reprocess_run WHERE experiment_id = ? ORDER BY id DESC LIMIT 1", (experiment_id,)).fetchone(),
+            failures=failures)
+
+
+def running_reprocess_run() -> dict | None:
+    """The Reprocess marked running, whichever experiment, without its failed photos."""
+    with _connect() as conn:
+        return _reprocess_run(conn, conn.execute(
+            "SELECT * FROM reprocess_run WHERE state = 'running' ORDER BY id DESC LIMIT 1").fetchone(), failures=False)
+
+
+def last_finished_reprocess_rate() -> dict | None:
+    """The newest finished Reprocess that redid photos: its id, the photos it redid (done less the
+    ones it failed at) and its seconds, for an estimate of how long the next one takes. A run that
+    gave a photo up for a lock is left out: that costs the tries' waits and says nothing of the time
+    a photo takes. None when there is none."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT id, done - failed AS redone, started_at, finished_at FROM reprocess_run"
+            " WHERE state = 'finished' AND done - failed > 0 AND finished_at IS NOT NULL"
+            " AND NOT EXISTS (SELECT 1 FROM reprocess_failure WHERE run_id = reprocess_run.id AND reason LIKE '%rig.db stayed locked%')"
+            " ORDER BY id DESC LIMIT 1").fetchone()
+    if row is None:
+        return None
+    seconds = (datetime.fromisoformat(row["finished_at"]) - datetime.fromisoformat(row["started_at"])).total_seconds()
+    return {"run": row["id"], "photos": row["redone"], "seconds": seconds}
+
+
+def interrupt_running_reprocesses(*, finished_at: str) -> int:
+    """Mark every Reprocess still 'running' as 'interrupted': at start-up, none is running in this
+    process, so one left running was cut off when the app stopped. Returns how many."""
+    with _connect() as conn:
+        return conn.execute(
+            "UPDATE reprocess_run SET state = 'interrupted', finished_at = ? WHERE state = 'running'", (finished_at,)).rowcount

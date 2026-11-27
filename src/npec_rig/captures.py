@@ -10,6 +10,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 
@@ -214,12 +215,20 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
     # Read before the capture, so the lens check compares the photo against the lock it was
     # taken under.
     focus = manager.focus_status()
+    # Read once, here: the info file and the photo's database row both name this calibration, so
+    # a calibration replaced while the photo is saved cannot make them disagree (#488).
+    calibration = _active_calibration_stem()
     with health.photo_purpose(purpose):
         array, sensor_metadata = manager._capture_full_res()
     health.record_good_photo()
+    # The uptime record also writes the last tick to rig.db, which waits for a lock as the row
+    # does: both count as the photo's database time (#481).
+    started = time.monotonic()
+    uptime = uptime_record()
+    database_s = time.monotonic() - started
     checks = {
         "lens_check": lens_check(sensor_metadata.get("LensPosition"), focus["lens_position"]),
-        "uptime": uptime_record(),
+        "uptime": uptime,
         "camera_fault": health.camera_fault_check(),
     }
     if purpose in _MEASURED_PURPOSES:
@@ -232,6 +241,9 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         "lens_position": manager.get_lens_position(),
         "roi": manager.get_roi(),
         "focus": focus,
+        # The calibration the photo is measured with, None when there is none: a row added to
+        # rig.db later reads it from here, never guesses it (#488).
+        "calibration": calibration,
         "sensor_metadata": sensor_metadata,
         **checks,
         # Every reason this photo is not covered by the validation bands, one list for the pages.
@@ -253,7 +265,15 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
         None if owner is None else {k: owner[k] for k in ("id", "uuid", "name", "folder")}
     )
     record = _save_photo(array, sidecar, owner)
-    record["capture_id"] = _record_in_database(record)
+    started = time.monotonic()
+    try:
+        record["capture_id"] = _record_in_database(record)
+    finally:
+        _saving.discard(record["path"])
+    # How long the photo's rig.db writes took after the camera's work, waits for a lock
+    # included: the scheduler tells slots lost to the database from slots lost to a slow camera
+    # by it (#481).
+    record["database_s"] = database_s + time.monotonic() - started
     return array, record
 
 
@@ -286,29 +306,200 @@ AE_STATES = {0: "idle", 1: "searching", 2: "converged"}
 
 def _record_in_database(record: dict) -> int | None:
     """Add the photo's `capture` row, return its id. A failure is logged, never raised: the
-    photo and its sidecar are already saved, and the sidecar is the full record."""
-    sensor = record["sensor_metadata"]
+    photo and its sidecar are already saved, and the sidecar is the full record, from which
+    `adopt_unrecorded_photos` adds the row later (#439)."""
     try:
-        return database.record_capture(
-            taken_at=record["timestamp"],
-            path=record["path"],
-            purpose=record["purpose"],
-            experiment_id=(record["experiment"] or {}).get("id"),
-            calibration=_active_calibration_stem(),
-            validation=record.get("validation", {}).get("session"),
-            lens_position=sensor.get("LensPosition"),
-            focus_locked_at=record["focus"]["lens_position"],
-            exposure_us=sensor.get("ExposureTime"),
-            analogue_gain=sensor.get("AnalogueGain"),
-            flags=record["flags"],
-            clock_synced=record["clock"]["synchronized"],
-            jpeg_quality=record["photo_quality"]["quality"],
-            jpeg_chroma=record["photo_quality"]["chroma"],
-            ae_state=AE_STATES.get(sensor.get("AeState")),
-        )
+        return _record_capture(record, record["path"], calibration=record["calibration"])
     except (sqlite3.Error, RuntimeError):
         logger.exception("Could not add the photo %s to the database", record["filename"])
         return None
+
+
+class Adopted(NamedTuple):
+    """What `adopt_unrecorded_photos` did: how many rows it added, when each photo it could not
+    add was taken (UTC, ISO 8601), read from its file name since its info file could not be, and
+    the photo each scheduled slot's info file names, `(schedule start, slot)` to path, for the
+    photos it added and the ones that had a row already (#488)."""
+
+    added: int
+    unreadable: list[str]
+    slots: dict[tuple[str, int], str]
+
+
+def adopt_unrecorded_photos(
+    experiment: dict, days: set[str] | None = None, *, want_slots: bool = True
+) -> Adopted:
+    """Add a `capture` row for each of `experiment`'s photos saved in the `days` folders
+    (YYYY-MM-DD), or in every day folder when `days` is None, without one: saved while rig.db
+    could not be written (#439). Each row is marked
+    as added later and gets the calibration its info file names (#488). An older info file has
+    none: the calibration of its recorded validation is used, or none.
+
+    With `want_slots` False the info files of photos that have a row are not read at all, which
+    is far cheaper over an experiment's whole folder; `Adopted.slots` is then empty (#489).
+
+    A photo whose info file cannot be read (empty or damaged, as after a power cut) is left
+    without a row and logged; the others are still added (#481). A rig.db error is raised, to be
+    tried again later."""
+    stills = experiments_root() / experiment["folder"] / "stills"
+    if days is None:
+        days = {folder.name for folder in stills.iterdir() if folder.is_dir()} if stills.is_dir() else set()
+    found = []
+    for day in sorted(days):
+        prefix = f"experiments/{experiment['folder']}/stills/{day}"
+        for sidecar in sorted((stills / day).glob("*.json")):
+            if sidecar.with_suffix(".jpg").exists():
+                found.append((f"{prefix}/{sidecar.stem}", sidecar))
+    # In batches: SQLite takes at most 32,766 values in one query, and an experiment's photos
+    # can pass that (a photo a minute is 43,000 in a month).
+    known: dict[str, dict] = {}
+    for start in range(0, len(found), _ADOPT_BATCH):
+        known.update(database.captures_by_path([path for path, _ in found[start : start + _ADOPT_BATCH]]))
+    added = 0
+    unreadable = []
+    slots = {}
+    for path, sidecar in found:
+        if path in _saving:  # being saved by `take_photo`, which adds its own row
+            continue
+        if path in known and not want_slots:
+            continue
+        try:
+            record = json.loads(sidecar.read_text())
+            slot = _slot_of(record)
+            if slot is not None:
+                slots[slot] = path
+            if path in known:
+                continue
+            _record_capture(record, path, calibration=_calibration_of(record), added_later=True)
+        except sqlite3.IntegrityError:
+            # Another adoption, or the photo's own row, came first: it has its row. Any other
+            # integrity error is a real one.
+            if not database.captures_by_path([path]):
+                raise
+            continue
+        # Only the file's contents: empty or damaged (ValueError covers JSON and text decoding),
+        # or missing what a row needs. A database error, a refusal from `database._connect`
+        # (RuntimeError) or a failed read (OSError) is raised, to be tried again later.
+        except (ValueError, KeyError, TypeError, AttributeError):
+            if path in known:  # it has its row; only its slot could not be read
+                continue
+            logger.exception("Could not add the photo %s to the database: its info file cannot be read", path)
+            taken_at = _taken_at_from_name(sidecar)
+            if taken_at is not None:
+                unreadable.append(taken_at)
+            continue
+        logger.warning("Added the photo %s to the database after it was taken", path)
+        added += 1
+    return Adopted(added, unreadable, slots)
+
+
+_ADOPT_BATCH = 500
+
+# Photos between their files being saved and their row being added (`take_photo`): adoption leaves
+# them alone, or it would add the row first and the photo's own would fail (#489).
+_saving: set[str] = set()
+
+
+def adopt_all_unrecorded_photos(experiment_id: int | None = None) -> int:
+    """Add the missing rows of every photo of every experiment that is not purged, or of
+    `experiment_id` alone (#489). Returns how many photos are still without a row: those whose
+    info file cannot be read. A rig.db error is raised."""
+    still_missing = 0
+    for experiment in database.list_experiments():
+        if experiment["state"] in ("set up", "purged") or not experiment["folder"]:
+            continue
+        if experiment_id is not None and experiment["id"] != experiment_id:
+            continue
+        still_missing += len(adopt_unrecorded_photos(experiment, want_slots=False).unreadable)
+    return still_missing
+
+
+def adopt_quietly(experiment_id: int | None = None) -> None:
+    """`adopt_all_unrecorded_photos` for a caller that must go on whatever it finds: Start,
+    Stop and Export are never held up by a locked rig.db (#489). A failure is logged."""
+    try:
+        adopt_all_unrecorded_photos(experiment_id)
+    except Exception:
+        logger.exception("Could not add the photos without a row to rig.db; trying again later")
+
+
+def scheduled_slots_on_disk(experiment: dict, since: str, from_day: str) -> dict[int, str]:
+    """The slots that the info files of `experiment`'s photos name, `{slot: due time}`, for the
+    schedule that started at `since`, read from the day folders `from_day` (YYYY-MM-DD) on. An
+    info file that cannot be read is left out (#489)."""
+    named: dict[int, str] = {}
+    stills = experiments_root() / experiment["folder"] / "stills"
+    if not stills.is_dir():
+        return named
+    for day in sorted(d for d in stills.iterdir() if d.is_dir() and d.name >= from_day):
+        for sidecar in day.glob("*.json"):
+            try:
+                schedule = json.loads(sidecar.read_text()).get("schedule")
+                if isinstance(schedule, dict) and schedule["since"] == since:
+                    named[int(schedule["slot"])] = schedule["due_at"]
+            except (ValueError, KeyError, TypeError, AttributeError, OSError):
+                continue
+    return named
+
+
+def _slot_of(record: dict) -> tuple[str, int] | None:
+    """The scheduled slot a photo's info file names, `(schedule start, slot)`; None for a photo
+    taken by hand, or saved before #488."""
+    schedule = record.get("schedule")
+    if not isinstance(schedule, dict):
+        return None
+    return schedule["since"], int(schedule["slot"])
+
+
+def _taken_at_from_name(sidecar: Path) -> str | None:
+    """When a photo was taken, from its day folder and file name (`_save_photo`), in UTC; None
+    for a name the rig did not give it, such as a file copied in by hand."""
+    try:
+        taken = datetime.strptime(f"{sidecar.parent.name} {sidecar.stem}", "%Y-%m-%d %H%M%S_%f")
+    except ValueError:
+        return None
+    return taken.replace(tzinfo=timezone.utc).isoformat()
+
+
+def _calibration_of(record: dict) -> str | None:
+    """The calibration a photo was measured with, from its info file: written there since #488.
+    An older info file only names its validation session, and that session names the calibration
+    it checked; None when there is no such session or it cannot be read."""
+    if "calibration" in record:
+        return record["calibration"]
+    session = (record.get("validation") or {}).get("session")
+    if session is None:
+        return None
+    from npec_rig import validation_store  # imported here: calibration_store, which it imports, imports this module
+
+    try:
+        return validation_store.load_session(session)["calibration_stem"]
+    except (LookupError, ValueError, OSError):
+        return None
+
+
+def _record_capture(record: dict, path: str, *, calibration: str | None, added_later: bool = False) -> int:
+    sensor = record["sensor_metadata"]
+    return database.record_capture(
+        taken_at=record["timestamp"],
+        path=path,
+        purpose=record["purpose"],
+        experiment_id=(record["experiment"] or {}).get("id"),
+        calibration=calibration,
+        validation=record.get("validation", {}).get("session"),
+        lens_position=sensor.get("LensPosition"),
+        focus_locked_at=record["focus"]["lens_position"],
+        exposure_us=sensor.get("ExposureTime"),
+        analogue_gain=sensor.get("AnalogueGain"),
+        flags=record["flags"],
+        # Info files from before #344 (2 Nov) have no "clock", from before #359 (5 Nov) no
+        # "photo_quality": a photo added from one later gets None for them (#481).
+        clock_synced=(record.get("clock") or {}).get("synchronized"),
+        jpeg_quality=(record.get("photo_quality") or {}).get("quality"),
+        jpeg_chroma=(record.get("photo_quality") or {}).get("chroma"),
+        ae_state=AE_STATES.get(sensor.get("AeState")),
+        added_later=added_later,
+    )
 
 
 def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = None) -> dict:
@@ -332,8 +523,14 @@ def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = Non
     quality = metadata.get("photo_quality") or photo_quality_in_use()
     jpeg_tmp.write_bytes(array_to_jpeg(image, description, **quality))
     json_tmp.write_text(json.dumps(record, indent=2, default=str))
-    json_tmp.replace(json_path)
-    jpeg_tmp.replace(jpeg_path)
+    # Until `take_photo` has added the row (it discards the path), adoption skips this photo.
+    _saving.add(f"{path_prefix}/{stem}")
+    try:
+        json_tmp.replace(json_path)
+        jpeg_tmp.replace(jpeg_path)
+    except BaseException:
+        _saving.discard(f"{path_prefix}/{stem}")
+        raise
 
     return {
         "date": timestamp.strftime("%Y-%m-%d"),
@@ -525,6 +722,7 @@ def start_experiment(experiment_id: int, *, stop_running: bool = False) -> dict:
 def stop_experiment(experiment_id: int) -> dict:
     experiment = database.stop_experiment(experiment_id, now=_now())
     _write_experiment_json(experiment)
+    adopt_quietly(experiment_id)  # photos saved while rig.db was locked get their rows now (#489)
     return experiment
 
 
@@ -544,7 +742,10 @@ def purge_confirmation(experiment: dict) -> str:
 def purge_experiment(experiment_id: int, *, confirm: str, override_no_export: bool = False) -> dict:
     """Purge a stopped experiment (PLAN.md, *Purging an experiment*): delete its folder (photos
     and export zips) and its photo rows; its row stays as the record. Refused unless `confirm`
-    matches, and, without `override_no_export`, unless a complete export exists."""
+    matches, and, without `override_no_export`, unless `database.complete_export` finds a complete
+    export (#482: a simple, conservative yes/no gate for a direct or scripted caller). The Purge
+    route always passes `override_no_export=True`, having already made its own, richer check
+    (`exports.purge_status`, with a specific reason); that route is the only caller in the app."""
     experiment = database.get_experiment(experiment_id)
     if experiment["state"] != "stopped":
         raise database.ExperimentError("only a stopped experiment can be purged")

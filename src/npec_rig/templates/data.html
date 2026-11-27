@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% set nav_active = "data" %}
+{% block title_suffix %} — Data{% endblock %}
+{#- The experiment chooser sits in the head, so every choice and Make video fit 1024 x 600. -#}
+{% block breadcrumb %}<h1>Data</h1>
+  {%- if experiment %}
+  {{ ui.button(experiment.name or ("Experiment of " ~ experiment.periods[0].started_at[:16].replace("T", " ") ~ " UTC"), id="tl-experiment", icon_after="chev", attrs={"aria-label": "Experiment, choose another"}) }}
+  {#- The tabs sit in the head too: under it they would push Make video off a 1024 x 600 screen. -#}
+  <div class="data-tabs">{{ ui.choices("data-tabs", "Data views", [("timelapse", "Time lapse", ""), ("export", "Export", "")], tab) }}</div>
+  {%- endif %}
+{% endblock %}
+
+{#- The Data page (#64): a time lapse video of a tray or one of its cells, made on the rig in the
+    background and kept until the next one is started. All trays and the table map follow;
+    exports move here later. -#}
+{% block head_extra %}
+<style>
+  .tl { display: grid; gap: 16px; max-width: 820px; }
+  .tl-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 16px; }
+  .tl-row > h3 { margin: 0; font-size: 1rem; }
+  #tl-experiment { min-width: 0; max-width: 60%; }
+  /* Every row one button tall, so all five rows and Make video fit 1024 x 600. */
+  .tl-what { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  #tl-when { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #tl-step { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #tl-method { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tl-mask { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 24px; align-items: center; }
+  #tl-mask { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #tl-example { width: 64px; height: 64px; border-radius: var(--radius); }
+  .tl-days { display: grid; gap: 24px; max-width: 520px; }
+  .data-tabs { margin-left: auto; }
+  .data-tabs .choice { min-width: 140px; min-height: 56px; }
+  #tl-bar { display: contents; }
+  #tl-bar[hidden] { display: none; }
+  .ex { display: grid; gap: 24px; max-width: 820px; }
+  .ex-actions { display: flex; flex-wrap: wrap; gap: 24px; }
+  .ex-actions .btn { min-width: 200px; }
+  @media (max-width: 700px) { .tl-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div data-tab-panel="timelapse"{% if tab != "timelapse" %} hidden{% endif %}>
+<div class="tl">
+  {%- if unavailable %}
+  {% call ui.banner("fail", "Not available") %}<p>{{ unavailable }}</p>{% endcall %}
+  {%- endif %}
+  {%- if not experiment %}
+  <p class="lead">No experiment has been started yet, so there is nothing to make a video of.</p>
+  {%- else %}
+  <div class="tl-row">
+    <h3>Tray</h3>
+    {%- if trays %}
+    {#- Tray and cell from lists: twelve trays and twenty cells as buttons would not fit (#64). -#}
+    <div class="tl-what">
+      {{ ui.field_button("tl-tray", "Tray", trays[0] | string, kind="choice", options=tray_options) }}
+      {{ ui.field_button("tl-cell", "Cell", "tray", kind="choice", options=cell_options) }}
+    </div>
+    {%- else %}
+    <p>No tray has been found in this experiment's latest photos.</p>
+    {%- endif %}
+  </div>
+  <div class="tl-row">
+    <h3>Time</h3>
+    {{ ui.choices("tl-when", "Time", [("all", "Whole experiment", ""), ("7", "Last 7 days", ""), ("1", "Last day", ""), ("custom", "Choose days", "")], "all") }}
+  </div>
+  <div class="tl-row">
+    <h3>Frames</h3>
+    {{ ui.choices("tl-step", "Frames", per_hour, "1") }}
+  </div>
+  <div class="tl-row">
+    <h3>Leaf area</h3>
+    {{ ui.choices("tl-method", "Leaf area method", methods, methods[0][0]) }}
+  </div>
+  <div class="tl-row">
+    <h3>Mask</h3>
+    <div class="tl-mask">
+      {{ ui.choices("tl-mask", "Mask", [("off", "No mask", ""), ("on", "Show mask", "")], "off") }}
+      {#- A few frames of one cell, so the choice can be seen before a video is made. -#}
+      <img id="tl-example" src="/static/timelapse/none.gif" alt="Example: the frames with no mask">
+    </div>
+  </div>
+  {%- endif %}
+</div>
+</div>
+{#- The experiment's export, moved here from the Experiments page as it worked there (#454). -#}
+<div data-tab-panel="export"{% if tab != "export" %} hidden{% endif %}>
+<div class="ex" id="ex">
+  {%- if not experiment %}
+  <p class="lead">No experiment has been started yet, so there is nothing to export.</p>
+  {%- else %}
+  <div id="ex-status" role="status"></div>
+  <div class="ex-actions">
+    {{ ui.button("Export", "primary", id="ex-export") }}
+    {{ ui.button("Download parts", id="ex-parts", attrs={"hidden": true}) }}
+  </div>
+  <p id="ex-message" role="status"></p>
+  <p>An export holds the experiment's data, its photos or both. Large exports download in parts,
+    prepared on the rig while they download. To delete the experiment from the rig later (Purge,
+    on the Experiments page), first export it with its photos.</p>
+  {%- endif %}
+</div>
+</div>
+{%- if experiment %}
+{% include "_ask_dialog.html" %}
+<script src="/static/data-export.js"></script>
+<script>
+  // ui.js is deferred: it runs once the page is parsed, as this does.
+  document.addEventListener("DOMContentLoaded", () => {
+    const experiments = {{ experiments | map(attribute="id") | list | tojson }};
+    const names = {{ experiments | map(attribute="name") | list | tojson }};
+    const starts = {{ experiments | map(attribute="periods") | map("first") | map(attribute="started_at") | list | tojson }};
+    const first = new Date({{ first | tojson }}), last = new Date({{ last | tojson }});
+    const pressed = (id) => document.querySelector(`#${id} [aria-pressed="true"]`)?.dataset.value;
+    // Tabs: the Time lapse buttons under the page show on its tab only; the address keeps the tab,
+    // so a reload or a shared link lands on it (#454).
+    const tlBar = document.getElementById("tl-bar");
+    ui.bindTabs(document.getElementById("data-tabs"), (tab) => {
+      tlBar.hidden = tab !== "timelapse";
+      const url = new URL(location.href);
+      url.searchParams.set("tab", tab);
+      history.replaceState(null, "", url);
+    });
+    window.dataExport.mount(document.getElementById("ex"), {{ experiment.id }});
+    const value = (id) => document.getElementById(id)?.dataset.value;
+    // All trays makes one video per tray: a cell is of one tray, so Cell goes back to Whole tray.
+    const cellEl = document.getElementById("tl-cell");
+    if (cellEl) ui.bindField(cellEl);
+    const trayEl = document.getElementById("tl-tray");
+    if (trayEl) ui.bindField(trayEl, (v) => {
+      if (v === "all") ui.showField(cellEl, "tray", "Whole tray");
+      ui.setDisabled(cellEl, v === "all");
+    });
+    ["tl-step"].forEach((id) => ui.bindChoices(document.getElementById(id)));
+    // The example shows the mask of the method chosen, or the photo alone.
+    const example = document.getElementById("tl-example");
+    const methodNamesFor = Object.fromEntries({{ methods | map("list") | list | tojson }}.map((m) => [m[0], m[1]]));
+    function showExample() {
+      const on = pressed("tl-mask") === "on";
+      example.src = `/static/timelapse/${on ? pressed("tl-method") : "none"}.gif`;
+      example.alt = on ? `Example: the mask of ${methodNamesFor[pressed("tl-method")]}` : "Example: the frames with no mask";
+    }
+    ui.bindChoices(document.getElementById("tl-method"), showExample);
+    ui.bindChoices(document.getElementById("tl-mask"), showExample);
+    // Choose days: the first and last day of the experiment, with steppers (day 1 is its first 24 h).
+    const totalDays = Math.max(1, Math.ceil((last - first) / 86400000));
+    const days = { first: 1, last: totalDays };
+    const whenEl = document.getElementById("tl-when");
+    const customDetail = () => { whenEl.querySelector('[data-value="custom"] strong').textContent = `Days ${days.first} to ${days.last}`; };
+    function stepperHtml(id, label, v) {
+      return `<div class="stepper" id="${id}" data-step="1">`
+        + `<button type="button" class="btn hit" data-step-by="-1" aria-label="${label}, down 1">${ui.icon("minus")}</button>`
+        + `<button type="button" class="field-btn hit" id="${id}-value" data-kind="number" data-label="${label}" data-value="${v}" data-unit=""`
+        + ` data-min="1" data-max="${totalDays}" data-decimals="0"><span><span class="value">${v}</span></span>${ui.icon("edit")}</button>`
+        + `<button type="button" class="btn hit" data-step-by="1" aria-label="${label}, up 1">${ui.icon("plus")}</button></div>`;
+    }
+    function chooseDays() {
+      const panel = ui.openPanel({
+        title: "Choose days", sub: `Day 1 is the first 24 h of the experiment. It has ${totalDays} days so far.`,
+        body: `<div class="tl-days"><div class="tl-row"><h3>First day</h3>${stepperHtml("tl-first", "First day", days.first)}</div>`
+          + `<div class="tl-row"><h3>Last day</h3>${stepperHtml("tl-last", "Last day", days.last)}</div></div>`,
+        actions: `<span class="grow"></span><button type="button" class="btn hit" data-act="cancel">Cancel</button>`
+          + `<button type="button" class="btn primary hit" data-act="use">Use these days</button>`,
+        onEscape: () => panel.close(),
+      });
+      ui.bindStepper(panel.querySelector("#tl-first"));
+      ui.bindStepper(panel.querySelector("#tl-last"));
+      panel.addEventListener("click", (e) => {
+        const act = e.target.closest("[data-act]")?.dataset.act;
+        if (act === "cancel") panel.close();
+        if (act === "use") {
+          const a = Number(panel.querySelector("#tl-first-value").dataset.value);
+          const b = Number(panel.querySelector("#tl-last-value").dataset.value);
+          days.first = Math.min(a, b);
+          days.last = Math.max(a, b);
+          customDetail();
+          panel.close();
+        }
+      });
+    }
+    ui.bindChoices(whenEl, (v) => { if (v === "custom") chooseDays(); });
+    document.getElementById("tl-experiment").addEventListener("click", () => ui.openChoice({
+      label: "Experiment",
+      options: experiments.map((id, i) => ({ value: String(id), label: names[i] || `Experiment of ${starts[i].slice(0, 16).replace("T", " ")} UTC` })),
+      value: "{{ experiment.id }}",
+      onSet: (id) => { location.search = `?experiment=${id}`; },
+    }));
+
+    const status = document.getElementById("tl-status");
+    const make = document.getElementById("tl-make");
+    const download = document.getElementById("tl-download");
+    const mb = (bytes) => bytes < 1e5 ? `${Math.ceil(bytes / 1e3)} kB` : `${(bytes / 1e6).toFixed(1)} MB`;
+    function range() {
+      const when = pressed("tl-when");
+      const end = new Date(last.getTime() + 1000);
+      if (when === "custom") {
+        const from = new Date(first.getTime() + (days.first - 1) * 86400000);
+        const to = new Date(Math.min(end, first.getTime() + days.last * 86400000));
+        return { start: from.toISOString(), end: to.toISOString() };
+      }
+      const start = when === "all" ? first : new Date(Math.max(first, last - Number(when) * 86400000));
+      return { start: start.toISOString(), end: end.toISOString() };
+    }
+    // What a video shows, from its request: so a page opened again can say which video it holds.
+    const methodNames = Object.fromEntries({{ methods | map("list") | list | tojson }}.map((m) => [m[0], m[1]]));
+    // Short, so the bar under the page stays two lines at most at 1024 x 600.
+    const short = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+    const about = (q) => q ? `${q.tray_id === "all" ? "All trays" : `Tray ${q.tray_id}`}${q.cell ? `, cell ${q.cell}` : ""}, ${short(q.start)} to ${short(q.end)}, `
+      + `${q.per_hour} per hour${q.mask ? ", mask shown" : ""}: ` : "";
+    // Photos that were there but could not be read: left out, in a sentence of their own, apart
+    // from the steps that had no usable photo at all (#503). The first three by their time.
+    const unread = (p) => {
+      if (!p.unreadable) return "";
+      const one = p.unreadable === 1;
+      const when = (p.unreadable_photos || []).slice(0, 3).map((u) => `${u.taken_at.slice(0, 16).replace("T", " ")} UTC`);
+      return ` ${p.unreadable} ${one ? "photo" : "photos"} could not be read and ${one ? "was" : "were"} left out: `
+        + `${when.join(", ")}${p.unreadable > when.length ? ", and more" : ""}.`;
+    };
+    async function watch(id) {
+      for (;;) {
+        const p = await (await fetch(`/api/data/timelapse/${id}`)).json();
+        const which = p.trays > 1 ? `Tray ${p.tray} of ${p.trays}: ` : "";
+        if (p.state === "choosing") status.textContent = `${which}choosing the photos…`;
+        if (p.state === "drawing") status.textContent = `${which}drawing frame ${p.done} of ${p.frames}, about ${mb(p.estimated_bytes)}`
+          + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".") + unread(p);
+        if (p.state === "ready") {
+          status.innerHTML = `${ui.chip("ok", "Ready")} ${ui.esc(about(p.request))}${p.frames} frames, ${mb(p.bytes)}` + (p.skipped ? `. ${p.skipped} steps had no usable photo.` : ".")
+            + ui.esc(unread(p));
+          download.href = `/api/data/timelapse/${id}/download`;
+          download.hidden = false;
+          make.disabled = false;
+          return;
+        }
+        if (p.state === "replaced") {
+          status.innerHTML = `${ui.chip("warn", "Replaced")} A newer video was started, so this one is gone. Make it again if you need it.`;
+          download.hidden = true;
+          make.disabled = false;
+          watch(p.newer);
+          return;
+        }
+        if (p.state === "failed" || p.state === "gone") {
+          status.innerHTML = `${ui.chip("fail", "Not made")} ${ui.esc(p.error || "This video is gone. Make it again.")}`;
+          make.disabled = false;
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+    make.addEventListener("click", async () => {
+      const tray = value("tl-tray");
+      if (!tray) return;
+      const cell = value("tl-cell");
+      make.disabled = true;
+      download.hidden = true;
+      status.textContent = "Starting…";
+      const r = await fetch("/api/data/timelapse", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ experiment_id: {{ experiment.id }}, tray_id: tray === "all" ? "all" : Number(tray), ...range(),
+                               cell: cell === "tray" ? null : cell, mask: pressed("tl-mask") === "on",
+                               per_hour: Number(pressed("tl-step")), method: pressed("tl-method") }),
+      });
+      const body = await r.json();
+      if (!r.ok) {
+        status.innerHTML = `${ui.chip("fail", "Not made")} ${ui.esc(body.detail)}`;
+        make.disabled = false;
+        return;
+      }
+      watch(body.id);
+    });
+    // The rig keeps the video until the next one is started: it can be downloaded again.
+    download.addEventListener("click", () => {
+      setTimeout(() => {
+        status.textContent = "Downloaded. The rig keeps this video until the next one is started.";
+      }, 1500);
+    });
+    // The rig's latest video, being made or ready, when the page is opened again (Aaron, 2026-11-20).
+    const latest = {{ latest | tojson }};
+    if (latest && latest.state !== "gone") {
+      if (["choosing", "drawing"].includes(latest.state)) make.disabled = true;
+      watch(latest.id);
+    }
+  });
+</script>
+{%- endif %}
+{% endblock %}
+
+{% block action_bar %}
+  <div id="tl-bar"{% if tab != "timelapse" %} hidden{% endif %}>
+  <span class="grow" id="tl-status" role="status"></span>
+  {#- A finished video is offered as soon as the page opens, before the script runs. -#}
+  {%- if latest and latest.state == "ready" %}
+  <a class="btn primary hit" id="tl-download" download href="/api/data/timelapse/{{ latest.id }}/download">Download</a>
+  {%- else %}
+  <a class="btn primary hit" id="tl-download" download hidden>Download</a>
+  {%- endif %}
+  {{ ui.button("Make video", "primary", id="tl-make", disabled=(unavailable or not experiment or not trays)) }}
+  </div>
+{% endblock %}

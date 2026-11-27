@@ -5649,6 +5649,10 @@ is shown as "under 100" in the gallery. Reported with each area, never subtracte
 empty trays read 27 to 78 mm² (median per tray and day) and at most 98 mm² outside shuffle 1.
 *Limits:* one run, trays 9 to 12; one value for every tray and slot.
 
+*Dark limit checked in section 43 (#293, 2026-11-20): kept as the fallback for photos without the camera's auto-exposure state; it agrees with that state.*
+
+*Floor checked in section 42 (#293, 2026-11-20): grow from leaf cores, the default method since #373, needs no floor (soil-only trays read at most 64 mm² in any photo, two soils). The 100 mm² stays for the fixed green cutoff, on production's soil only.*
+
 ### 17.8 Light exclusions: how far the light moves (method written 2026-10-26, before the data was read)
 
 *Replaced by section 29 (#382, 2026-11-09): the first-day norm flagged every lit photo of experiment 18 from 5 November as the scene changed the exposure. The rule now follows the camera: ramps from the exposure moving through each photo, lights off from the camera's auto-exposure state. Kept below as the record of the earlier decision.*
@@ -6453,6 +6457,18 @@ measured by Aaron on 2026-10-26 with the NEIKO callipers, 3 readings per side an
 | I | 55 mm | 54.957 | 0.04 | 54.930 | 0.09 | 0.657 | 3,018.77 |
 | J | 55 mm | 54.973 | 0.09 | 54.993 | 0.07 | not measured | 3,023.17 |
 
+**Correction (2026-11-27): the letters D and F are swapped in this section.** The square called
+D here, 10 mm, is the one Aaron calls F, and the square called F here, 20 mm, is the one he calls
+D. Found while placing the squares for the M5 acceptance test (section 51, issue #78): his
+callipers of F on 2026-11-26, 3 readings per side (9.96 / 9.96 / 9.96 and 9.92 / 9.91 / 9.90 mm,
+mean 9.960 x 9.910 mm, 98.7 mm²), agree to 0.2% with the row labelled D above (98.93 mm²), and
+his size list makes D 20 mm and F 10 mm. No reading in this section changes: each square's error
+was worked out against the calliper area in its own row, so each row's size and area still belong
+together and only the two letters are wrong. The letters are left as they were written, here, in
+the sections that follow, in `figures/18/*.csv` and in `experiments/round2-tagedge/`; section 51
+uses Aaron's letters and scores D and F against the rows labelled the other way round (issue
+#573).
+
 The callipers are not trusted beyond 0.1 mm (section 3): about ±2% in area on a 10 mm square, ±1% on
 20 mm, ±0.5% on 40 mm and ±0.4% on 55 mm. The repeat readings spread by 0.01 to 0.12 mm. Thickness
 (about 0.65 mm) raises a square's top about +0.09% in area (0.145% per mm), not corrected.
@@ -6586,6 +6602,9 @@ part set against the rescored validation median of the square's slot:
 
 Medians over the 334 stills. D (North 1, tray 8) and G (South 4, tray 7) have no tag sheet on their
 tray; their scale comes from the other trays' sheets and is left out of the comparison.
+
+D and F are named as in 18.5, where the two letters are swapped (the correction of 2026-11-27
+there): the square called F here, 20 mm, is the one Aaron calls D.
 
 - **The scale part agrees with validation**: within 0.5 points of the slot's median in every slot,
   inside the slot bands (95% at ±1.2% to ±1.7%). The bands are right for what they measure.
@@ -8874,6 +8893,116 @@ that stops above darkness, or a dark period with some light, was not seen: wheth
 auto-exposure then still reads searching is not known. Photos saved before version 24 have no
 state and are judged by E of 200,000 (17.7).
 
+### 29.4 Auto exposure off: what state does the camera report? (method written 2026-11-26, before the run; run the same day)
+
+**Label: development check.** Issue #507.
+
+**Question.** Section 29.3 found that the rig can tell the lights are off only from the camera's
+auto-exposure state (`ae_state`, libcamera `AeState`). With Auto exposure off, exposure and gain are
+set by hand. Does the camera then report "idle" (libcamera AeState 0, exposure and gain both
+manual) for every photo, lit or dark? If so, the state carries no information about the light and
+the rig cannot tell lights on from lights off.
+
+**Method.** Development rig `npec-rig-01`, branch `507-lights-not-checked`, the `hardware` label
+held, no experiment running. Auto exposure off, exposure and gain left at the values the page
+shows. Three photos by `POST /capture` with the chamber lights on, then three with the lights off,
+each set taken back to back (the question is the state the camera reports with Auto exposure off,
+which does not depend on the gap between photos; method changed 2026-11-26 from "one minute apart",
+before the run). The lights stay off for the three dark photos. A person switches the chamber lights off for the three dark photos and
+back on afterwards. For each of the 6 photos, read `ae_state`, E (exposure_us x analogue gain) and
+`Lux` from `rig.db` (read only) and from the capture's JSON record.
+
+**What would show it works** (that is, that the state is uninformative with Auto exposure off, as
+expected): "idle" in all 6 photos. **What would show it fails:** any "searching" or "converged", or a
+missing state. The rig would then be able to use the state with Auto exposure off, and the
+"Lights not checked" warning (29.6) would need another look.
+
+**Result (2026-11-26, 13:03 to 13:04 UTC).** "idle" (AeState 0) in all 6 photos, lit and dark. The
+expected outcome held: with Auto exposure off the state carries no information about the light.
+
+| Photo | Taken (UTC) | Lights | ae_state | Exposure (us) | Gain | Lux |
+|---|---|---|---|---|---|---|
+| `130310_875658` | 13:03:10 | off | idle | 32583 | 7.88 | 0.74 |
+| `130313_891827` | 13:03:13 | off | idle | 32583 | 7.88 | 0.72 |
+| `130317_379841` | 13:03:17 | off | idle | 32583 | 7.88 | 0.73 |
+| `130418_227849` | 13:04:18 | on | idle | 32583 | 7.88 | 1023.7 |
+| `130421_110849` | 13:04:21 | on | idle | 32583 | 7.88 | 1023.7 |
+| `130424_448815` | 13:04:24 | on | idle | 32583 | 7.88 | 1023.7 |
+
+E (exposure x gain) was about 256,650 (us x gain) in all 6, the same fixed value, so nothing in the saved
+state or E separates the lit photos from the dark ones. Lux, a separate reading by the camera,
+does (0.7 against 1023.7).
+
+**How the run differed from the method above.** (1) The chamber lights were already off when the
+run started, so the 3 dark photos were taken first and the 3 lit ones after the lights were
+switched on; the order does not matter for the question. (2) The values in the table are from the
+JSON record that `POST /capture` returned for each photo; `rig.db` was not read. (3) Experiment 4
+on the development rig was stopped, not running, at the time. (4) Exposure and gain were left at
+what the camera had chosen in the dark (32.6 ms, gain 7.9), so the 3 lit photos are saturated
+(Lux 1023.7 in all 3); this does not affect the state being read.
+
+**Limits of the evidence.** One camera (the development rig's Arducam 64MP, libcamera 0.7.2).
+Production was not checked. Six photos, one session. It shows what the camera reports, not what
+every future camera or libcamera version reports; a photo with no `AeState` is still judged by its
+exposure alone (29.2).
+
+### 29.5 The first photo after a fresh camera start (method written 2026-11-26, before the run; run the same day)
+
+**Label: development check.** Issue #507.
+
+**Question.** After the camera is opened afresh, its auto exposure starts from default values and
+may read "searching" for the first frames. Does the first photo then read "searching" with the
+lights on, so that it would be wrongly left out as "lights off"?
+
+**Background.** The scheduler takes the first photo within about 0 s to one interval (60 s in the experiments so far) of a
+fresh open, depending on the slot. The check forces the short gap, the worst case, by taking a
+photo straight after the restart.
+
+**Method.** Development rig `npec-rig-01`, branch `507-lights-not-checked`, the `hardware` label
+held, lights on, Auto exposure on, no experiment running. Five times: restart the `npec-rig`
+service, wait until `/api/health` reports the camera open, take one photo by `POST /capture` at
+once, and record the time from app start to that photo. Read `ae_state` of each photo from `rig.db`
+(read only) and the capture's JSON record.
+
+**What would show it works.** "converged" in all 5 first photos. The point is then closed with the
+result recorded. **What would show it fails.** Any "searching". A fix is then agreed with Aaron
+before any code: either the camera waits for "converged" before the photo, or the photo is judged by
+its neighbours.
+
+**Result (2026-11-26, 13:04 to 13:05 UTC).** "converged" (AeState 2) in all 5 first photos. None
+read "searching", so no fix is needed and the point is closed (issue #507 question 2 does not
+arise).
+
+| Restart | Photo taken (UTC) | ae_state | Seconds from app start | Exposure (us) | Gain | Lux |
+|---|---|---|---|---|---|---|
+| 1 | 13:04:47 | converged | 3.8 | 3481 | 1.0 | 10929 |
+| 2 | 13:04:59 | converged | 3.8 | 3481 | 1.0 | 10930 |
+| 3 | 13:05:11 | converged | 3.8 | 3481 | 1.0 | 10929 |
+| 4 | 13:05:23 | converged | 3.8 | 3481 | 1.0 | 10931 |
+| 5 | 13:05:35 | converged | 3.8 | 3481 | 1.0 | 10923 |
+
+Each photo was taken 3.8 s after the app started (the `app_up_s` of its record), the shortest gap
+the check could force, so this is the worst case for the first photo.
+
+**How the run differed from the method above.** (1) The app has no `/api/health` route that
+reports the camera open. The camera counted as open when `GET /controls` answered 200, and the
+photo was taken straight after that. (2) Values are from the capture's JSON record; `rig.db` was
+not read. (3) Experiment 4 on the development rig was stopped, so no scheduled photo competed with
+the check.
+
+**Limits of the evidence.** Service restarts of the app only. A restart of the camera process
+after a fault, and a reopen before a lens command, are not covered. One camera, libcamera 0.7.2;
+production was not checked. Five photos, one session, one scene (lights on).
+
+### 29.6 Photos taken with Auto exposure off: a decision (2026-11-26, not a measurement)
+
+This entry is a decision by Aaron for issue #507, not a measurement. A photo taken with Auto
+exposure off keeps its plant areas counted. It carries the warning "Lights not checked: auto
+exposure was off" in the Gallery. The reason is that with Auto exposure off the rig has no way to
+tell lit from dark (29.4 measured it: idle in all 6 photos), and leaving every such photo out would discard an
+experiment's data that may be fine. The warning leaves the judgement to the person reading the
+photo. Researchers are told in the operator guide ("When the rig cannot tell the lights are off").
+
 ## 30. Which pot is A1 on a 2 x 2 tray, across days (issue #385, 2026-11-07)
 
 **Label: development check.** Whether a 2 x 2 tray's pots keep the same names in every photo of an
@@ -9557,3 +9686,3700 @@ photo's blur.
 
 **Raw data.** To come: the Helios export, the tray number record, the paired capture IDs, the
 outlines, scripts and per-plant results in `experiments/round3-helios/`.
+
+### 35.1 The export that arrived, the tray matching, the scale and the paired photos (26 to 27 November 2026)
+
+**Label: development check.** Everything in this subsection sets the comparison up. No plant area
+is worked out here, and none is shown, because the outlines of step 3 are not yet drawn
+(*Order*, above): an outline drawn after seeing an area is pulled toward it.
+
+**What arrived.** `wout_potato_RGB2_4.7z` from the lab, 26 November 2026, 700 MB, 14 scans: 7
+trays (Helios numbers 2688 to 2694) on each of two dates, 6 and 12 November 2026. Each scan is two
+PNG images, `_Original` and `_FishEyeCorrected`, 4112 x 3006 px, 8-bit RGB, of the whole tray seen
+from above. Both show the tray rim, all 20 cells, the tray tag and the plants.
+
+**What it does not hold, against what section 35 expected.**
+
+| Expected | In this export |
+|---|---|
+| A point cloud, giving each plant's height | None. **Plant height is therefore not available**, and the height effect of section 35, *Plant height*, cannot be shown against measured heights |
+| An area number from the Helios pipeline | None |
+| A traits file | None |
+| A capture time in the file | None. The PNG holds no time and no scale: the only `pHYs` chunk says 3779 px/m, which is the 96 dpi a writer puts in by default and means nothing here. The time is in the file name alone |
+
+So the "Helios area" column of section 35's result table has no source unless the lab sends a
+fuller export. The comparison that can be made from this export is outline against outline, across
+the two cameras, and each rig segmenter against the outline on the rig photo.
+
+**Which tray is which: measured, not recorded by hand.** Section 35 expected a person to write down
+the Helios tray number against each rig tray tag at the scan. Nobody did. It was not needed: each
+Helios image contains that tray's own AprilTag, and the tag was read in all 14 of the
+fish-eye-corrected images, exactly one tag in each, with the same result on both dates.
+
+| Helios tray | 2688 | 2689 | 2690 | 2691 | 2692 | 2693 | 2694 |
+|---|---|---|---|---|---|---|---|
+| Rig tray tag | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+
+Read with the tray-tag detector settings of section 15.3e. Seven of the experiment's twelve trays
+were scanned; tags 8 to 12 were not.
+
+**The cell names agree between the two cameras.** The rig names a tray's cells from the tag in cell
+A1 (sections 27, 30). On a Helios image the same grid is placed from the same tag:
+`experiments/round3-helios/helios_grid.py` puts cell A1 on the tag and steps 1.742 tag sides to
+each neighbour, the spacing measured from a rig photo by `cellframe.py` (1.742 x 39.95 = 69.6 mm,
+against the 69.7 mm derived in `reference/trays.md`). Of the four ways the grid could sit on the
+tag, only one puts all 20 cells inside the Helios frame, so the placement is not a choice. Checked
+by eye on tray tag 1, 12 November: the pattern of plant sizes across the 20 cells is the same in
+both cameras, with the same cells standing out as the largest and the smallest. Figures 35.1-a and
+35.1-b.
+
+![The 4 x 5 cell grid drawn on the Helios photo of tray tag 1](figures/35.1/helios-cell-grid-tray1.jpg)
+
+*Figure 35.1-a. Helios scan of tray 2688 (rig tray tag 1), 12 November 2026, fish-eye corrected. The
+red boxes are the cell grid placed from the tag alone by `helios_grid.py`, one cell spacing wide; the
+labels are the cell names. A1 holds the tag and no plant. Compare the pattern of plant sizes with
+figure 35.1-b: the same cells stand out, C1 the largest, D1 and C2 among the smallest.*
+
+![The same tray in the rig photo, with the app's own cell outlines](figures/35.1/rig-cell-grid-tray1.jpg)
+
+*Figure 35.1-b. The same tray in the paired rig photo (capture 32300, 12 November 2026 10:16:53 UTC),
+cropped. The red outlines and labels are the app's own `cell_reading` rows, not placed by anything in
+this comparison. The tray stands at 90 degrees to the Helios view; the cell names match cell for cell.*
+
+![Three plants, each in the rig photo beside the Helios photo](figures/35.1/crop-pairs-three-plants.jpg)
+
+*Figure 35.1-c. Three of the ten crop pairs, rig on the left and Helios on the right, each pair the
+same plant: tray tag 1 cell C3, tag 5 cell C3, tag 3 cell B2. Shown at a common size here; the crops
+themselves are not resampled. The label stick and the leaf arrangement identify each plant in both
+cameras. No mask or area is drawn.*
+
+**The scale of a Helios photo: the tray tag, 39.95 mm.** Section 35 left this to be chosen when the
+export was in. The tag is the only length in these images whose size is measured: 39.95 mm across
+the black square, quiet zone excluded, NEIKO callipers, Aaron, 2026-10-20 (section 15.5l; how many
+tags and readings is not recorded there). Across the 14 corrected images the tag reads 380.1 to
+382.9 px on a side, a spread of 0.7%, giving **9.52 to 9.58 px/mm**. The spread is the whole range
+over seven trays and two dates, so the Helios camera's distance to the tray is repeatable to better
+than one percent.
+
+**What the tag's scale does not cover.** The tag face does not lie in the plane of the leaves. It
+sits about 2 mm below the soil surface, and the blue mats are about 1 mm thick (Aaron, 2026-11-27).
+The leaves stand above the soil by an amount this export cannot give. A ruler further from the
+camera than the thing measured makes that thing read large, so **a Helios area scaled from the tag
+reads large by an amount not yet known**, growing with plant height. No correction is applied. The
+depth of the tag face below the tray rim is being measured with callipers (Aaron, from 2026-11-30);
+with it, and the tray rim's own known length in the same image, the sensitivity per millimetre can
+be measured rather than modelled. Until then it is an open limit, and it is the largest geometric
+term left in the Helios side of the comparison.
+
+**The file names are Dutch local time, not UTC (measured).** The scan time appears only in the file
+name, and whether it was UTC was not known. It is not. The rig records when each tray's tag stops
+being seen, which brackets the time the tray was out of the chamber:
+
+| Date | Trays out of the chamber (rig, UTC) | Scan times in the file names |
+|---|---|---|
+| 6 November | 09:30 to 10:21 | 10:49:49 to 11:11:26 |
+| 12 November | 10:02 to 10:35, and 10:19 to 10:46 | 11:29:11 to 11:40:10 |
+
+Read as UTC, every scan would have happened after its tray was back in the chamber, which is
+impossible. Read as UTC+1, which is Dutch local time on both dates (summer time ended on 25
+October), every one of the 14 scans falls inside its own tray's absence. The reading is therefore
+UTC+1, with no case left over. **The pairing below does not rest on this**: it uses the tag's
+disappearance, as section 35, *Which rig photo* requires. The conversion is recorded because the
+file names are the only record of the scan order.
+
+**The paired rig photos.** `pair.py`, following section 35, *Which rig photo*: the last lit, not
+excluded photo before the tray's tag stops being seen. Photos were taken every 60 s. Three rig
+photos cover all 14 scans.
+
+| Date | Trays (rig tag) | Paired capture | Taken (UTC) | Tag gone from | Tray back | Photo to scan |
+|---|---|---|---|---|---|---|
+| 6 Nov | 1 to 7 | 23610 | 09:27:53 | 09:32 | 10:21 | 21 to 44 min |
+| 12 Nov | 2, 5, 6 | 32285 | 10:01:53 | 10:05 | 10:35 | 27 to 30 min |
+| 12 Nov | 1, 3, 4, 7 | 32300 | 10:16:53 | 10:20 | 10:46 | 17 to 23 min |
+
+All three are from experiment 18, calibration `20261022T072523939958`, lens 6.05, gain 1.0. An
+earlier pass put the paired photo an hour and a half too early: at 07:00 to 07:59 the lights are
+off, no tag is seen in any photo, and that reads as the tray having left. Excluded photos are
+dropped before the tag's disappearance is looked for, not after.
+
+**The ten plants, chosen before any outline or area was seen.** The rule, written down first: the
+12 November scan, because its plants are larger and its photo-to-scan gap is shorter; cell C3 of
+each of the seven trays, and cell B2 of trays 1, 2 and 3. Ten plants. C3 and B2 are interior cells,
+away from the tray edge, so a leaf is less likely to leave its cell. The app flags none of the ten
+as having leaves over another cell. The choice used no area, no mask and no plant size.
+
+**The crops.** `make_crops.py` writes two crops per plant, one from each camera, each covering 1.40
+cell spacings (about 97 mm) centred on the cell: Helios about 930 px square at 9.52 to 9.58 px/mm,
+rig about 483 px square. The rig crop is at the photo's own resolution and the Helios crop at its
+own; neither is resampled, so each outline carries its own photo's blur, as section 35 intends. The
+Helios image resolves about twice as finely as the rig's across a cell. `crops/manifest.json` holds,
+per plant: the rig tray tag, the cell, the Helios tray number, both source files, the rig capture
+id, the Helios scale in px/mm and where it comes from, and the rig photo's own mm² per pixel for
+that cell, taken from the app's own reading so that the outline and the app's segmenters are
+measured on the same scale. No mask and no area is in it. Figure 35.1-c.
+
+**Covers / does not cover.** Seven of twelve trays, one experiment, one rig. The matching, the cell
+names, the scale and the pairing are settled; nothing about plant area is. The scale rests on one
+calliper reading of one tag whose number of repeats was not recorded, and on the assumption that
+every tray's tag is from the same print run. Plant height is absent from this export, so the
+height term of section 35 cannot be shown against measured heights.
+
+**Raw data.** The export and the recovered `ac-testing` disk image are named in
+`experiments/round3-helios/README.md`; the scripts, `pairs.json` and `crops/manifest.json` are in
+that folder. The 20 crop images are on the scratch viewer under `411-helios/crops/`.
+
+## 36. Blue mats laid round real plants: the step in plant area (issue #358, method written 2026-11-13, before any area was read)
+
+**Label: development check.** Section 24.4 found that a blue mat under a flat green square changes
+every rule's area at the square's edge: 13 to 24% on a 10 mm square, 1 to 3% on a 55 mm one. Those
+squares were mint, not leaf colour, and sat on grey backing, not soil, so the size of the step on a
+real plant is not known. Researchers lay mats when their protocol needs them (Aaron, 2026-11-05), so
+the step cannot be avoided, only kept small and marked. This section measures it on potato plants
+on soil.
+
+**Questions.**
+
+1. When a mat is laid round a plant, how much does that plant's area change, by the fixed green
+   cutoff and by grow from leaf cores (core 0.07, as in the app since #363)?
+2. Does the change depend on the plant's size? (Left open, see below.)
+3. Does a mat change the tray's soil level, from which grow from leaf cores sets its lower cutoff
+   for every plant on the tray, and so the areas of plants without a mat?
+4. Do mat, soil and leaf stay apart by colour on these photos, so the rig could find a mat later?
+
+**The event, already in the photos.** Researchers laid mats on every plant tray of production
+experiment 18 (Potato Plants v001) on 2026-11-06: the first mat at 09:10 local, the last by 10:19
+local (Aaron, 2026-11-13), that is 08:10 to 09:19 UTC. No session is needed: the rig's own photos,
+one a minute, hold the step. All plants were of similar size that day (Aaron), so question 2 cannot
+be answered from this event and is left open. The mats were laid by pulling each plant through a
+slit and pinning the mat, so the leaves were handled: this is the protocol event as researchers do
+it, not a mat slid under a plant that was not touched.
+
+*When each tray got its mats* (development check, 2026-11-13, before any area was read). Per photo
+and tray, the share of blue pixels inside the tray's saved outline (bare soil about 0.1 to 0.2, a
+matted tray about 0.9) and of glove green, on the gallery's screen copies
+(`experiments/358-blue-mats/code/timeline.py`, figure `docs/figures/36/timeline.png`):
+
+| Tray | Mats laid (UTC) | Bare with lights fully on (UTC) |
+|---|---|---|
+| 2 | 08:11 to 08:19 | none: lights off until 08:02, coming on until 08:30 |
+| 1 | 08:28 to 08:32 | none |
+| 3 | 08:34 to 08:40 | 08:30 to 08:33 |
+| 6 | 08:42 to 08:47 | 08:30 to 08:41 |
+| 4 | 08:48 to 08:54 | 08:30 to 08:47 |
+| 5 | 08:59 to 09:02 | 08:30 to 08:58 |
+
+The rig marked a person at the table from 08:33 to 09:14 UTC. From 09:30 to 10:16 UTC the plant
+trays' tags were not read (exposure 3118 and then 2390 µs, against 4105 to 4365 µs before and
+after), and at 10:16 to 10:20 UTC the trays were moved to new table locations.
+
+**Photos used.**
+
+- *Before:* each tray's bare photos from 08:30 UTC to its first mat, leaving out photos with a
+  glove over the tray. Trays 1 and 2 have none and are reported only after.
+- *After, near:* 09:14 to 09:28 UTC (about 15 photos), all trays matted, nobody at the table.
+- *After, later:* 10:21 to 10:50 UTC (30 photos), after the trays were moved, as a check that the
+  near window is not a passing state.
+- *Controls:* while one tray is matted, the trays still bare are its controls; their change over
+  the same minutes carries growth, leaf movement and the person at the table.
+
+**What is worked out, per cell of trays 3, 4, 5 and 6.**
+
+1. *Area.* By the fixed green cutoff and by grow from leaf cores, read the way the app reads them:
+   production's own cell readings once the Reprocess of experiment 18 (#410) has given every photo
+   of that day its cells, or the app's code run on copied stills if it has not. Mean area before and
+   after, the change in percent, and the photo-to-photo spread (sd as % of the mean) on each side.
+2. *The mat's own step.* Each cell's change minus the mean change of the still-bare trays' cells
+   over the same minutes, where such trays exist (trays 3, 6 and 4; tray 5 was the last). A change
+   smaller than twice the cell's photo-to-photo spread is reported as not found, not as zero.
+3. *Height.* The mat lies under the leaves; a leaf resting on it is raised by its thickness, about
+   0.2% of area for 1.5 mm. No correction is made; the amount is stated.
+4. *Soil level.* The tray's soil level (greenness histogram peak, as the app finds it) and the lower
+   cutoff it gives, before and after.
+5. *Colour.* (B - G) / (R + G + B) percentiles 1, 50 and 99 for mat, soil and leaf pixels of the
+   same photos, as in 24.4.
+6. *Pictures.* Each tray before and after, with each rule's outline in magenta.
+
+**Limits (as planned).** One morning, four trays with a clean before, plants of one size; the
+before windows are short for tray 3 (about 4 photos). The plants were handled while the mats went
+down, so the step holds the handling as well as the mat. Says nothing about a mat laid later in a
+plant's growth, a mat that is moved, or mats of another colour.
+
+*Figures.* `docs/figures/36/timeline.png`: when each plant tray got its mats, from the blue share per
+photo. `docs/figures/36/tray5-before-after.jpg`: tray 5 at 08:57 and 09:20 UTC, from the gallery's
+screen copies, cropped to the tray's saved outline.
+
+### 36.1 How much leaf the blue rule takes from the edge on a mat (method written 2026-11-16, before the run)
+
+**Label: development check.** On the mat, the pixels just outside the grow from leaf cores outline
+are green enough to count (greenness +0.02 to +0.05 against a cutoff of -0.045) and are left out
+only because blue is a little above green (tray 5, B1 and B5, `code/edge_colour.py`). On soil the
+outline follows the leaf edge (Aaron, 2026-11-16, looking at the close-ups); on the mat it runs
+inside the leaf. This measures how much of the drop those pixels make up.
+
+**Method.** The app's `grow_trays`, unchanged but for the blue margin (a pixel is blue when its
+blue exceeds its red and its green by more than the margin; the app uses 0), on the six copied
+stills of 36 (trays 3, 4, 5, 6; their before still, 09:20 and 10:30 UTC). Variants: blue margin 0
+(the app), 5, 10, 20, and no blue rule. Per tray and variant: plant pixels, and the change from the
+tray's before still (read at margin 0). Pictures of 5.B1 and 5.B5 for each margin, so a person can
+say at which margin the outline follows the leaf on the mat and does not spread onto it.
+
+**Limits (as planned).** One still per window, four trays; the before still is one photo, so a
+change within about 3% (the photo-to-photo spread) is not a difference. Not a choice of a new
+margin: that needs the reference set of section 33 and the tray plastic.
+
+### 36.2 Results of 36 and 36.1 (2026-11-16)
+
+**Label: development check.** Areas are production's own cell readings after the Reprocess of
+experiment 18 (#410), which reached these photos on 2026-11-16; read only through the API. The
+masks drawn for the pictures and for 36.1 were made again on the controller from six copied stills
+with the app's `grow_trays`; on all 12 tray photos they match production's saved pixel counts
+exactly (the fixed cutoff within 3 px on one).
+
+**How it differed from the method.**
+
+- *Controls.* No tray stays bare from another tray's before window to 09:14 UTC, when every tray
+  is matted, so bare trays cannot serve as same-minutes controls. Instead the drift of a cell where
+  nothing was done was measured: bare cells within their before windows, matted cells from the near
+  to the later after window.
+- *Before windows per cell.* The mats went down cell by cell. Judged per cell (blue share of each
+  cell, `code/cell_timeline.py`), two cells of tray 3 (C1, D1) were matted at 08:32, one of tray 6
+  (D5) at 08:37 and one of tray 5 (A5) at 08:58, inside their tray's before window. The table below
+  uses each cell's own window: from 08:30 to 2 minutes before its own mat, leaving out photos with a
+  glove in the cell.
+- Trays 1 and 2 are not used: they were matted while the lights came on.
+
+**Change in each cell's area, 09:14 to 09:27 UTC against its own before window** (median over the
+19 plant cells of each tray; pooled is the tray's summed area):
+
+| Tray | Before photos per cell | Grow from leaf cores | Pooled | Photo spread before | Fixed green cutoff | Its photo spread before |
+|---|---|---|---|---|---|---|
+| 3 | 1 to 5 | -15.4% (-46.7 to +2.7) | -14.8% | 3.6% | +27.4% | 15.7% |
+| 6 | 6 to 13 | -34.1% (-74.1 to -16.8) | -32.8% | 4.6% | +9.4% | 9.4% |
+| 4 | 14 to 19 | -24.0% (-43.6 to -7.8) | -22.7% | 2.2% | +31.8% | 12.0% |
+| 5 | 24 to 27 | -20.7% (-45.9 to +3.5) | -22.3% | 3.2% | +39.7% | 14.0% |
+
+Photo spread is the median over a tray's cells of the sd of a cell's area across its before photos,
+as % of its mean (from the tray-wide windows of `code/steps.py`). The plants were 97 to 154 mm²
+(median per tray, grow from leaf cores, on soil).
+
+- *Grow from leaf cores* falls by 15% to 34%, five to ten times its photo spread. In the later
+  window (10:21 to 10:50 UTC, after the trays were moved) the fall is 8% to 22%. Matted cells
+  gained 0.095% a minute between the two windows, bare cells 0.068% a minute before the mats;
+  whether that is growth or leaves settling after the handling is not separated.
+- *The fixed green cutoff* rises by 9% to 40%. Its photo spread on soil is 9% to 16%, and its bare
+  cells drifted -0.58% a minute after the lights came on, so it cannot measure a step of this size
+  here. On the mat its outline covers more of each leaf (`zoom-tray5.jpg`).
+- *Soil level.* The tray's soil level was -0.125 to -0.165 before and -0.135 to -0.155 after; the
+  lower cutoff it gives stayed at its floor, -0.045, on every photo. The mat does not move the cutoff,
+  so it cannot change the areas of plants without a mat on the same tray (question 3).
+
+**Why the edge is lost** (`edge-tray5.jpg`, 5.B1 and 5.B5). Aaron, looking at the close-ups
+(2026-11-16): on soil the magenta outline traces the leaf edge very well; on the mat it runs inside
+the leaf and misses a significant part of it at the edge. The pixels just outside the outline:
+
+| Background | Distance outside | Median R G B | Greenness | Left out as |
+|---|---|---|---|---|
+| Soil, 08:57 | 1 px | 95 69 57 | -0.059 | not green enough (100%) |
+| Mat, 09:20 | 1 px | 58 71 75 | +0.046 | blue (98%) |
+| Mat, 09:20 | 2 px | 57 72 80 | +0.019 | blue (99%) |
+
+(5.B1; 5.B5 is the same.) On the mat these pixels are green enough to count (cutoff -0.045); their
+blue is a little above their green, and the "not blue" condition alone leaves them out. They are
+leaf edge with mat colour mixed in, by the pixel straddling the edge and the lens's blur. On soil
+the mix is never blue.
+
+**36.1, blue margin.** Plant pixels per tray, change from the tray's before still at margin 0:
+
+| Tray | On soil, margin 20 | Mat 09:20, margin 0 (the app) | Margin 5 | Margin 10 | Margin 20 | No blue rule |
+|---|---|---|---|---|---|---|
+| 5 | +0.3% | -23.1% | -15.7% | -8.7% | +1.9% | +8.0% |
+| 4 | +2.3% | -23.6% | -16.5% | -10.2% | -0.4% | +6.0% |
+| 6 | +0.8% | -35.2% | -28.4% | -22.2% | -12.3% | -8.2% |
+| 3 | +20.4% | -9.7% | -1.5% | +6.1% | +16.7% | +17.7% |
+
+Aaron, looking at 5.B1 and 5.B5 for each margin (`margin-tray5-B1.jpg`): on the mat, margins 10 and
+20 follow the leaf edge best; no blue rule is very bad (it spreads onto the mat).
+
+- *Trays 4 and 5:* the lost edge is the whole fall: at margin 20 the area on the mat is within 2%
+  of the area on soil.
+- *Tray 6:* cells A2 to A5 still read 21% to 47% low at margin 20, while most of its other cells
+  come back within about 10% (`cells-tray6-m0-m20.jpg`). Less leaf shows after the mat. Aaron: the
+  leaves were definitely disturbed by the installation of the mats.
+- *Tray 3:* on soil, margin 20 adds area only in C1 and D1, which were already matted at 08:32
+  (`cells-tray3-m0-m20.jpg`). Without them, its 17 other cells read a median of 11% more on the mat
+  than on soil at margin 20. Why is not known: its only before photos are 08:30 to 08:33, the first
+  minutes after the lights came fully on; margin 20 may count some mat; or the handling may have
+  spread its leaves.
+
+**Colour** (question 4; (B - G) / (R + G + B), percentiles 1, 50, 99; every plant cell of the four
+trays on the six stills, `code/masks.py`): leaf (grow from leaf cores mask) -0.177, -0.079, 0.000;
+mat +0.012, +0.235, +0.346; soil -0.061, -0.027, +0.268 (its upper tail is tray 3's C1 and D1,
+matted at 08:32, taken as soil). Mat and leaf do not overlap, so the rig can find a mat by colour.
+
+**Findings.**
+
+1. Laying blue mats lowered plant area by grow from leaf cores by about a fifth (21% to 24% on the
+   two trays with clean evidence), with no change in the plants. Nothing on the page says why: harm
+   1 of CLAUDE.md.
+2. The cause is the "not blue" condition, which cuts the leaf's edge pixels on a mat. A margin of
+   10 to 20 keeps them (Aaron's judgement on the pictures). Not yet a choice of margin: that needs
+   the reference set and the tray plastic (#424).
+3. The handling of the plants when the mats go down changes what the camera sees, by up to 47% in
+   single cells of one tray. That part is real for the camera and no rule removes it.
+4. Mat and leaf separate by colour, so the event can be found and marked (#424).
+
+**Limits of the evidence.** One morning; four trays with a clean before, one with only 1 to 5
+before photos; plants of one size (97 to 154 mm²), so question 2 stays open; the margins were tried
+on one still per window; tray 3 unexplained. The mats were laid as researchers lay them, so the
+step holds the handling as well as the colour.
+
+*Figures* (`docs/figures/36/`): `zoom-tray5.jpg`, tray 5 B1 and B5 on soil (08:57) and on the mat
+(09:20), grow from leaf cores in magenta, fixed cutoff in red, 3 times enlarged; `edge-tray5.jpg`,
+the same with the 6 px band outside the outline marked by why it is left out (red blue, white not
+green enough); `margin-tray5-B1.jpg`, B1 at each blue margin; `cells-tray6-m0-m20.jpg` and
+`cells-tray3-m0-m20.jpg`, the cells that change most, margin 0 magenta, margin 20 red.
+
+*Raw data.* `experiments/358-blue-mats/data/` (`per_cell_own_window.csv`, `per_cell.csv`,
+`per_cell_photo.csv`, `soil.csv`, `cell_timeline.csv`, `timeline.csv`, the summaries); scripts in
+`experiments/358-blue-mats/code/`. The photos stay in experiment 18's folder on `ac-testing`.
+
+## 37. Production: grow from leaf cores for every photo of experiment 18 (issue #410, method written 2026-11-13, before the run)
+
+**Label: development check.** Production (`ac-testing`) is moved from main d1742e7 to main 75f20e4
+(#409, #414, #415) and its running experiment 18 ("Potato Plants v001", photos from 22 Oct 08:41
+UTC) is reprocessed, so every read photo carries plant area by grow from leaf cores (section 34)
+beside the fixed green cutoff, per tray and per cell. It is an operation, not a measurement of
+plants: what is measured is how long it takes, whether it disturbs the running experiment, and
+whether the numbers that should not change stay the same. The rehearsal on development (#410,
+2026-11-12 to 13: 13,015 photos in 13 h, about 3.6 s per photo, 0 failed, new photos read 30 s after
+being taken) set the plan.
+
+**State before (read-only, 2026-11-13 06:58 UTC).** Production on d1742e7, clean tree, rig.db
+version 25 (75f20e4 is also version 25: no migration, and going back to d1742e7 needs no database
+restore). Experiment 18 running: 31,580 photos, 21,663 read for trays, 9,917 with no trays found
+(the lights-off photos), 1,596 with grow from leaf cores (read since d1742e7), 6,641 with cell
+readings (since 6 Nov). Free: 696 GB disk, 10.5 GB memory.
+
+**When.** At the start of the chamber's lights-off period (00:28 to 08:01 UTC on every recent night),
+on the night of 13 to 14 November, approved by Aaron. Start no earlier than 00:30 UTC, no later than
+02:00 UTC; lights off is confirmed first from the last 2 photos (exclusion "lights off"). Lights-off
+photos are not measured, so the restart costs no measured photo.
+
+**Steps.**
+1. rig.db is copied with sqlite's backup through a read-only connection into
+   `/var/lib/npec-rig/backups/before-promote-75f20e4-<UTC time>/rig.db`, checked with
+   `pragma quick_check`, and copied to the controller (`~/prod-backups/`). This copy is also the
+   "before" for the checks.
+2. `git merge --ff-only 75f20e4`; the server is stopped with SIGTERM about 30 s after a photo
+   (photos at second :53), and relaunched once its process has gone (CLAUDE.md recipe).
+3. Checks: health 200, the About page shows 75f20e4, the next photo is taken on time and read.
+4. Reprocess of experiment 18 through the API, watched about every hour.
+
+**Measured while it runs.** Photos done, total and failed, and photos per minute; after lights on
+(08:01 UTC), the delay from taking each new photo to its tray reading (`tray_read.read_at` minus
+`capture.taken_at`; rehearsal about 30 s; worrying above 5 minutes); the app's memory and free
+memory; free disk; tracebacks in the server log.
+
+**Checks after it finishes** (read-only, against the copy of step 1):
+- photos of experiment 18 read for trays, and how many carry grow from leaf cores (any without are
+  listed with their tray status);
+- the fixed green cutoff's tray areas (`tray_reading.area_mm2`) equal the copy's for every photo and
+  tray that existed before: differences above 0.01 mm2 are counted and examples listed;
+- photos before 6 Nov now have cell readings (count);
+- 3 photos (22 Oct, 1 Nov, 12 Nov) through the Gallery's tray API: both methods present;
+- a readings-only export of experiment 18: its time, and the columns
+  `plant_area_grow_from_leaf_cores_mm2` and `plant_area_fixed_green_cutoff_mm2`.
+
+**What it does not cover.** Whether grow from leaf cores is right on these photos (section 34 and
+33.1); photos not read for trays (lights off) get no area by either method.
+
+### 37.1 What was done, and how it differed from the method (2026-11-14 to 17)
+
+All times UTC; Dutch time is one hour later.
+
+- **No promotion and no restart.** At 00:31 on 14 Nov production was not on d1742e7 as planned: it had been
+  promoted to main a6632d6 on 13 Nov at 10:00 (#416, approved by Aaron). a6632d6 holds 75f20e4 plus
+  the Experiments page speed fix (#420: dwell and scheduler code only, no migration, Reprocess code
+  unchanged). So steps 2 and 3 were not needed; the session stopped and asked. Aaron approved starting
+  Reprocess on a6632d6 as it ran, with no restart (server PID 2834027, up since 13 Nov 09:59).
+- **Lights off confirmed** at 00:31 (photos at 00:29:53 and 00:30:53 carry "lights off").
+- **Backup** at 00:31:44: `/var/lib/npec-rig/backups/before-reprocess-410-a6632d6-20261114T003144Z/rig.db`
+  (1.26 GB, sqlite backup through a read-only connection in 37.5 s, `quick_check` ok, version 25), copied
+  to the controller at `~/prod-backups/before-reprocess-410-a6632d6-20261114T003144Z/rig.db`.
+- **Reprocess started at 06:38:55 on 14 Nov**, not at about 00:35: the approval came then. So only its
+  first 1 h 22 min ran in the dark of the first night.
+
+### 37.2 Results (development check)
+
+**Time.** 33,001 photos (every photo of experiment 18 up to the start) from 06:38:55 on 14 Nov to
+06:41:30 on 17 Nov: **72 h 3 min, 7.9 s per photo on average**. The rate depended on the photo and the
+hour (10-minute samples): photos with trays 4.5 to 6 a minute with the lights on and 7.5 to 10 a minute
+in the dark; lights-off photos (no trays) about 13 to 15 a minute. Photos from early November were the
+slowest (they gain cells and the plants are larger). The rehearsal on development (3.6 s per photo,
+13,015 photos with fewer cells) was half as long per photo; the 31-hour estimate of #410 was therefore
+too short.
+
+**New photos while it ran.** 4,322 photos were taken, no interval over 70 s, none missed. Read for trays:
+2,969 photos with the lights on, delay from taking to reading median 28.4 s, 95th percentile 32.0 s,
+largest 48.5 s; 1,352 lights-off photos, median 10.4 s, largest 17.1 s. None over 5 minutes (the limit
+set before the run). One photo was not read (below).
+
+**Memory and disk** (10-minute samples, `data/progress.tsv`). App 0.42 to 1.58 GB; at least 10.0 GB of
+16 GB available throughout. Free disk went from 687 to 665 GB, which includes 3 days of new photos; the
+mask folder is 3.2 GB in all.
+
+**Failures: 26 photos**, from the server log (`data/reprocess_failures.txt`):
+- 24 photos taken while the lights went off or came on (00:28 or 08:00 after the 25 Oct clock change,
+  23:28 or 07:00 before it, and 3 more on 26 and 27 Oct during longer changes). Plant areas could not be
+  worked out again, so Reprocess kept the saved ones (`ReadingWorse`, the safeguard of #409). Their fixed
+  green cutoff areas are unchanged; they have no grow from leaf cores area.
+- 2 photos where Reprocess gave up waiting 10 s for the database ("database is locked") while it saved:
+  photo 28262 (9 Nov 14:59) had already saved its trays and cells with both methods and is complete;
+  photo 30763 (11 Nov 08:39) kept its earlier reading (fixed green cutoff areas and cells, no grow from
+  leaf cores).
+
+**Database locks.** Reprocess's writes also held up the app's other writes: the scheduler's "last tick"
+could not be saved 4 times (no effect), and one new photo, 37400 (15 Nov 23:16:54, lights on), has the
+status "read failed" and no tray areas. The photo itself is kept and can be read again (#431).
+
+**Checks against the backup** (`code/final_checks.py`, output `data/final_checks_2026-11-17.txt`):
+- **Fixed green cutoff unchanged:** for all 22,652 photos read before the backup, every photo's tray
+  areas (264,131 with an area) equal the backup's; largest difference 0.0 mm2, no photo with a different
+  number of trays. (The check compares each photo's sorted list of tray areas; it was first run with the
+  backup against itself and gave no difference.)
+- **Grow from leaf cores:** 25,528 of the 25,621 read photos carry it on every tray. Of the other 93:
+  37 lack it on one tray only, and each such tray is "tag only" (a tag seen with no tray), which has no
+  fixed green cutoff area either; 54 are lights-off photos with no grow from leaf cores at all (the 24
+  failures above and 30 more that Reprocess passed without an error; why these 30 have no grow from
+  leaf cores area was not looked into); 1 is photo 30763 above; 1 is photo 30983 (11 Nov 12:19,
+  exposure 36,532 us at gain 2.0, a dark photo) with no area by either method, before and after.
+- **Cells:** read photos before 6 Nov with cell readings went from 0 to 14,681 of 14,711; the 30 without
+  are lights-off photos. Of the experiment's 5,409,338 plant cells, 5,409,110 have a grow from leaf
+  cores area.
+- **Gallery** (`GET /api/captures/trays/<path>`), photos of 22 Oct, 1 Nov and 12 Nov at 12:00: each lists
+  `area_methods` "Grow from leaf cores" and "Fixed green cutoff", and its trays and cells carry both.
+- **Export: failed, and stopped the app.** The readings-only export of experiment 18 (export 12, part 0
+  estimated 120 MB) was started at 06:50:20 on 17 Nov. Part 0 is built whole in memory before any byte
+  is sent; after 983 s with nothing received, the kernel's out-of-memory killer stopped the app at
+  13.0 GB (`dmesg`). The camera stopped with it: the last photo was 07:05:58. Aaron approved a relaunch
+  on a6632d6 (07:08:29, PID 3272801); the next photo was taken at 07:08:40 and read 8 s later. Two
+  photos were missed, both in the dark. The export columns were therefore not checked. #430 holds the
+  cause and fixes; until then experiment 18's data is not exported on production.
+
+**What it shows.** Grow from leaf cores now stands beside the fixed green cutoff on every read photo of
+experiment 18 that can be measured, from 22 Oct on, and the fixed green cutoff's numbers did not change.
+Reprocess on production can run for days beside a running experiment without missing or delaying a
+photo beyond 49 s, but its database writes can block other writes for more than 10 s.
+
+**Limits of the evidence.** One run on one rig. Times depend on what else the Pi did (the Experiments
+page, other sessions' reads). The areas themselves are not checked here: their accuracy is sections 33
+and 34. The export of the data could not be checked (#430).
+
+**Raw data.** `experiments/410-production-reprocess/` (`code/`: the status, progress logger and check
+scripts; `data/`: `progress.tsv`, `final_checks_2026-11-17.txt`, `reprocess_failures.txt`). Server logs on
+`ac-testing`: `/tmp/npec-rig-server-20261113T095920Z.log` (to the crash) and
+`/tmp/npec-rig-server-20261117T070829Z.log` (after the relaunch).
+
+## 38. Plant area per cell over the whole Round 2 run, against the photo-to-photo change (issue #394, method written 2026-11-17, before any cell curve was looked at)
+
+**Label: development check.** Section 16.9 measured how much a cell's area changes from one photo
+to the next (a median of 3 to 4 mm², 6 to 9 Nov, fixed green cutoff only) but had cells for the
+last 3 days only. Growth shows over hours and days. This section asks, for each potato plant
+(cell) on its own: does its growth show above the change from photo to photo, over the whole run?
+It is the question behind every plant-area test (a treatment effect has to be found in this
+noise).
+
+**When this was written.** On 2026-11-17, after the Reprocess of experiment 18 (#410, log 37) gave
+every read photo of the run its cells by both rules. Already seen before writing: the counts of
+photos with cells (25,566, 22 Oct 08:41 to 17 Nov 00:28 UTC) and the cell table's columns. No cell
+area of the run before 6 Nov had been looked at.
+
+**Change from the issue's plan.** The issue planned to work the cells out again on the controller
+from one photo per lit hour, because production had no cells before 6 Nov. Since #410 it has them
+for every photo, so production's stored cells are used, all of them (Aaron, 2026-11-17). The
+check that the controller's numbers match production's is then not needed and is dropped.
+
+**Data.** A slim read-only copy of production's `rig.db`: experiment 18's photos, reads,
+exclusions, app starts and camera events, its tray readings, and the cells of trays 1 to 7
+(`experiments/round2-cells/extract.py`). It is read in its own process on production, not through
+the app (so the export memory problem of #430 does not apply), and nothing is written there. The
+copy's time is given with the results. Photo 37400, which #431 left unread, is simply not in it.
+
+**Both rules.** Each cell's area by the fixed green cutoff (`area_mm2`) and by grow from leaf cores
+(`grown_area_mm2`), reported side by side under those names.
+
+**Usable photo for a cell.** Rules 1 to 9 of 16.9 for each photo (read, no exclusion `lights off`,
+`light changing` or `visit`, outside the shuffle windows, not the 17.12 duplicates); the tray
+`placed`, with none of the warnings `no tag`, `tag seen, tray not found in the photo` or `two tags
+in one tray outline`; the cell holds a plant. A cell's area of 0 is the app's "missing" (no plant
+counted) and is kept as 0 in the medians, so an hour whose median is 0 is shown as missing. Photos
+with `over_other_cells` for that rule are kept and marked. Trays 1 to 6 over the whole run; tray 7
+until 5 Nov 11:00 UTC, when the green squares were laid on it (24.4).
+
+**What is worked out.**
+
+1. *Photo-to-photo change*, per rule: 16.9's undisturbed cell pairs, now over the whole run, by
+   cell size, with the same size bands as 16.9 (median, 95th percentile, root mean square of the
+   change in mm²). Pairs across an app restart before 2 Nov 16:19 UTC are left out from the 16.9
+   sidecar list; from then on from `app_start`.
+2. *Hourly median*, per cell and rule: for each UTC hour, the median of the usable photos, with
+   their count and their spread (median absolute deviation, mm²).
+3. *Hour to hour*: the change between a cell's hourly medians of two following hours with no
+   shuffle between them, in the same slot, by size as in 1. Set beside 1, it answers the issue's
+   open point: whether one photo per hour would do, or the median of each hour is needed.
+4. *Day to day growth*, per cell and rule: for each chamber day (Dutch local time), the median of
+   its hourly medians; growth is the change from the previous day. Set beside the hour-to-hour
+   change at that size (3), as a ratio, per cell and day. No ratio is set as the line between
+   "shows" and "does not show"; the table gives the spread of the ratios by day and by size.
+5. *Pictures.* Per tray, one small chart per cell: every usable photo (faint dots), the hourly
+   medians (line), both rules, against time. Marked on every chart: the shuffles (shuffle record),
+   the mats laid on 6 Nov 08:10 to 09:19 UTC (36), and any change of photo quality read from the
+   photos' own records.
+6. *Cell names* (#391). A tag moved across the middle of its tray swaps the cell names with no
+   warning. The charts are looked at by eye for its sign: at one shuffle, two or more cells of a
+   tray stepping to each other's areas. Reported, not tested.
+
+**Limits (as planned).** One run, potato only, one segmenter per rule and neither tuned for
+sprouts. No true area is known for any plant. Leaf movement counts as noise and leaves covering a
+neighbour's cell are only marked. The mat step of 6 Nov (36) lies inside the run for every plant.
+The early sprouts read near the empty-tray floor of about 1 to 4 mm² (17.4). The cell names rest
+on the tags staying in cell A1, which is not checked (#391).
+
+### 38.1 Results (2026-11-17)
+
+**Data and scripts.** The slim read-only copy of production's `rig.db`, made 2026-11-17 from 07:57:27
+to 07:58:57 UTC: experiment 18, 37,398 photos from 22 Oct 08:41 UTC on. The run goes on after it:
+the researcher is still harvesting and data is still being gathered (Aaron, 2026-11-17), so these
+are results to that time. Scripts in `experiments/round2-cells/` (`extract.py`, `cells.py`,
+`charts.py`); the tables in `experiments/round2-cells/data/`. The copy and the hourly table stay in
+`~/scratch/394-round2-cells/`, not kept; both are made again by the scripts.
+
+**Check against 16.9.** In 16.9's window (6 Nov 12:28 to 9 Nov 10:40 UTC), with the fixed green
+cutoff, the new script finds 301,948 undisturbed cell pairs on trays 1 to 6, median change 3.63
+mm². 16.9 found 352,279 on trays 1 to 7, a median of 2.7 to 4.2 mm² per tray; six sevenths of its
+count is 301,953.
+
+**Differences from the method.**
+1. `tray_reading.slot` is empty since the re-read of 2 November, so the slot is the nearest slot of
+   the calibration's layout to the tray's stored centre, as in 16.9 (`cells.nearest_slot`, the same
+   rule as `tray_placement.nearest_slot`).
+2. **No record of moves after 9 Nov.** The shuffle record ends with shuffle 12 (9 Nov). From then
+   on the researcher harvests and moves plants as needed, with no record (Aaron, 2026-11-17). The
+   rig's `visit` exclusion still applies, but a pair or an hour after 9 Nov 10:41 UTC may hold a
+   move or a harvest. The charts shade this time.
+3. **Photo quality** did not change: every photo of the run is JPEG 75, 4:2:0 (the older photos'
+   empty columns mean the same). Nothing to mark.
+4. 133 cells: 19 on each of trays 1 to 7. On 16 Nov 95 of the 114 cells of trays 1 to 6 still
+   read; trays 2 and 3 read nearly nothing in every cell from 16 Nov (harvest, assumed, not checked).
+
+**1 and 3. How much a cell's area changes** (root mean square of the change in mm²; undisturbed
+pairs for one minute, following hours in the same slot for the hour columns; whole run, trays 1 to
+6, tray 7 to 5 Nov 11:00 UTC; `data/photo_to_photo.csv`, `data/hour_to_hour.csv`):
+
+| Cell area, mm² | Fixed green cutoff: 1 minute | One photo per hour | Hourly median | Grow from leaf cores: 1 minute | One photo per hour | Hourly median |
+|---|---|---|---|---|---|---|
+| 1 to 5 | 1.7 | 1.9 | 0.6 | 5.5 | 5.6 | 3.5 |
+| 10 to 20 | 3.9 | 4.6 | 2.1 | 10.0 | 10.0 | 4.2 |
+| 50 to 100 | 8.5 | 12.6 | 7.9 | 5.6 | 9.8 | 7.8 |
+| 200 to 500 | 13.2 | 29.3 | 21.9 | 12.0 | 28.4 | 25.6 |
+| 500 to 1000 | 18.1 | 42.4 | 32.8 | 20.1 | 44.5 | 41.2 |
+
+- **Small plants (below about 20 mm²):** the hourly median changes a third to two thirds as much
+  as one photo. The change there is from photo to photo, and the median removes most of it.
+- **Larger plants (above about 100 mm²):** an hour's change is larger than a minute's, by 1.7 to
+  2.4 times, and the median removes little of it. Something changes over the hour (leaves moving and the daily cycle
+  seen in the charts, a rise through the day and a fall overnight in every grown cell). So one
+  photo per hour does not do for large plants either; comparing the same time of day, or whole
+  days, does.
+- **Grow from leaf cores** changes less than the fixed cutoff from minute to minute at 20 to 500
+  mm² (median 1.2 to 2.5 mm² against 3.3 to 6.5), with rare large jumps that lift the root mean
+  square. At 5 to 10 mm² its change (median 13 mm²) is larger than the cells: it jumps between
+  nothing and about 13 mm². It reads 10 to 40 mm² on sprouts where the fixed cutoff reads 1 to 5.
+
+![How much a cell's area changes, by cell size](figures/38/noise.png)
+
+*Root mean square change in a cell's area against the cell's size band, for one minute (circles),
+one photo per hour (squares) and hourly medians (triangles), by rule. `charts.py`, from
+`data/photo_to_photo.csv` and `data/hour_to_hour.csv`.*
+
+**4. Does each plant's growth show?** Per cell, the median of each day's hourly medians, trays 1
+to 6, 114 cells (`data/daily_growth.csv`):
+
+| From, to (midday hours) | Grow from leaf cores: median area, mm² | Cells that grew | Fixed green cutoff: median area, mm² | Cells that grew |
+|---|---|---|---|---|
+| 23 to 30 Oct | 20 to 69 | 114 of 114 | 2 to 7 | 80% |
+| 30 Oct to 5 Nov | 69 to 159 | 99% | 7 to 50 | 93% |
+| 5 to 9 Nov (mats on 6 Nov) | 159 to 130 | 29% | 50 to 54 | 56% |
+| 9 to 16 Nov (harvest time) | 143 to 241 | 67% (95 cells) | 55 to 146 | 72% (95 cells) |
+
+- **Over a week, every plant's growth shows** by grow from leaf cores before the mats: 114 of 114
+  cells grew from 23 to 30 Oct, 113 of 114 from 30 Oct to 5 Nov.
+- **From one day to the next** (23 Oct to 5 Nov), a day's growth was a median 0.9 to 2.0 times the
+  hour-to-hour change at that size by grow from leaf cores, and 76% to 98% of cells grew each day.
+  By the fixed cutoff, whose sprouts read near the floor of 1 to 4 mm² (17.4), it was -0.5 to 3.2
+  times, and 36% to 90% of cells grew.
+- **13 to 15 Nov** both rules show strong growth: 92% to 100% of cells grew each day, 2.5 to 5.8
+  times the hour-to-hour change. 16 and 17 Nov fall by both rules, in the harvest time.
+- No threshold is set for when growth "shows" (16.4); the ratios are in `data/daily_growth.csv`.
+
+**The blue mats (6 Nov) are inside every plant's curve.** Per cell, the median of 14:00 to 17:00 UTC
+on 5 Nov against 10:00 to 13:00 UTC on 6 Nov (after the mats, the trays moved at 10:16 to 10:20),
+with the same hours a day earlier (4 to 5 Nov) as the change with no mats:
+
+| Rule | Change across the mats, median (10th to 90th percentile of cells) | Cells that fell | The day before |
+|---|---|---|---|
+| Grow from leaf cores | -29.7% (-45.3 to -17.6) | 114 of 114 | +14.7%, 20% fell |
+| Fixed green cutoff | +33.6% (-16.9 to +96.2) | 23% | +42.7%, 11% fell |
+
+- By grow from leaf cores, every plant's area fell when its mat was laid, by about a third, while
+  the plants were growing about 15% a day. This is 36.2's step, now on all six trays: on a mat the
+  rule loses the leaf's edge. **No area by grow from leaf cores after 6 Nov 08:10 UTC can be
+  compared with one before it.** The fall from 5 to 9 Nov in the table above is the mats, not the
+  plants. Growth within each side of the mats can be compared.
+- By the fixed cutoff the step does not show against its own day-to-day change (as in 36.2, where
+  it rose 9% to 40%). After the mats the two rules read nearly the same on most cells (charts).
+- Researchers lay mats when their protocol needs them (36), so any experiment can hold such a
+  step. The page does not mark it yet (#424).
+
+**5. Pictures.** One chart per tray, one small chart per cell, both rules. Two are kept here; all
+six and tray 7 are in `~/scratch/394-round2-cells/out/`, made again by `charts.py`.
+
+![Tray 4, plant area per cell over the run](figures/38/tray4.png)
+
+*Tray 4, one chart per cell laid out as the tray (A1 holds the tag). Faint dots: every usable
+photo, fixed green cutoff. Lines: hourly medians, fixed green cutoff (blue) and grow from leaf
+cores (orange). Grey: shuffle windows. Green line: mats laid. Yellow: harvest and moves, not
+recorded. Log area axis, times UTC. `charts.py`.*
+
+![Tray 1, plant area per cell over the run](figures/38/tray1.png)
+
+*Tray 1, as tray 4. From 10 Nov its cells swing much more than tray 4's, in the harvest time.*
+
+**6. Cell names** (#391). On all six trays, looked at by eye: at no shuffle do two cells step to
+each other's areas; every cell's curve carries on across each shuffle. So no tag was seen to leave
+cell A1 at a shuffle. This rests on the eye, and a swap of two cells of similar size would not
+show.
+
+**What it covers.** Experiment 18 on production, 22 Oct to 17 Nov 07:57 UTC, both rules as stored.
+- Over a week, every plant's growth shows above the change from photo to photo and from hour to
+  hour, by grow from leaf cores. Day by day it shows for most plants, about once to twice the
+  hour-to-hour change.
+- For plants above about 100 mm² the change within an hour is larger than within a minute; days or
+  the same time of day should be compared, not single hours.
+- The mats put a step of about -30% into every plant's area by grow from leaf cores.
+
+**Limits of the evidence.**
+- All the limits of 38 and of 16.9.
+- After 9 Nov, moves and harvests are not recorded; changes then are not only growth.
+- Leaf movement and the daily cycle count as change, not separated from the rig's own.
+- The mat step is measured across one night (5 to 6 Nov), with growth taken from the day before.
+- The run continues; these are results to 17 Nov 07:57 UTC.
+- **Decision, not a measurement:** whether a day's growth of once to twice the hour-to-hour change
+  is enough to find a treatment effect is Aaron's call.
+
+## 39. Soil-green warning level on Potato Plants v001 (issue #373, method written 2026-11-17, before any soil level was read)
+
+**Label: development check.** Grow from leaf cores sets each tray's lower cutoff from its soil level
+(the peak of the tray's greenness histogram, blue and tag left out; sections 24.8 and 34). Soil that
+turns green, from algae or a paler soil, brings the soil level up towards the leaves, and soil can
+then count as plant with nothing on the page saying so (harm 1). Section 24.8 proposed a warning
+"soil looks green" when the soil level is -0.04 or higher. That level is a decision from two soils
+seen once (five greenish development trays at -0.035 to +0.005, production at -0.185 to -0.105),
+not a measurement. This section checks it on one experiment over its whole length.
+
+**Development photos are not available.** "development 002" (3 to 12 November) was purged on
+npec-rig-01; its only copy, on npec-rig-02 (#418), no longer exists (Aaron, 2026-11-17). "development
+rig" (28 October to 3 November) was purged without a copy (#389). The greenish development trays of
+24.8 therefore cannot be looked at again, and this check covers production only.
+
+**Questions.**
+
+1. How does each tray's soil level move over experiment 18, from its first photo to now? Does it
+   rise as the weeks pass?
+2. On how many counted tray photos would the proposed level of -0.04 warn? On how many does the
+   lower cutoff leave its floor of -0.045 (soil level above -0.115)?
+3. Does the soil level agree with the eye: on which trays does the soil look green or show algae?
+
+**Data.** Production's `rig.db`, read through a read-only connection (`mode=ro`) over ssh; nothing is
+written on production. Experiment 18, every `tray_reading` with a soil level (`grown_soil_level`,
+filled for every photo by the Reprocess of #410), on photos the app counts: an `exclusion` row with
+no name, so not lights off, not light changing, not a visit. Days are UTC dates.
+
+**Analysis.**
+
+1. Per tray and day: the number of counted photos, the median soil level, its 5th and 95th
+   percentiles. Per tray: the median of its first and last full day and the change between them.
+2. Counts of counted tray photos with soil level at or above -0.04, and above -0.115, per tray.
+3. *Pictures.* Every tray cropped from the counted photo nearest 11:00 UTC on three days: the first
+   day with readings, 5 November (the day before the mats, section 36) and the last full day. The
+   day and the soil level are written below each crop, outside the photo. Aaron says which crops
+   show soil that looks green or algae (he is asked for the exceptions only). A tray named by eye
+   that the soil level does not flag, or the reverse, is reported tray by tray.
+
+**Decided after the results, with Aaron.** The warning level, and whether a warned tray's plant area
+is hidden or only marked.
+
+**Limits (as planned).** One rig, one soil, one experiment. Since 6 November blue mats cover most of
+each plant tray's soil, so the soil level is read from the soil left between mats and leaves (section
+36 found it unchanged by the mats on the morning they were laid). No development soil. Algae in
+patches may leave the histogram's peak where it is while the patches still count as plant: question 3
+is there to find that. The eye judgement is one person's.
+
+*Raw data.* `experiments/373-soil-green/data/`, scripts in `experiments/373-soil-green/code/`.
+
+### 39.1 Results (2026-11-17)
+
+*Data.* 265,522 counted tray readings of experiment 18 (22 October 08:41 to 17 November 07:03 UTC),
+read from production through a read-only connection after the Reprocess of #410; 484 readings of a
+tray found without its tag are left out (no tray to name).
+
+1. *Soil level over time, plant trays 1 to 6.* Daily medians -0.175 to -0.125 throughout, a rise of
+   0.01 to 0.04 over the four weeks, every photo -0.215 to -0.085, except where the level jumps to
+   +0.045 (point 2). Trays 7 to 12 hold no plants on any day (section 33): their "soil" is empty
+   trays, black pots, tag sheets and targets (-0.285 to +0.045), and says nothing about soil.
+2. *At or above -0.04, plant trays.* Tray 1: 3,438 photos (28 October 3, 9 November 405, 12 to 15
+   November 714 to 776 a day); tray 5: 3 photos (16 November). Every one of them reads +0.045, the
+   centre of the histogram's top bin below +0.05. No plant tray photo lies between -0.085 and +0.045.
+   The lower cutoff left its floor on exactly these photos and on tray 7 (1,770 photos, levels up to
+   -0.095, cutoff up to -0.025).
+3. *By eye.* Aaron, 2026-11-17, from the chamber: there is no algae on production. Tray 1 at 09:30
+   and 11:30 UTC on 12 November (`docs/figures/39/tray1-2026-11-12T0930.jpg`,
+   `tray1-2026-11-12T1130.jpg`) shows the same plants and mats; the tray had been moved to another
+   table location between them.
+
+**Why the level jumps.** Since 6 November blue mats cover nearly all of each plant tray's soil. The
+pixels left that are not blue are a little soil, the leaves and the pixels at their edges. Inside
+tray 1's outline 8 to 13% of pixels are not blue, on photos at -0.145 and at +0.045 alike; their
+median greenness is -0.025 to +0.016. When the leaves' edge pixels below +0.05 outnumber the soil,
+the histogram's highest bin below +0.05 is the top one and the "soil level" is no longer soil. The
+lower cutoff then becomes +0.115, above the leaf cores' 0.07, and most of each leaf is left out.
+
+**The area it costs.** Tray 1 by grow from leaf cores, hourly means of counted photos: 3,033 to
+3,662 mm2 from 11 November 12:00 to 12 November 09:00 UTC, then 337 to 675 mm2 from 11:00 (the fixed
+green cutoff drops too, 1,202 to 548 mm2, in the new table location; not looked into here). With the lower cutoff held at the
+floor, the 11:30 photo gives 83,003 plant px against 86,133 at 09:30; with the app's cutoff it gave
+8,005 (`data/fixed_check.txt`). Nothing on the page said so: harm 1.
+
+![Tray 1 at 11:30 UTC on 12 November, plant by grow from leaf cores in magenta](figures/39/tray1-1130-before-after.jpg)
+
+*Figure 39a. Tray 1 in photo 32374 (2026-11-12 11:30:53 UTC). Left, the cutoff set from the top bin
+(+0.115): 8,005 px. Right, the floor (-0.045), as since #373: 83,003 px.*
+
+**Decided (Aaron, 2026-11-17).** A soil level in the top bin is no soil level: grow from leaf cores
+uses the floor (-0.045) and the tray is marked "soil hidden: usual leaf cutoff used". The area is
+shown, not hidden. A reading saved with the old cutoff (soil level in the top bin, cutoff above the
+floor) is grown again from its photo by Reprocess, not counted again from its mask.
+
+**What this does not settle.** The level of "soil looks green" (24.8's -0.04) is not tested: no
+production soil came near it, and the development soils it came from are gone. On production the
+proposed level would have flagged only the jumps of point 2. Green soil and algae still count as plant
+(the page's general note says so); a check of them waits for soil that greens.
+
+*Raw data.* `experiments/373-soil-green/data/` (`soil_levels.csv.gz`, `per_tray.csv`,
+`per_tray_day.csv`, `plant_trays_warned_per_day.txt`, `tray1_photos.txt`, `fixed_check.txt`);
+scripts in `experiments/373-soil-green/code/`. The photos stay in experiment 18's folder on
+`ac-testing`.
+
+### 39.2 The floor cutoff on the other flagged plant trays, checked by eye (2026-11-20)
+
+**Label: development check**, by eye, one observer (Aaron). **The method was agreed in conversation
+on the day and written here after the check**, not before it, a departure from this log's rule.
+
+**Question.** Before a Reprocess of experiment 18 on production (#444): on the plant trays other
+than tray 1, does the floor cutoff that #373 uses when the soil is hidden mark the plants, and only
+the plants?
+
+**Selection.** The readings a Reprocess would grow again from the photo (soil level in the top bin,
+cutoff above the floor), counted on production's `rig.db` through a read-only connection on
+2026-11-20, version 6fa155a:
+
+| Tray | Readings | First to last (UTC) | What the tray holds |
+|---|---|---|---|
+| 1 | 3,586 | 9 to 16 Nov | plants under mats, 39.1 |
+| 3, 4, 5, 6 | 7, 2, 5, 1 | 15 to 17 Nov | plants under mats, **checked here** |
+| 7, 8, 10 | 4, 7,284, 12 | 22 Oct to 17 Nov | benchmark objects and empty trays, no soil (section 19); not checked |
+| no tag | 64 | 22 Oct to 16 Nov | not checked |
+
+Of the 15 checked readings, 3 are counted in the plant areas (tray 5, 16 November 16:01, 17:21 and
+18:03 UTC). The other 12 are left out for light ("lights off" or "light changing", the exclusion
+table, #382).
+
+**Method.** Each photo was copied from production and its tray cut out by the saved outline. Grow
+from leaf cores was run on it at this version with the floor (-0.045) as the lower cutoff, and the
+plant drawn in magenta beside the photo (`draw_check.py`). The 15 pictures were put on one page, one
+numbered section each. For each section Aaron answered one question in the chat, the same words as on
+the page: "Is the magenta on the plants only, and on the whole of each plant?", choosing "Yes",
+"Misses part of plants" or "Colours things that are not plants", and naming cells where he wished.
+No reference outline was drawn; how much leaf is missed was not measured.
+
+**Results.**
+
+- **Plants only: 14 of 15.** In section 11 (tray 3, 16 November 06:53 UTC, lights off, a very dark
+  photo) green test targets inside the tray outline were marked as well, and the plants barely.
+  No soil, mat, tray wall, tag or pin was marked in any section.
+- **Whole plants: 0 of 15.** Every section misses parts of leaves. Section 1 (tray 5, 16:01,
+  counted) "matches fairly well", with leaf borders missed in 3 cells. The other 14 miss more: where
+  cells were named, parts of 4 to 9 plants, and in tray 4 a whole plant (A5, in both of its photos);
+  sections 8, 9, 10 and 12 were answered "Misses part of plants" with no cells named. Aaron's words per section are in
+  `check_answers.csv`.
+- **Counts, the 3 counted readings.** Saved 100,715 to 105,872 plant px; with the floor 208,542 to
+  213,536 px, 2.0 to 2.1 times as many. Tray 5's photo one hour earlier (16 November 15:01 UTC,
+  photo 38345), whose soil was seen (-0.135) and whose cutoff was at the floor already, has 216,488
+  px; the three are 1.4% to 3.7% below it.
+- **Counts, the 12 readings left out for light.** With the floor 1.4 to 8.1 times the saved count.
+  The saved counts drawn again from the photo match the stored ones in 14 of 15; section 11 stores
+  42,389 px against 58,605 drawn again (not looked into).
+
+![Tray 5 at 16:01 UTC on 16 November: photo and the floor cutoff in magenta](figures/39/check-tray5-2026-11-16T1601.jpg)
+
+*Figure 39b. Section 1: tray 5, photo 38405 (2026-11-16 16:01 UTC, counted). Left, the photo;
+right, grow from leaf cores with the floor cutoff, plant in magenta, 213,536 px (saved: 100,715 px).
+Tray outline in red.*
+
+![Tray 3 at 06:53 UTC on 16 November, lights off](figures/39/check-tray3-2026-11-16T0653.jpg)
+
+*Figure 39c. Section 11: tray 3, photo 37857 (2026-11-16 06:53 UTC, lights off, left out for
+light). The plants are barely marked; green test targets in the outline are.*
+
+![Tray 4 at 08:01 UTC on 15 November, lights off](figures/39/check-tray4-2026-11-15T0801.jpg)
+
+*Figure 39d. Section 13: tray 4, photo 36485 (2026-11-15 08:01 UTC, lights off, left out for
+light). The plant in A5 is not marked at all; the others in part.*
+
+**What it shows.** On these photos the floor cutoff marks no soil, mat or tray, and on the 3
+counted tray 5 readings it brings the area to within 4% of the same tray an hour before, where the
+saved readings hold about half. It still misses parts of leaves on every photo, most in the dark ones
+left out for light, so it is better than the saved cutoff and not complete. A Reprocess as it is now
+would also grow trays 7, 8 and 10 again and move their benchmark numbers; a Reprocess limited to
+plant trays since the mats is issue #444.
+
+**Limits.** One observer, by eye, with no reference outline and no measure of how much is missed. 15
+photos of 4 trays over 3 days, 3 of them counted; one experiment on one rig. The question joins
+two (plants only, whole plants) and was answered as two.
+
+*Raw data.* `experiments/373-soil-green/data/` (`flagged_per_tray.txt`,
+`flagged_plant_readings.txt`, `check_answers.csv`); scripts `flagged_query.py` and `draw_check.py`
+in `experiments/373-soil-green/code/`. The photos stay in experiment 18's folder on `ac-testing`.
+
+## 40. Soak: both rigs over the weekend of 14 and 15 November (issue #80, rule set 2026-11-20, before any count was read)
+
+**Label: development check.** Whether the app runs unattended for days: every scheduled photo taken
+and nothing going wrong that a researcher would need to know about. Not a measurement of area.
+
+**Rule (decision, Aaron, 2026-11-20).** A day passes with **no more than 1 missed photo** and **no
+critical error**. Critical means an error that stops photos or the camera, loses data, or leaves an
+area wrong with no warning on the page. The rule was set after the weekend but before any count or
+log line was read. Days are Dutch local days (UTC+1): Saturday 14 November is 2026-11-13T23:00Z to
+2026-11-14T23:00Z. Friday 13 and Monday 16 are given as well, for context.
+
+**Data.** Read only, over ssh, on 2026-11-20: each rig's `rig.db` through a read-only connection
+(`mode=ro`), the app's log and the kernel log. Nothing was written or restarted on either rig.
+
+- *Production* (`ac-testing`, experiment 18, one photo every 60 s). App version a6632d6 from
+  2026-11-13 09:59Z to 2026-11-17 (git reflog). Server log
+  `/tmp/npec-rig-server-20261113T095920Z.log`, unbroken from 13 Nov 09:59Z to 17 Nov 07:08Z, and
+  the one before it up to 13 Nov 09:59Z. Its lines carry no clock time and were dated from the
+  kernel's time since boot, to about 2 s.
+- *Development* (`npec-rig-01`, experiment 4, one photo every 300 s, schedule from 2026-11-13
+  09:55Z). App version a6632d6 (main) from 2026-11-13 09:56Z to 2026-11-17 (git reflog). The
+  `npec-rig` service journal is unbroken over the four days (one boot since 2026-11-03).
+
+**Method.** Photos: `capture` rows of the experiment per local day, against the number expected
+from the interval and the time the schedule ran, and `scheduled_photo` rows with no capture. A gap
+between photos longer than 1.5 times the interval counts round(gap / interval) - 1 missed photos.
+Restarts: `app_start` rows and the service journal. Errors: every traceback, ERROR or CRITICAL line
+in the app log, `camera_events` rows, and out-of-memory kills in the kernel log. On production the
+photo files in each UTC date folder were also counted.
+
+**Results.**
+
+| Local day | Production: taken / expected | Longest gap | Development: taken / expected | Verdict |
+|---|---|---|---|---|
+| Fri 13 | 1440 / 1440 | 64.4 s | 156 / 156 (schedule from 10:00Z) | Pass, both |
+| **Sat 14** | **1440 / 1440** | 64.4 s | **288 / 288** | **Pass, both** |
+| **Sun 15** | **1440 / 1440** | 65.6 s | **288 / 288** | **Pass, both** |
+| Mon 16 | 1440 / 1440 | 65.3 s | 288 / 288 | Pass, both |
+
+No photo was missed on either rig: 0 of 5760 scheduled slots on production, 0 of 1020 on
+development. No gap was over 90 s on production or over 450 s on development. No `camera_events`
+row and no out-of-memory kill on either rig.
+
+*Restarts.* Production: one, 13 Nov 09:59:22Z (the update to a6632d6), between the photos of
+09:58:53 and 09:59:53, so no photo was lost. Development: four on 13 Nov (06:41, 07:11, 08:31,
+09:56Z), clean stops and starts from redeploys, all before experiment 4's schedule began.
+
+*Errors, none critical.*
+
+1. **`sqlite3.OperationalError: database is locked`.** Production: 7, 14 Nov 23:16Z to 16 Nov
+   23:17Z. 4 were the scheduler failing to store the time of its last tick, 2 were Reprocess reads,
+   and 1 was the tray reading of the photo of 15 Nov 23:16:54Z. That photo is saved, and its
+   reading is marked `read failed`, so the photo has no plant areas but they are not shown wrong.
+   Development: 3, at 13 Nov 06:35Z, when experiment 3 was purged and experiment 4 created, before
+   any photo was scheduled. Follow-up: #439.
+2. **Reprocess could not read a photo and kept the saved areas** (production, 26 times, 14 Nov
+   08:41Z to 15 Nov 17:08Z). From the Reprocess of experiment 18 started 14 Nov 06:39Z (section
+   37), on October and early November photos. The saved areas stayed in place.
+3. **"Failed to start rpi-connect-wayvnc"** (production system log, 26,390 lines). The remote
+   desktop service, not the app.
+
+**Verdict.** Both rigs pass the rule on Saturday 14 and Sunday 15 November, and on Friday 13 and
+Monday 16 as well.
+
+**What it does and does not cover.** Four days on one app version (a6632d6), on two rigs. The
+1-minute load was carried by production only; development took a photo every 5 minutes. It shows
+the scheduler, camera and tray readings kept running over four days without a restart. It does not
+cover a cold start, a camera fault (none happened), a full disk, or later app versions. Production
+was also running the Reprocess of section 37 on 14 and 15 November, so it ran under more load than
+usual for those two days.
+
+*Raw data.* None kept: the counts can be read again from each rig's `rig.db`, which keeps these
+rows. Re-run, on either rig:
+
+```
+python3 - <<'PY'
+import sqlite3
+c = sqlite3.connect('file:/var/lib/npec-rig/rig.db?mode=ro', uri=True)
+EXP = 18  # 4 on npec-rig-01
+for a, b in [('2026-11-12T23:00', '2026-11-13T23:00'), ('2026-11-13T23:00', '2026-11-14T23:00'),
+             ('2026-11-14T23:00', '2026-11-15T23:00'), ('2026-11-15T23:00', '2026-11-16T23:00')]:
+    taken = c.execute("select count(*) from capture where experiment_id=? and purpose='capture'"
+                      " and taken_at>=? and taken_at<?", (EXP, a, b)).fetchone()[0]
+    slots = c.execute("select count(*), sum(capture_id is null) from scheduled_photo"
+                      " where experiment_id=? and due_at>=? and due_at<?", (EXP, a, b)).fetchone()
+    print(a, 'taken', taken, 'slots', slots[0], 'unfilled', slots[1])
+PY
+```
+
+## 41. Full Reprocess of Potato Plants v001 on production with the current code (issue #444, method written 2026-11-20, before the run)
+
+**Label: development check.** Since production moved to v0.2.0 (2026-11-20), every new photo is read
+with #373's soil-hidden rule (39.1). Readings saved before then hold the old rule, so experiment 18
+holds two methods. Aaron decided (2026-11-20) not to reprocess by tray or by date, which would leave
+more than one method inside one photo, but to reprocess the whole experiment once with the current
+code. This section checks that the Reprocess changes the readings it should and no others.
+
+**Prediction, from the code.** Reprocess reads every capture photo of the experiment again, oldest
+first. A saved reading whose soil level is in the top bin (+0.045) and whose cutoff is above the
+floor (-0.045) is grown again from its photo ("flagged"), and with it every other tray of that photo
+("same photo"). Every other reading is counted again from its saved mask and keeps its areas. Before the run (2026-11-20, read only, 302,205 tray readings):
+
+| Tray | Flagged readings | What the tray holds | Expected after |
+|---|---|---|---|
+| 1 | 3,586 | plants under mats | grown area up, about 2.7 to 10 times (39.1); marked "soil hidden" |
+| 3, 4, 5, 6 | 15 | plants under mats | up about 1.4 to 8 times (39.2); marked |
+| 7, 8, 10 | 7,300 | benchmark objects, empty trays, no soil | changed, to what the current code gives new photos; marked |
+| no tag | 64 | trays without a tag | changed; marked |
+| all trays | 107,555 in the same photos | | grown again from the photo by the same rule they were read with: expected unchanged, not guaranteed |
+| all trays | 183,683, the rest | | unchanged |
+
+**Correction to the table above, what the trays hold (Aaron, 2026-11-26).** The row for trays 7, 8
+and 10 calls all three "benchmark objects, empty trays, no soil". That is wrong about tray 7.
+**Trays 1 to 7 hold legitimate plants**; trays 8 to 12 are a mix of benchmark objects and synthetic
+targets. Tray 7 has some synthetic targets mixed in among its plants, and its values are not relied
+on. The prediction is left as written on 2026-11-20, because it is the record of what was expected
+before the run: only the description of the trays was wrong, not the counts, which came out exactly
+as predicted (41.1).
+
+This matters for reading 41.1's comparison of the rig against the x86_64 box, which reports zero
+differences across trays 1 to 7, the plants, with the only six differing cell readings on trays 8
+and 10. Taking tray 7 for a benchmark tray would put it in the wrong group and misstate which
+readings that comparison covers.
+
+**Pass rule (decision, not a measurement).** Every "other" reading keeps its rig area and grown
+area within 0.01 mm² (the code counts the same mask again, so equal is expected); "same photo"
+readings that change are counted and listed per tray, as a finding, not a failure; every flagged
+reading carries the "soil hidden" mark afterwards; Reprocess reports 0 failed photos. Any reading
+outside this is listed and looked at, not explained away.
+
+**Steps.**
+
+1. Just before the start: production's version (`git log -1`), no data export building (no
+   `export` row without a finish time and an error), no Reprocess running, free memory (`free -m`).
+2. Before snapshot, read only: `snapshot.py tray` and `snapshot.py cell` on ac-testing.
+3. Start: `POST /api/experiments/18/reprocess` on ac-testing, once, at the time Aaron approves.
+4. During the run, about hourly: progress (`GET /api/experiments/18/reprocess`), free memory, and
+   whether scheduled photos are still taken (`scheduled_photo` slots without a capture, the rule of
+   section 40). Reprocess has no stop control; if photos stop being taken, Aaron is told and decides.
+5. After it reports done: after snapshot, `compare.py` per tray, and the cell readings compared
+   the same way by hand. Aaron then makes a new data export (export 16 holds the old values).
+
+**Expected run time.** 10,929 of the 28,847 photos with tray readings are grown again; the rest are
+counted from their masks. About 18 to 30 hours, from #410's 72 h when every photo was grown again
+(section 37); not measured. Photos taken during the run are read by the current code as they arrive
+and are not part of the comparison.
+
+**Limits (as planned).** The comparison checks that the Reprocess did what the code says; whether the
+new areas are right was checked by eye on 15 photos (39.2) and on tray 1 (39.1), not measured
+against a reference. One experiment, one rig.
+
+*Raw data.* Scripts in `experiments/444-full-reprocess/code/` (`snapshot.py`, `compare.py`); the per
+tray comparison will be in `experiments/444-full-reprocess/data/`. The snapshots (about 8 MB for the
+trays, more for the 6 million cell readings) stay on the controller, outside the repository, with
+their checksums given in the results.
+
+
+### 41.1 Results (written 2026-11-26)
+
+**Label: development check.** The Reprocess was not finished on the rig. On production (`ac-testing`,
+a Raspberry Pi 5) it started 2026-11-24 14:15:55 UTC and the Pi went offline about 04:30 UTC on
+2026-11-25, interrupted at **8,215 of 47,457 photos, 13 failed**. Issue #511 finished it from a copy of
+the Pi's SD card **on an x86_64 Linux box (AMD Ryzen 7 5700X, 8 cores, 16 threads, 30 GiB RAM), not on
+the rig.** The method above was not changed.
+
+The photo count (47,457) is larger than the plan's 28,847 because the two count different things at
+different times. The plan counted photos *already holding tray readings* on 2026-11-20, the day the
+method was written; this run covered *every capture photo* of the experiment, and the experiment went
+on taking photos until 2026-11-24 07:32 UTC. Read back from the copy of the rig's database: 41,244
+capture photos existed before 2026-11-20, of which 28,548 held tray readings — the plan's 28,847 was
+counted from the live database on the day and is 299 higher. Neither figure is wrong; they are not
+the same quantity.
+
+**The copy and its checks.** The card was imaged with GNU ddrescue on a Mac (100% rescued, 0 read
+errors). On the box the image was checked against the exact size (1,023,326,289,920 bytes) and against
+the superblock read from the card, its ext4 journal was replayed with an undo file, `e2fsck -fn` found
+only two stale free-space summary counters and no structural error, and the image was mounted read
+only and the data copied to local ext4. All four `rsync -n --itemize-changes` re-checks listed
+nothing. `rig.db` reports `integrity_check ok` and `user_version 26`, with **47,457 capture rows and
+0 missing photo files**. When `ac-testing` came back on the network its own API reported
+`interrupted`, `done 8215`, `failed 13`, matching the copied database exactly. The "before" snapshots
+made on the box hold **317,784** tray rows and **6,327,101** cell rows, the counts recorded on the
+controller for the same snapshots.
+
+**Software against the rig.** App v0.5.0, commit `9498c0f`, schema 26: the commit `ac-testing` ran.
+Python 3.13.5, numpy 2.5.3 and Pillow 12.3.0 match the rig. **OpenCV differs and could not be made to
+match:** the rig uses `python3-opencv` 4.10.0+dfsg-5, a Debian system package reached through
+`include-system-site-packages = true`; the box used the PyPI wheel `opencv-python-headless==4.10.0.84`,
+the same upstream release (4.10.0) built differently. libjpeg is `libjpeg62-turbo` 1:2.1.5-4 on the
+rig and `libjpeg-turbo8` 2.1.5-4ubuntu4 on the box: the same upstream version under another package
+name. Workers: 6 for the main run, 4 for the redo below.
+
+**Result 1: does the box reproduce the Pi's numbers?** First 300 photos (all 13 of the Pi's
+failures, and 30 each from trays 1, 7, 8, 10, 25 lit, 25 dark, 207 spread over 2026-10-22 to 10-28), then
+all **8,215** photos the Pi had finished:
+
+| Readings compared | Count | Outside 0.01 mm² | Largest difference |
+|---|---|---|---|
+| Tray | 69,978 | 0 | 0.000441 mm² |
+| Cell | 1,395,260 | **6** | see below |
+
+By the literal pass rule (any reading outside 0.01 mm²) the cell comparison **fails**, and the
+comparison script reports it as a fail. The 6 are not differences in measured area. They are two
+objects, each filed under a neighbouring cell on one machine and the other, with the area identical to
+every digit:
+
+- tray 10, photo `2026-10-24/151153_610446`: 23071.94473636432 mm² in cell B3 on the Pi and B4 on the
+  box; the grown value 22604.34994772799 likewise.
+- tray 8, photo `2026-10-26/233453_618248`: grown area 35152.65015284417 mm², C3 on the Pi and B3 on
+  the box.
+
+*Cause.* The two machines estimate the tray's tilt very slightly differently (-0.35368° on the Pi,
+-0.36034° on the box, 0.0067° apart). This moves every computed cell centre by a fraction of a pixel,
+and where an object straddles a cell wall the whole object is given to the other cell. The tray totals
+of those photos are bit-identical. This cause was identified from the readings; the OpenCV build is
+the likely source of the tilt difference but this was not tested.
+
+*Where it can matter.* Both trays (8 and 10) hold benchmark objects and synthetic targets, not plants.
+**Across trays 1 to 7, which hold the real plants, there were 0 differences in any of the 1,395,260
+cell readings** (the count is over all trays; the 6 are all on trays 8 and 10). Plant mass on trays 1
+to 7 lies a median 15.6 to 33.6 px from its cell centre against a half-cell of 171.5 px, far from any
+wall; trays 8 and 10 lie at medians of 115.3 and 199.0 px. An object near a wall on another rig
+could be reassigned the same way.
+
+**Result 2: do parallel workers change the answer?** The same 300 photos, once serially and once on 6
+workers, both from the same pre-444 baseline: tray readings 2,562 and cell readings 48,420 compared,
+**0 outside tolerance, largest difference 0.000000 mm²**. The order-dependent `exclusion` table holds
+**47,526 rows on both sides, identical.** *Caveat:* the first exclusion check was defective. It queried
+a column the table does not have, the error was compared against itself, and it reported agreement
+without testing anything. It was re-run against the real schema (`capture_id, name, norm_e,
+limit_fraction`) and the 47,526 figure is from that corrected run.
+
+**Result 3: the run.** Started 2026-11-25 19:47:09 UTC, finished 2026-11-26 05:19:29 UTC, about 9.5
+hours. Of **47,457 photos, 47,433 were reprocessed, 24 were left as they were with a recorded reason,
+and 0 are unexplained.** Measured rate: **2.84 s per photo on one core**, against 7.0 to 10.3 s on the
+Pi, so the box is 2.5 to 3.7 times faster per core (the plan's "about 18 to 30 hours" rested on an
+assumed 2 to 3 times; it is now measured on this box). On 6 workers, 3.9 s per photo per worker, about
+4.3 times faster than one core rather than 6.
+
+*One worker of six aborted* with `cannot allocate memory for thread-local data` after 6,026 of its
+7,910 photos. It was capped with `ulimit -v 6000000`, a limit on virtual address space, and OpenCV's
+thread pools reserve large virtual arenas; its resident memory never exceeded about 600 MB against 23
+GB free, and the kernel did not run out of memory. Progress is written per photo, so nothing was lost:
+the 1,884 photos not reached were found by querying what had been read since the run began and redone
+on 4 workers with no such cap (471 each, 0 failures). The lesson is about the cap, not the machine.
+
+**Result 4: what the Reprocess changed.** `compare.py` on before and after snapshots. Every flagged
+count of the prediction table came out as predicted:
+
+| Group | Predicted flagged | Measured | Median grown-area ratio (after / before) |
+|---|---|---|---|
+| Tray 1 (plants under mats) | 3,586 | 3,586 | 3.26 (predicted 2.7 to 10) |
+| Trays 3, 4, 5, 6 | 15 | 15 (7 + 2 + 5 + 1) | 2.12 to 7.26 (predicted 1.4 to 8) |
+| Trays 7, 8, 10 | 7,300 | 7,300 (4 + 7,284 + 12) | 1.01 to 89 |
+| No tag | 64 | 64 | 1.09 |
+
+In total **10,965** readings were grown again, matching 39.2. Every flagged reading carries the
+"soil hidden" mark. The "same photo" readings came out **unchanged on every tray**: the plan expected
+this and did not guarantee it, and it held.
+
+*Not predicted.* (1) **667 readings of experiment 18 still have an empty `grown_area_mm2`** after a
+complete Reprocess, spread over 103 photos (the 787 and 799 counted across every experiment in the
+database; one photo, capture 30763, accounts for 12 that were filled). **These are the chamber's
+light changes, not a fault in the Reprocess.** They are of two kinds, and both are a photo arriving
+while the light is wrong rather than anything about a tray:
+
+- **407 readings, "tag seen, tray not found"** (`found` = `tag only`): the picture is dark, the
+  high-contrast markers are still readable but the tray edges are not, so no tray outline is found
+  and there is nothing to measure.
+- **260 readings, no plant found**: the picture is dark enough that the segmenter returns nothing,
+  and the tray reads zero plant area.
+
+By hour of day the losses fall almost entirely at the two light changes: 199 and 96 at 08:00, 152
+and 84 at 00:00, against near zero through the rest of the day. On 2026-11-11 the photo at 08:00:53
+lost all 12 trays at exposure 66,465 µs and gain 4.0; the photo one minute later, at 08:01:53, read
+all 12 normally at 64,438 µs and the same gain. The exposure barely moved, so it is the chamber's
+light that changed, not the camera's response to it; the camera has caught up by 08:05 (15,330 µs,
+gain 1.5). The rig photographs on a fixed schedule, so about one photo per transition falls in the
+gap.
+
+![One minute apart at the 08:00 light change](figures/41/light-change-one-minute-apart.jpg)
+
+*Two photographs of experiment 18 one minute apart, 2026-11-11, picked from the copied capture
+folder by the exposure and the empty readings recorded against them. Left, 08:00:53: lights still
+off, exposure 66,465 µs at gain 4.0, and all 12 trays recorded "tag seen, tray not found". Right,
+08:01:53: lights on, 64,438 µs at the same gain, all 12 trays read normally. Raw photos in the
+experiment folder, `stills/2026-11-11/080053_*` and `080153_*`.*
+
+![Lights off against lights on](figures/41/lights-off-vs-lights-on.jpg)
+
+*The other kind of loss. Left, 2026-10-22 23:28:53, lights off, exposure 64,022 µs at gain 4.0: too
+dark for the segmenter, and all 12 trays recorded zero plant area. Right, 2026-10-23 12:00:53, a
+normal photo at 5,404 µs and gain 1.0, the same table. Picked the same way.*
+
+![Lost readings by hour of day](figures/41/losses-by-hour.png)
+
+*Every reading of experiment 18 with no grown area, counted by the hour its photo was taken (UTC),
+split by kind. Both kinds fall at the two light changes and almost nowhere else. Counted from the
+reprocessed `rig.db` by `found` and `grown_area_mm2`; checksum of that database above.*
+
+*Open.* **"Soil hidden" marks appeared on readings that were not flagged:** 4 on tray 4, 10 on tray
+5, 10 on tray 6 and 6 on tray 7. Not predicted and not yet looked at.
+
+**Result 5: the photos not reprocessed.** All 24 failed with the same reason, "plant areas could not be
+worked out now, kept the saved ones"; nothing was overwritten. **13 lie inside the Pi's finished range
+and so hold current-method values; 11 lie beyond it and still hold pre-444 (old method) values.** Those
+11 remain inconsistent with the rest of the experiment. They cluster at light-transition times (00:28,
+07:00, 07:44, 08:00, 23:28), consistent with the light-ramp exclusions of section 29 (issue #382).
+
+**Pass rule, as set above.** "Other" readings unchanged: not tested separately here, see the limits.
+Flagged readings marked: met. "Same photo" readings unchanged: met. 0 failed photos: **not met**, 24
+failed (13 + 11 as above). Comparison with the Pi: tray readings met, cell readings 6 outside, with the
+cause given above.
+
+**Bookkeeping.** The runner calls `read_photo(path, reuse_mask=True)` directly to get parallelism,
+which bypasses the `reprocess_run` and `reprocess_failure` upkeep of `start_reprocess`, so those rows
+were written afterwards: run 1 (the Pi's, `interrupted` at 8,215) kept as history, run 2 added as
+`finished`, total 47,457, done 47,457, failed 24. Aaron then makes a new data export (step 5).
+
+**Limits.** One experiment, one run, on different hardware from the rig. The comparison with the Pi
+covers the 8,215 photos it finished, not all 47,457. Whether the new areas are correct against a
+physical reference is not tested here; 39.1 and 39.2 checked that by eye.
+
+*Raw data.* Scripts in `experiments/444-amd-reprocess/` (committed on branch `511-amd-reprocess`).
+Snapshots, comparison outputs, the failure list and both databases are on the media-server scratch
+viewer, `http://media-server:8001/511-amd-reprocess/`, outside the repository.
+
+- `rig.db` sha256 `f0cfc6982bb1764d83fc32231c73bb2a4a069ee06785e96b8e1514ffc1e5add4`
+- masks folder sha256 `026a9cdc1f79e58885025d148947c847ef57b9ed53dcd50bb3f0eda0a3eaf699`, of the
+  sorted per-file manifest: 64,997 files, 14 more than the pre-444 snapshot's 64,983 (the Reprocess
+  wrote new masks).
+
+## 42. Soil-only trays by grow from leaf cores: is a floor needed? (issue #293, method written 2026-11-20, after the stored readings were first looked at)
+
+**Label: development check.** Section 17.7 set a floor of 100 mm² per tray for the fixed green
+cutoff: below it the Gallery shows "under 100", because an empty tray of experiment 18 read up to
+98 mm². That value rests on one soil, one light and one rig. Soils differ, some light and some dark
+(Aaron, 2026-11-20), so one value cannot hold for every experiment. Grow from leaf cores, the
+default method since #373, has no floor: it sets each tray's cutoff from that tray's own soil in
+each photo (sections 24.8, 34, 39). This section checks whether it needs one, by reading trays
+that held soil and no plants. The method was written after the stored readings had been looked at
+once on 2026-11-20, so it is not a check fixed before the data.
+
+**Data.** Areas already stored by the app (`tray_reading.grown_area_mm2`, method "grow from leaf
+cores, core 0.07"); no photo was segmented again. Counted photos only: an `exclusion` row with no
+name (not lights off, not light changing, not a visit). Days are UTC dates.
+
+1. *Development (npec-rig-01), experiment 4 "Dario 13 Emergence", 13 to 20 November.* Two untagged
+   trays on the west side of the table (Aaron, 2026-11-20): NW full of soil, SW with its south row of
+   cells holding soil and the rest of its cells empty. Neither holds a plant. The app finds them by
+   their blue rim and stores them as "photo, no tag"; they are picked out as the untagged trays
+   whose centre lies left of x = 2200 px, above y = 3500 px for NW. The NW tray was moved a little
+   at 10:20 UTC on 16 November (its centre by about 500 px). Read from a copy of development's
+   `rig.db` made with SQLite's backup from a read-only connection (2026-11-20 12:36 UTC). 1,288
+   counted photos.
+2. *Production (ac-testing), experiment 18, trays 9 to 12.* No plants at any time: calibration tags
+   and green samples in pots (Aaron, 2026-11-20). The samples show as a step in area: on 23 October
+   (tray 10) and 26 October (trays 9, 11, 12), gone on 5 November (trays 9, 11, 12). The soil-only
+   stretch is 22 to 25 October for trays 9, 11 and 12 (22 October for tray 10). What lay in trays 9,
+   11 and 12 from 6 November until they were removed on 12 November is not recorded; both methods
+   read close to 0 there, as they would with the soil under blue mats (mats were laid on 6 November,
+   section 36), so those days are shown but not counted as soil. Read with read-only queries over ssh;
+   nothing copied or written on production.
+
+**Analysis.** Per tray and day: the 5th percentile, median, 95th percentile and largest area by grow
+from leaf cores, and the median by the fixed green cutoff for comparison.
+`experiments/293-soil-floor/code/soil_days.py`. The largest single readings were looked at on the
+photo, with the stored mask drawn over it (`code/overlay.py`).
+
+**Results.**
+
+| Soil-only tray | Counted photos | Daily median | Daily 95th percentile | Largest single photo | Fixed green cutoff, daily median |
+|---|---|---|---|---|---|
+| Development NW, full of soil, 13 to 20 Nov | 1,288 | 1.1 to 4.7 mm² | 5 to 15 mm² | 25 mm² | 10 to 30 mm² |
+| Development SW, soil and empty cells, 13 to 15 Nov | 533 | 0 mm² | 0.7 to 1.4 mm² | 6 mm² | 0 mm² |
+| Development SW, 16 to 20 Nov | 755 | 0 to 0.4 mm² | 22 to 72 mm² | 174 mm² | 0.1 to 0.7 mm² |
+| Production trays 9, 11, 12, 22 to 25 Oct | 10,826 | 1.3 to 16.6 mm² | 3.7 to 36.8 mm² | 64 mm² | 29 to 76 mm² |
+| Production tray 10, 22 Oct | 850 | 7 mm² | 13 mm² | 25 mm² | 59 mm² |
+| Production trays 9, 11, 12, 6 to 12 Nov (contents not recorded) | 17,277 | 0 to 1.2 mm² | 0 to 3.4 mm² | 8 mm² (one photo 204 mm², not looked at) | 0 to 0.7 mm² |
+
+1. **Soil reads close to 0.** On two soils (development's and production's) and two rigs, a tray of
+   soil reads a daily median of at most 17 mm² by grow from leaf cores, and at most 64 mm² in any
+   single photo. The fixed green cutoff reads the same trays 2 to 30 times higher (production, 22 to
+   25 October). A whole tray is 305 x 366 mm (111,630 mm²), so 64 mm² is under 0.1% of it.
+2. **The table seen through empty cells.** From 16 November single photos of the SW tray read up to
+   174 mm², while its median stayed at 0 to 0.4 mm²; from one photo to the next the reading jumps
+   between 0 and tens of mm² (19 November 18:05 to 19:20 UTC, every 5 minutes: 0, 4, 0, 0, 42, 3, 0, 1, 0, 1, 174, 0,
+   58, 0, 2, 98 mm²). The stored mask shows where: two pale patches inside the drainage holes of empty
+   cells, where the camera sees the grey table under the tray (figures below). The soil row reads
+   nothing. Why it starts on 16 November is not known. A cell with its hole showing has no pot and no
+   soil, so it holds no plant, and researchers do not read growth from it (Aaron, 2026-11-20). Only a
+   "time at first green" worked out automatically per cell could be set early by it; the rig's pages
+   work out no such time.
+
+**Verdict.** Grow from leaf cores needs no floor for bare soil: on both soils seen, a soil-only tray
+reads under 0.1% of a tray in any single photo. It is given none, and the soil-only level above is
+its stated limit. The fixed green cutoff keeps its 100 mm² (17.7), which rests on production's soil
+only. A new method or a new soil is checked the same way, from stored photos of a soil-only tray
+(Aaron, 2026-11-20); no new photos are needed for a new method.
+
+**What it does and does not cover.** Two soils, on two rigs, under each rig's one light program;
+tray totals, not cells. Not covered: soil that turns green or holds algae (section 39), a soil
+lighter or darker than these two, soil under blue mats, and a tray with a plant in it, where the
+stray readings may add to the plant's area instead of standing alone.
+
+*Figures.*
+
+- [`42/overview-dev-2026-11-19.jpg`](figures/42/overview-dev-2026-11-19.jpg): development at
+  18:55 UTC on 19 November, every tray outline the app stored, red for the two untagged soil
+  trays (NW top left, SW bottom left), magenta for tagged trays. Made from capture 23505 scaled to
+  0.12.
+- [`42/sw-tray-174mm2.jpg`](figures/42/sw-tray-174mm2.jpg): the SW tray in the same photo, which
+  read 174 mm²: the stored grow-from-leaf-cores mask in magenta, the stored outline in red.
+  `code/overlay.py`, half size.
+- [`42/sw-holes-174mm2.jpg`](figures/42/sw-holes-174mm2.jpg) and
+  [`42/sw-holes-0mm2.jpg`](figures/42/sw-holes-0mm2.jpg): the two masked holes at full resolution,
+  without and with the mask, in the 174 mm² photo and the next one, 5 minutes later, which read 0
+  mm². Crops 240 px wide picked by hand around the masked patches.
+
+*Raw data.* `experiments/293-soil-floor/data/development_nw_sw_per_day.csv` and
+`production_exp18_trays9-12_per_day.csv` (from `code/soil_days.py`). Development's photos stay in
+experiment 4's folder on `npec-rig-01`, production's in experiment 18's on `ac-testing`.
+
+## 43. The dark limit against the camera's own auto-exposure state (issue #293, method written 2026-11-20, after the counts were first read)
+
+**Label: development check.** Section 17.7 set a dark limit: a photo whose exposure (µs) times
+analogue gain (E) is at least 200,000 is "lights off", a decision, not a measurement. Since #382
+(section 29) the rig decides lights off from the camera's own auto-exposure state instead
+(`capture.ae_state`, "searching"), and the 200,000 is used only for photos saved before that state
+was recorded (`exclusions.LIGHTS_OFF_E`). This section asks how many photos still rest on the
+limit, and whether the limit agrees with the camera's state on the photos that have both. The
+method was written after the counts had been read once on 2026-11-20.
+
+**Data.** Every `capture` taken as a capture on both rigs: production's `rig.db` through read-only
+queries over ssh (2026-11-20 about 13:30 UTC), development's from the read-only copy of section 42.
+`experiments/293-soil-floor/code/dark_limit.py`; each disagreeing photo with the photos either side
+of it from `code/dark_neighbours.py`.
+
+**Results.**
+
+1. **Photos that rest on the limit.** On production, every photo before 09:21:53 UTC on 9 November:
+   27,872 photos, among them experiment 18 to that time (25,963) and experiment 16 (1,393). On
+   development, one photo (28 October). Every later photo uses the camera's state.
+2. **Agreement, on 18,067 photos with a state** (production 16,027, development 2,040):
+
+   | | E 200,000 or more | E under 200,000 |
+   |---|---|---|
+   | Camera searching (lights off) | 5,623 | 27 |
+   | Camera converged (steady) | 0 | 12,417 |
+
+   No steady photo came near the limit: the largest E of a steady photo was 73,064 on production
+   and 21,347 on development, against about 256,000 to 266,000 for the camera at its ceiling in the
+   dark.
+3. **The 27 photos the limit would have called lit.** 25 are the first photo of the nightly fade
+   (about 00:27 UTC on production, 00:25 on development) or the last of the morning one (about 08:02
+   on production), with E 76,806 to 199,377, between a lit neighbour (E 9,561 to 62,774) and a dark
+   one (E 231,729 to 265,860).
+   The other 2 (production, 10:18 UTC on 12 November and 10:15 on 20 November) lie in steady
+   bright light, E 3,221 and 1,974, between neighbours of slightly higher and lower E. In all 27 the
+   photo's E lies strictly between the E of the photos before and after it, so the light-changing
+   rule (section 29.2), which runs on old photos as well, marks them "light changing" when the limit
+   is used. Under either rule all 27 are left out.
+4. **Photos marked dark that hold an area.** Photos at E 230,000 to 258,000 in the morning fade
+   still find trays and read part of their area (for example 25,835 mm² against about 49,000 mm² a
+   few minutes later, 13 November). They are taken while the light rises and are left out by both
+   rules; no steady lit photo was marked dark.
+
+**Verdict.** The 200,000 limit is kept as the fallback for photos without a state. On the photos that
+have both, it marks the same photos dark as the camera, and where the two differ the light-changing
+rule leaves the photo out anyway, so photos taken before 9 November are counted the same way as
+later ones. Nothing changes in the code.
+
+**What it does and does not cover.** Two rigs, each with one light program (fades at night). Not
+covered: a light program with a dim steady level, where E could lie between the lit and the dark
+level for hours; with auto-exposure off the ceiling is never reached and the state is not
+"searching", so neither rule marks a dark photo. Researchers are not expected to turn auto-exposure
+off (Aaron, 2026-11-20); it stays a stated limit.
+
+*Raw data.* `experiments/293-soil-floor/data/dark_limit_production.txt`,
+`dark_limit_development.txt`, `dark_neighbours_production.txt`, `dark_neighbours_development.txt`.
+
+## 44. A small neural network for plant pixels on the Hailo, against the reference set (issue #406, method written 2026-11-20, before any label is made or any network trained)
+
+**Label: development check.** Whether a small segmentation network, run on the Hailo of each rig,
+finds plant pixels as well as grow from leaf cores (33.1, 34) and more steadily, fast enough for
+every photo. The known answer is Aaron's checked masks on the rig's own photos, so this is not a
+reference comparison.
+
+**Why.** Grow from leaf cores and the fixed green cutoff both rest on greenness cutoffs set by hand.
+They fail on green soil and algae, trim leaves on blue mats (36), and move with watering (24, 33.1).
+Aaron wants a method that is not mainly rules (2026-11-10). Every photo must be read: researchers
+look for fast changes in area, which are hidden at 15 to 30 minute intervals. Only potato plants are
+available, so the network starts from one trained on many general images and is trained with
+brightness and colour varied on purpose, to cope with greens and light it has not seen.
+
+**Reference, unchanged from 33 and 34.** The 60 truth masks of
+`experiments/round3-classifier/data/truth/` (38 corrected by Aaron, 21 accepted drafts, A28 empty)
+and the split fixed in 33: production 17 train and 13 test, development 24 train and 6 test. The 15
+outlines of section 24, drawn from nothing, are the independent check. Yellow is not plant (#106).
+Every leaf in a crop counts, the neighbours' leaves too. *A known lean:* 21 truths are accepted
+drafts of grow from leaf cores, so the set favours that method; the 15 outlines do not.
+
+**Photos for training labels** (copied read-only on 2026-11-20 to the work machine, list with
+checksums in the raw data):
+- production experiment 18: one photo every 2 hours (350, of which 203 lit), the 19 source photos
+  of A01 to A30, and the steadiness run of 3 November, captures 19379 to 19439 (61 photos);
+- development experiment 4: one photo every 2 hours (86, of which 50 lit). The full photos of
+  development experiment 3 (B01 to B30) were purged on the rig on 13 November; only their crops in
+  the reference set remain, so development cells are used as crops.
+- production experiments 9 to 16: 19 photos without plants (tag sheets, empty trays, the printed
+  target), as not-plant examples.
+
+**Labels.** Three sources are scored first on the training cells only, with IoU and area ratio as
+below: grow from leaf cores, SAM 2.1 and SAM 3 (a large model on the work machine's GPU, prompted
+by text or by points from grow from leaf cores). The best of them labels the copied photos. Aaron's
+training cells are given more weight in training than the machine labels. If the labels come from
+grow from leaf cores, the network learns its errors too; the 15 outlines show whether it did.
+
+**Public data.** Public top-down plant sets downloaded on 2026-11-20 (list, licences and checksums
+in the raw data). Used only for pre-training. Whether they help is decided on the training cells. A
+set that labels yellow leaves as plant (ARADEEPOPSIS) is relabelled or left out.
+
+*Licences (Aaron, 2026-11-20; a decision, not legal advice).* Only sets whose licence allows any
+use with credit are used: VegAnn (CC BY 4.0), ARADEEPOPSIS (CC BY 4.0), ALED (CC BY 4.0), Potato
+Leaf data set (Zenodo, CC BY), Potato Canopy Cover Ground Truth Mask Samples (Mendeley, CC BY 4.0),
+WE3DS (CC BY 4.0) and Sugar Beets 2016 (CC BY-SA 4.0). Left out, though downloaded: CropAndWeed
+(non-commercial, no redistribution), PhenoBench (CC BY-NC-SA 4.0 in its archive), CWFID
+(non-commercial research only) and KOMATSUNA (no licence stated). Why: NPEC is a research
+organisation, but it bills university researchers for its services. Whether that billing counts as
+commercial use under a non-commercial licence, and whether a network trained on a set counts as
+use of the set, are not settled. A network that may go into the rig's app is therefore trained only
+on sets where neither question arises. Each set used is cited where the results are written up.
+
+**Network.** A segmentation network from Hailo's model zoo that the Hailo compiler supports,
+retrained for two classes, plant and not plant, starting from weights trained on general images.
+First candidate `unet_mobilenet_v2`; others from the zoo's list if it falls short. Settings
+(network, input scale, training length, public data or not) are chosen by cross-validation over the
+training days, grouped by day. No test cell is used for training or for choosing anything.
+
+**Input.** The whole photo, not cropped, cut into overlapping tiles at one fixed scale for the
+whole photo. Full or half resolution is chosen on the training cells. The cell outputs are cut from
+the tile output at each reference cell's crop position (`manifest.csv`). A crop to the corner tags
+was considered to save time and dropped (Aaron, 2026-11-20): trays and plants were found past the
+tags (44.1). It comes back only if the time of measure 6 is too close to 60 s, and is then set from
+44.1.
+
+**Compiling for each chip.** Models are chip-specific. Hailo-8 (production, HailoRT 4.23.0):
+Dataflow Compiler 3.33.1. Hailo-10H (development, HailoRT 5.1.1): Dataflow Compiler 5.1.0. Never a
+newer compiler than the rig's HailoRT. The compiled model reads 8-bit numbers; the loss from that
+is measured by scoring the full-precision network and the compiled one (on the Hailo-10H, and in
+Hailo's emulator for the Hailo-8) on the same training cells.
+
+**Measures, each also for grow from leaf cores and the fixed green cutoff on the same cells.**
+1. Agreement with the truth masks on test cells, per rig: IoU and area ratio per cell, mean and
+   range. Ceiling: Aaron's own repeat in 24, IoU 0.915.
+2. Agreement with the 15 outlines of section 24.
+3. Trained on one rig, tested on the other.
+4. Photo-to-photo steadiness (method of 16.9) on the production run of 3 November, 61 photos one
+   minute apart. Development: its one-minute run of 8 November was purged with experiment 3.
+   Experiment 4 takes a photo every 5 minutes, so its run of 61 photos 5 minutes apart (19
+   November, 18:50 to 23:50 UTC) is used, reported as a 5-minute run and not compared directly with
+   the 1-minute run (Aaron, 2026-11-20). Experiment 4 holds only tiny plants with very little green
+   (Aaron, 2026-11-20), so this run says little about steadiness on larger plants.
+5. Pictures of algae, blue mats, green soil and seedlings.
+6. Time and memory per full photo on the development Pi 5 with the Hailo-10H, from the JPEG on disk
+   to cell areas, under the `hardware` label. The Hailo-8 is not timed now: production is read only.
+   It is timed when a model goes into the app (its own issue), through development first.
+
+**Passes when all three hold** (Aaron, 2026-11-20; decisions, not measured thresholds):
+- on the test cells of both rigs, mean IoU and mean area error at least as good as grow from leaf
+  cores, and better on the 15 outlines;
+- photo-to-photo change no larger than grow from leaf cores on the steadiness runs;
+- a full photo in under 60 s on the development Pi, together with the app's other work.
+
+**Test, once per set of test cells.** Improving the network happens before the test, as often as
+needed: every change of network, labels or settings is tried and scored by cross-validation on the
+training cells only. When the settings are fixed, the chosen network, compiled for each chip, is
+scored once on the test cells and the 15 outlines, and the result is written up whatever it is. The
+test answers one question: how well the network does on photos it has never seen, which is the
+case for every future photo. Changing the network after looking at the test score and scoring it
+again would fit it to those few cells, so the score would rise without showing how it does on new
+photos. A network improved after the test is therefore scored on newly outlined cells from photos
+it has not seen (for example from a later experiment), again once.
+
+**Raw data.** Scripts, label lists and results in `experiments/round4-segmentation-nn/`. The copied
+photos, labels, public data and models are on the work machine (`media-server`,
+`~/temp.nobackup/npec-406-nn/`), too large for the repository; their lists and checksums are in the
+experiment folder.
+
+**Limits, known before the run.** One person's outlines, potato plants only, two rigs of the same
+camera and lighting type. A network that passes is not shown to hold for other species, lights or
+cameras; the varied brightness and colour in training only make that more likely.
+
+### 44.1 How far plants reach past the corner tags (2026-11-20)
+
+**Label: development check.** Whether a crop to the corner tags (450 to 499) would cut off plants.
+Method (written in the analysis folder before the run): for each lit photo copied for 44, the
+corner-tag quadrilateral from the calibration in effect, then the farthest plant pixel past each
+side of it, found with the fixed green cutoff, in mm at the table plane. Small clumps are ignored
+and the farthest clumps are checked by eye, so tag ink, labels, green paper squares and targets are
+not counted. The fixed green cutoff finds about a third of a leaf (24), so this understates how far
+leaves reach.
+
+**Result.**
+- Production, experiment 18, 222 lit photos: no plant pixel past the quadrilateral. The outer east
+  and west trays reach past it (stored outlines up to 240 mm east and 223 mm west), but held tag
+  sheets and targets, not plants.
+- Development, experiment 4, 50 lit photos: none; the seedlings are small and every tray is inside.
+- Development, experiment 3, 795 lit thumbnails (480 x 364, about 2.9 mm per pixel; the full photos
+  were purged): plant at least 224 mm past the east side and 216 mm past the west side, reaching the
+  photo edge, so these are lower limits. Most of it is trays standing partly past the tags; leaning
+  alone reached 59 mm north and 13 mm south. 11 photos with people or a phone in view were left out.
+
+**What follows.** A crop to the tags would cut off plants on some days, so it is not used (44,
+Input). *Raw data:* `analysis/margin/` on the work machine (`RESULTS.md`, `METHOD.md`, picture sheet
+`figures/top12_sheet.png`), copied into `experiments/round4-segmentation-nn/` with the results.
+
+### 44.2 Training and cross-validation on the training cells, stages A to F (2026-11-20 and 21)
+
+**Label: development check.** Training cells only (42: production 17, development 25; log 34.2
+corrects the development count from 24). No test cell was opened, and the 15 outlines of section 24
+were not used: both are kept for the single test (44, *Test*).
+
+**What was built, where it departs from the method.**
+- *Labels.* Grow from leaf cores at the setting of log 34.1 (core 0.07), with the soil-level rule of
+  log 39, on 293 copied photos (production 184 over 33 UTC days, 18 of them plant-free negatives;
+  development 109 over 8 days). The photos of production test days were left out. Chosen over SAM 3 and
+  SAM 2.1 on the 30 corrected training cells (mean IoU 0.908, 0.793 and 0.687). Two rules were added
+  after Aaron checked a sheet of 12 labelled photos. Plant pieces brighter than 160 (glare on seed
+  domes and water) became not plant: 12,401 px of 84 million. Pieces of at most 600 px were also seeded
+  from olive pixels (G - R above -10), which added 154,195 px of smallest seedlings. Outside every
+  tray is ignore. Aaron approved the labels on 2026-11-20 ("not perfect, but good enough to move on").
+  Tray 8 (a synthetic plant) is ignore. Trays 9 to 12 (paper, targets, empty pots) are not plant.
+- *Network.* A U-Net with a MobileNetV2 encoder (the shape of the model zoo's `unet_mobilenet_v2`),
+  built with `segmentation_models_pytorch` 0.6.0, with the encoder starting from ImageNet weights.
+  Two classes, plant and not plant.
+- *Training.* 256 px tiles at half resolution, cut from 320 px patches shifted up to 32 px. Brightness
+  and colour were varied. Loss: binary cross-entropy plus Dice. AdamW, learning rate 5e-4 with 150
+  warm-up steps, then cosine to zero. Batch 24. One patch in eight came from Aaron's 42 training cells.
+  Last weights kept, no early stopping. Work machine: one RTX 2060 SUPER, 8 GB.
+- *Reading a photo.* 256 px tiles every 192 px. Next to each tile edge, the outputs are blended over
+  32 px, so the middle of each tile is kept. Production cells are read from the whole photo.
+  Development cells are read from the crop alone, because the full photos of development experiment 3
+  were purged (44).
+- *Scoring.* Cross-validation by UTC day in 5 folds (`results/train_cv_folds.csv`). Each cell is
+  scored once, by the fold model that never saw its day. IoU and area ratio (network px / truth px)
+  per cell; area error is mean |area ratio - 1|.
+- *Keep test, per change* (Aaron, 2026-11-20; a decision, not a measured threshold). A change is kept
+  only if it beats the current best on both rigs, in mean IoU and in mean area error, each by more
+  than the standard deviation over folds of the paired per-fold difference.
+
+**Results.** Mean IoU and mean area error, 42 training cells. Production has 17 cells, development 25.
+
+| Stage | What changed against the current best | Production IoU | Production area error | Development IoU | Development area error | Kept |
+|---|---|---|---|---|---|---|
+| grow from leaf cores | (not a network; the label source) | 0.885 | 11.4% | 0.968 | 2.9% | |
+| A | network at half resolution, 15 epochs | 0.847 | 12.5% | 0.936 | 3.6% | first best |
+| A, full resolution | full instead of half resolution | 0.873 | 11.0% | 0.930 | 3.9% | no |
+| B | tiles read at half-tile stride (128 px), outputs averaged | 0.848 | 12.5% | 0.936 | 3.7% | no |
+| C | training patches shifted up to 128 px instead of 32 | 0.864 | 11.2% | 0.942 | 3.1% | no |
+| D1 | first trained on 6 public sets (below), then ours | 0.872 | 10.3% | 0.937 | 3.8% | no |
+| D2 | first trained on all 7 public sets, then ours | 0.871 | 10.8% | 0.939 | 3.6% | no |
+| E | 40 epochs instead of 15 | 0.878 | 9.4% | 0.940 | 3.3% | no, missed by 0.0013 |
+
+- *No change passed the keep test.* C, D1, D2 and E each lifted stage A's weakest fold, from mean IoU
+  0.779 to about 0.86. That fold is production 24 to 27 October, which holds seedling A01. Each change
+  moved the other folds by 0.02 or less. E was better than A in 5 of 5 folds, D1 and D2 in 4, C in 3.
+- *Full resolution* was better on production (0.873 against 0.847) and worse on development, so half
+  resolution stayed. This followed the rule Aaron set before any score was seen (README, step 3).
+- *On the 30 truths Aaron corrected* (the other 12 are accepted grow drafts, where grow scores 1.000
+  by construction):
+  - production: E 0.860 IoU and 10.6% area error, grow from leaf cores 0.804 and 19.3%;
+  - development: E 0.939 and 3.2%, grow 0.960 and 3.6%.
+- *Seedling A01* (237 px): grow from leaf cores finds nothing (IoU 0). Stage E reaches 0.689.
+- *Final settings, stage E* (Aaron, 2026-11-21): stage A's settings trained for 40 epochs. E was
+  chosen because it beat A in every fold and uses no outside data.
+
+**Purple leaf tissue** (Aaron, 2026-11-21). Purple (anthocyanin-rich) living tissue is plant. Stressed
+potato plants turn purple, though no whole purple leaf is in our photos yet.
+- Cell B21: a reddish-purple stalk (896 px) became plant.
+- Cells B12, B13 and B19: four reddish spots became plant (+1,278, +586 and +807 px at full
+  resolution). They came from a check of the 15 largest of 31 reddish spots that the truths marked not
+  plant. The other 11 stayed not plant, and the 16 smallest were not checked.
+- Originals and a log of each edit: `analysis/labels/truth_edits/` on the work machine.
+- Every stage was re-scored on the edited truths from its saved predictions, and no decision changed.
+  The table above is before the B12, B13 and B19 edits. After them, development moves by 0.001 at most:
+  grow from leaf cores 0.967 and 3.0%, E 0.939 and 3.3%.
+
+**Plants never seen in training** (information, not a decision). ARADEEPOPSIS Arabidopsis rosettes on
+blue mesh: 1,899 photos, labels from the authors' classes (healthy and anthocyanin-rich are plant,
+senescent is not). Neither network had seen them. Pooled IoU:
+
+| Method | Pooled IoU, all photos | Pooled area ratio, 444 purple-rich photos |
+|---|---|---|
+| grow from leaf cores | 0.40 | 0.68 |
+| network, stage A | 0.59 | 0.47 |
+| network, D1 | 0.61 | 0.50 |
+
+On purple-rich rosettes every method finds half to two thirds of the plant. D2 had seen these photos in
+pre-training and still finds only 0.53.
+
+**Final network (stage F).** Stage E's settings, trained on every training day: 232 photos (the
+flagged steadiness photos left out) and all 42 truth cells, in 25.9 min. On one whole production photo
+(capture 28022), its mask and the held-out fold model's mask agree to IoU 0.970. Its scores on the
+training cells (production 0.894, development 0.965) are not a result, because it saw those cells.
+
+**Public sets** (D1 and D2 only; the final network uses none). D1 used:
+- VegAnn: Madec et al. 2023, *Sci. Data* 10:302, doi:10.1038/s41597-023-02098-y, CC BY 4.0;
+- ALED: Bell & Dee 2016, doi:10.5281/zenodo.168158, CC BY 4.0;
+- Potato Leaf: Williams, MacFarlane & Britten 2023, doi:10.5281/zenodo.7938231, CC BY;
+- Potato Canopy Cover: Maurya 2026, doi:10.17632/wg3rv2rddd.1, CC BY 4.0;
+- WE3DS: Kitzler et al. 2023, *Sensors* 23:2713, doi:10.3390/s23052713, CC BY 4.0;
+- Sugar Beets 2016: Chebrolu et al. 2017, *IJRR* 36:1045, doi:10.1177/0278364917720510, CC BY-SA 4.0.
+
+D2 also used ARADEEPOPSIS: Schandry et al. 2020, doi:10.5281/zenodo.3946393, and Hüther et al. 2020,
+*Plant Cell* 32:3674, doi:10.1105/tpc.20.00318, CC BY 4.0.
+
+![Stage E against grow from leaf cores on 8 training cells](figures/44.2/stage-E-eight-cells.jpg)
+*The same 8 training cells as in every stage. Columns: colour crop, Aaron's truth, grow from leaf
+cores, stage A network, stage E network. Solid magenta is plant on a grey copy of the crop. IoU and
+area ratio are above each panel. Each network panel is the fold model that never saw that day. Made
+by `train_cv.py compare --stage E` on 2026-11-21; scaled-down copy of `scratch/406-train/stage-E.png`.*
+
+![Training loss of the 5 stage E folds](figures/44.2/stage-E-loss.png)
+*Training loss per epoch, 5 folds, 40 epochs. Copied from `scratch/406-train/stage-E-loss.png` on
+2026-11-21.*
+
+### 44.3 Compiled for both Hailo chips, and the loss from 8-bit numbers (2026-11-21)
+
+**Label: development check, in Hailo's emulator.** No compiled model has run on a chip, and no rig
+was touched.
+
+**Method.**
+- *Compiling.* ONNX opset 13, with the input scaling inside the compiled model, so it takes 8-bit RGB
+  tiles of 256 x 256. Optimisation level 1, run on the CPU.
+- *Calibration.* 1,024 tiles from training photos only, half with plant. Each fold model was calibrated
+  only on its own training days.
+- *Compilers.* Hailo-8 with Dataflow Compiler 3.33.1, Hailo-10H with 5.1.0, each matching its rig's
+  HailoRT (44).
+- *Scoring the 8-bit loss.* The 5 stage E fold models were quantised and run in the emulator. They were
+  read and scored like the full-precision models (44.2). As a check, the full-precision tiles stitched
+  by the same code gave stage E's saved masks with 0 pixels differing over all 42 cells.
+
+**Compiled final network.**
+
+| | Hailo-8 (production) | Hailo-10H (development) |
+|---|---|---|
+| Result | compiled, no unsupported layers | compiled, no unsupported layers |
+| Optimise and compile time, work machine CPU | 25.8 + 1.8 min | 46.8 + 17.0 min |
+| Contexts | 1 | 3 |
+| Compiler's speed estimate | 147 tiles/s; about 2.9 s for one photo's tiles | none given for 3 contexts |
+| File size | 6.2 MB | 6.1 MB |
+
+**8-bit loss, cross-validated on the training cells.**
+
+| Rig | Network | Mean IoU | Mean area error | Pooled area ratio |
+|---|---|---|---|---|
+| production | full precision | 0.878 | 9.4% | 0.967 |
+| production | Hailo-8, 8-bit | 0.879 | 8.8% | 0.983 |
+| development | full precision | 0.939 | 3.3% | 1.027 |
+| development | Hailo-8, 8-bit | 0.936 | 4.1% | 1.032 |
+
+- *Change from full precision to 8-bit,* with the standard deviation over folds:
+  - production: IoU +0.001 (SD 0.005), area error -0.6 points (SD 2.3);
+  - development: IoU -0.004 (SD 0.008), area error +0.8 points (SD 1.4).
+  - Both are within fold-to-fold variation.
+- *Hailo-10H* gives the same scores as Hailo-8 to the third decimal.
+- *Seedlings* (10 cells): IoU 0.862 at full precision, 0.860 at 8-bit.
+- *8-bit marks slightly more plant* on both rigs (pooled area ratio above).
+- *Most of the development loss is one fold model* on the 9 November cells, which gain 4 to 6% in area.
+- The final network's own 8-bit loss cannot be scored on truth, because it saw every cell. On 200
+  check tiles, its 8-bit and full-precision masks agree to IoU 0.986.
+
+**Speed.** The Hailo-10H was timed on the development Pi afterwards (44.6). The Hailo-8 is not timed:
+it is on production, which is read only.
+
+![8-bit against full precision on 8 training cells](figures/44.3/stage-G-8bit-eight-cells.jpg)
+*The same 8 cells. Columns: colour crop, Aaron's truth, full-precision fold model, Hailo-8 8-bit,
+Hailo-10H 8-bit, all in Hailo's emulator. Solid magenta is plant. Made by `final_fg.py stage_g` on
+2026-11-21; scaled-down copy of `scratch/406-train/stage-G.png`.*
+
+### 44.4 Against 8 cells outlined from nothing (added 2026-11-21, after the results of 44.2 were seen)
+
+**Label: development check.** Not in the method of 44. It was added because every truth of 44.2
+began as a grow-from-leaf-cores draft (44, *A known lean*). The 15 outlines of section 24 are kept for
+the test.
+
+**Cells.**
+- 8 pots, 5 production and 3 development. They were drawn by fixed random seed from groups set before
+  any cell was looked at: production seedling, blue mat, small plant, larger plant and reddish stalk;
+  development small, large and pale seedling.
+- No cell with yellow leaves was found: production has none (Aaron).
+- No real reddish stalk was found either. The colour rule picked reddish soil, so H08 is a two-leaf
+  seedling.
+- Every cell is from a training day, so each can be scored by the fold model that never saw its day.
+  A first draw from production test days was replaced (Aaron, 2026-11-21).
+- Crop: the cell's stored corners plus 40 px on every side, native pixels.
+- Code: `code/handlabel_select.py`. List: `results/handlabel/manifest.csv`.
+
+**Outlines.**
+- Aaron outlined the plant in Fiji on 2026-11-21, once, from the colour crop alone. No machine
+  output was shown.
+- Tools: the Wand and Polygon tools, by the written rules of the package README: living green and
+  purple tissue is plant; yellow or dead leaves, soil, mat and pot are not; every leaf in the crop
+  counts; soil gaps between leaves stay open.
+- Masks: `results/handlabel/*_hand_mask.png`, 255 = plant.
+
+**Scoring.** `code/score_handlabel.py`, over the whole crop:
+- grow from leaf cores: the photo's training label (44.2);
+- network: the stage E fold model that never saw the cell's day, at full precision.
+
+| Cell | Rig | Plant | Outlined px | Grow IoU | Grow area ratio | Network IoU | Network area ratio |
+|---|---|---|---|---|---|---|---|
+| H01 | production | seedling | 261 | 0.709 | 1.38 | 0.723 | 1.36 |
+| H03 | production | seedling | 541 | 0.580 | 1.72 | 0.668 | 1.50 |
+| H08 | production | seedling | 513 | 0.619 | 1.61 | 0.611 | 1.63 |
+| H05 | development | seedling | 295 | 0.554 | 1.80 | 0.643 | 1.56 |
+| H07 | development | pale seedling | 1,382 | 0.705 | 1.39 | 0.666 | 1.50 |
+| H04 | production | larger plant, blue mat | 14,467 | 0.802 | 0.82 | 0.820 | 0.83 |
+| H02 | production | larger plant, blue mat | 30,090 | 0.919 | 0.94 | 0.916 | 0.92 |
+| H06 | development | large plant | 22,286 | 0.925 | 1.01 | 0.923 | 1.07 |
+| **Mean of 8** | | | | **0.727** | area error **40%** | **0.746** | area error **36%** |
+| Mean, 5 seedlings | | | | 0.633 | | 0.662 | |
+| Mean, 3 larger plants | | | | 0.882 | | 0.886 | |
+
+**What it shows.**
+- *Both methods make the same errors.* On seedlings they mark 1.4 to 1.8 times the outlined area,
+  mostly as a ring around the leaves. On the two plants on blue mat they mark 0.82 to 0.94 times. This
+  matches the blue-mat edge loss of 36.2.
+- *The draft-based truths flatter both methods.* Grow from leaf cores scores mean IoU 0.885 on the
+  production truths of 44.2, and 0.727 here.
+- *The network is better on 4 of the 8 cells,* by up to 0.09 IoU (H03, H05), and worse on 4, by up to
+  0.04. Eight cells cannot rank the two methods.
+- *The network learned from grow from leaf cores' labels.* So it copies grow's edge, including the
+  ring around seedlings.
+- *On a seedling, the edge decides the area.* A ring 1 px wide around a 300 px seedling is about 20%
+  of its area.
+
+**Limits.** One pass by one person, so the outline's own edge uncertainty is not measured here. Aaron's
+two passes on 15 larger plants in section 24 agreed to IoU 0.915 and 6% in area. Seedlings may vary
+more. 8 cells, potato only.
+
+![Hand outlines against grow from leaf cores and the network](figures/44.4/hand-outlines-against-methods.jpg)
+*The 8 cells. Columns: colour crop, Aaron's outline drawn from nothing, grow from leaf cores, stage E
+network (the fold model that never saw that day). Solid magenta is plant on a grey copy of the crop.
+Made by `code/score_handlabel.py` on 2026-11-21; scaled-down copy of
+`scratch/406-train/handlabel_scores.png`.*
+
+### 44.5 What was not done, and the decision (2026-11-21)
+
+**Not done.** Measures 1 to 4 of the method: the test cells, the 15 outlines of section 24,
+trained on one rig and tested on the other, and the steadiness runs. So the pass test of 44 was not
+applied. Measure 6, time on the development Pi, was done afterwards (44.6). The test cells and the 15 outlines stay
+unopened, so they can still serve as a fair test later.
+
+**What the work cost.**
+- Training: up to 26 min per network (40 epochs) on the work machine's GPU. Stages A to F trained over 30
+  networks.
+- Compiling: about 28 min for Hailo-8 and 64 min for Hailo-10H, on its CPU.
+- Aaron's time: checking the labels, the purple spots and the 8 outlines, on 20 and 21 November.
+- In use, the network needs the Hailo on each rig: 2.3 s per photo on the Hailo-10H (44.6). Grow from
+  leaf cores runs on the Pi's CPU, in about 2.9 s per photo (34.1).
+
+**Assessment (Aaron, 2026-11-21).** The network costs time, needs extra hardware, and is similar in
+quality to grow from leaf cores. It is worth using only if it does better across different crops.
+
+**Decision.** Grow from leaf cores stays the plant-area method. The network does not go into the app
+now. The development rig grows four or five different crops. When it holds more data, the network
+and grow from leaf cores are compared again on those crops. That comparison needs:
+- outlines drawn from nothing for each crop;
+- the same timing as 44.6, repeated for any new network.
+
+**Raw data.**
+- In the repository, `experiments/round4-segmentation-nn/`:
+  - `README.md`, step by step;
+  - `code/`;
+  - `results/`: per-cell scores; `stages/`, the page of each stage and the Hailo notes; `handlabel/`,
+    the 8 outlines and their scores.
+- On the work machine (`media-server`, `~/temp.nobackup/npec-406-nn/`):
+  - labels: `analysis/labels-grow/`;
+  - models: `analysis/train/runs/`, final network `s2_final_e40`;
+  - compiled models: `hailo/final/`;
+  - public data: `data/public/`, with checksums.
+
+### 44.6 Time and memory for one photo on the development Pi with the Hailo-10H (2026-11-21)
+
+**Label: development check.** Measure 6 of the method. Run on `npec-rig-01` between about 12:30 and 12:45
+UTC, on Aaron's go-ahead. Issue #439 still held the `hardware` label. The app kept running experiment 4,
+a photo every 5 minutes, and was not touched. The compiled model and the script were copied to `/tmp` on
+the rig and removed afterwards. Memory was capped (`ulimit -v`, 4 GB), and the script ran at a lower
+priority (`nice 10`).
+
+**Chip alone.** `hailortcli benchmark`, 15 s per mode, random input: 282 tiles/s at batch 1 and at batch
+8, with the chip at 45 to 51 °C. The compiler gave no estimate for this 3-context model (44.3).
+
+**One full photo.** Script `code/pi_time_photo.py`, with the app's own Python and its decoder
+(`npec_rig.images.decode_full`). It times every step from the JPEG on disk to a full-size plant mask.
+Counting the mask per cell was not timed, as it is small next to these steps. Photo: development capture
+23494 (19 November, 18:00 UTC, 9152 x 6944), read at half resolution as 432 tiles, batch 8, 3 repeats.
+
+| Step | Time per photo, 3 repeats |
+|---|---|
+| Decode the JPEG | 0.61 to 0.62 s |
+| Scale to half resolution | 0.04 s |
+| Run 432 tiles on the Hailo-10H | 1.34 to 1.35 s |
+| Blend the tile outputs | 0.15 to 0.16 s |
+| Threshold and scale the mask back to full size | 0.14 to 0.15 s |
+| **Total** | **2.28 to 2.33 s** |
+
+- Peak memory of the process: 1.0 GB, of the Pi's 8 GB.
+- *The chip's mask against the full-precision network*, same photo, half resolution: IoU 0.987, area
+  ratio 0.996.
+- *Against the pass test of 44* (under 60 s, together with the app's other work): it passes, at about
+  4% of the limit. For comparison, grow from leaf cores takes about 2.9 s per photo on the Pi's CPU
+  (34.1). Speed therefore gives neither method an advantage.
+- *Limits:* one photo, one rig, 3 repeats. The app was idle between its photos, so this does not show the
+  time with a Reprocess or an export running alongside.
+- *Raw data:* `results/pi_timing_hailo10h.md`; the chip's output for the photo is on the work machine,
+  `hailo/final/pi_timing/`.
+
+## 45. M3 acceptance tests: 24 hour photo count, reboot, CSV, disk headroom (issue #67, written 2026-11-20, after the records were read)
+
+**Label: development check.** PLAN.md's M3 test list: unattended 24 h at exactly the expected
+photo count; reboot mid-run, it resumes; download `captures.csv` and open it in Excel; the disk
+headroom readout matches `df`. The timelapse scrub on the same list is not part of this test: the
+timelapse (#64) is not built and may be cut. Aaron decided on 2026-10-27 that the count is read from
+the records of the running potato experiment, with no new run. This section was written after
+those records were read, so it is not a check fixed before the data.
+
+**Data.** Production (ac-testing), experiment 18 "Potato Plants v001", one photo every 60 s since
+2026-10-22 08:40:51 UTC, app version a6632d6 on 13 to 17 November (section 37) and main 6fa155a on 2026-11-20. Read
+on 2026-11-20 with read-only SQLite connections over ssh, the server logs in `/tmp` and `df`;
+nothing written on production. Days are UTC dates.
+
+### 45.1 Photo count per day
+
+The scheduler writes one `scheduled_photo` row for every due photo, taken or missed (#62). Count of
+rows and of rows with no photo, per day:
+
+| Days | Due per day | Taken | Not taken |
+|---|---|---|---|
+| 23 Oct to 16 Nov (25 days) | 1440 | 1440 each day | 0 |
+| 17 Nov | 1440 | 1429 | 11 |
+| 18 and 19 Nov | 1440 | 1440 each day | 0 |
+
+22 October (from 08:41) and 20 November (to 15:00) are partial days with 0 not taken. As an
+independent count, the `capture` table holds 1440 photos of experiment 18 on each of 24 October,
+1 November, 18 November and 19 November, the days sampled. App restarts on 10, 11, 13 and 20
+November (two on 20 November) lost no photo.
+
+**17 November.** One photo was due while the app was stopped (07:06 UTC) and carries that reason.
+The other 10 slots have no photo and no reason. The server logs show why: while the production
+Reprocess of section 37 ran, the database was locked (17 and 39 `database is locked` errors in the
+logs of 07:08 and 12:31 UTC). **11 photos were taken and saved to disk with their JSON** (12:29 and
+14:07 to 14:43 UTC) but their database row was not written ("Could not add the photo ... to the
+database"). None of the 11 has a `capture` row, so the Gallery, the readings and the export leave
+them out, and nothing on a page says so. This was reported on #439 (moved to Round 4, High). No
+such failure appears in the production logs since 17 November 14:49 UTC.
+
+**Result: pass on 27 of 28 full days**, each unattended. 17 November was not unattended (Reprocess
+and restarts) and fails by 11 photos, from the database lock, not from the scheduler.
+
+### 45.2 Reboot mid-run, it resumes
+
+Not run on production: production has not been rebooted since 2026-10-21 14:57 UTC, and the app
+there is started by hand, not by the `npec-rig` service (`systemctl` reports it not found), so
+after a reboot it would not start again by itself. Aaron accepted the development tests of #62
+instead (2026-11-20): on npec-rig-01 with a test experiment taking a photo every minute,
+`sudo systemctl reboot` on 2026-10-23 (service up 10 s after boot, every slot taken, 6 photos, 0
+missed; PR #285), and on 2026-11-02 a reboot and a boot without network time, both pass (PR #344,
+#62's comments).
+
+**Result: pass on development.** Production resumes after a reboot only once it runs the
+`npec-rig` service.
+
+### 45.3 CSV download
+
+The data export of experiment 18 made on production at 09:47 UTC on 2026-11-20 (48.9 MB zip, data
+only) was copied to the controller and every CSV read in full with Python's `csv` reader:
+
+| File | Rows | Columns | Every row the same width |
+|---|---|---|---|
+| `captures.csv` | 41,820 | 18 | yes |
+| `tray-readings.csv` | 301,335 | 15 | yes |
+| `cell-readings.csv` | 5,998,520 | 15 | yes |
+| `time-in-table-location.csv` | 12 | 7 | yes |
+
+Opened in Excel by Aaron, 2026-11-20, the same export:
+
+| File | In Excel |
+|---|---|
+| `captures.csv` | Opens, after a data conversion prompt |
+| `time-in-table-location.csv` | Opens, no prompt |
+| `tray-readings.csv` | Opens, no prompt |
+| `cell-readings.csv` (700 MB) | Does not open. It is also over Excel's limit of 1,048,576 rows |
+
+Which columns of `captures.csv` the conversion prompt is about was not recorded.
+
+**Result: pass for `captures.csv`, the file PLAN.md names, and for the tray and location files.
+Fail in Excel for `cell-readings.csv`**, the per-cell areas researchers need most; it reads in
+full with Python's `csv` reader.
+
+### 45.4 Disk headroom against `df`
+
+On production at about 15:00 UTC on 2026-11-20, `/api/about` reported 683,642,777,600 bytes free
+and `df -B1` on `/var/lib/npec-rig` reported 683,642,777,600 bytes available: the same number.
+The app also showed 12.1 GB written per day and 56.6 days left.
+
+**Result: pass.**
+
+**What this does and does not cover.** One rig and one experiment at a 60 s interval. The count
+shows the scheduler takes every photo while the app is up; it does not show that every photo
+reaches the database while another job writes to it (17 November, #439). The reboot test is on
+development, not on production. Excel was tried once, on one computer; its version was not recorded.
+
+## 46. Dark pots: a noise-aware rule that adapts to each photo (issue #497, part 1 of #484, method written 2026-11-24, revised the same day after Aaron's review, before any pixel was measured)
+
+**Label: development check.** Grow from leaf cores, the Gallery's default method, reads empty dark pots
+as plant. On production, tray 4 after the harvest of 23 November read 4,856 to 11,789 mm² grown against
+19 to 54 mm² by the fixed green cutoff (#480 finding 1, #484). Section 42's verdict "grow from leaf
+cores needs no floor" covered soil, not dark pots, and is reopened (Aaron, 2026-11-23).
+
+**Cause.** Greenness is a ratio, `(2G - R - B) / (R + G + B)`. Near black the denominator is small, so
+a few levels of JPEG noise decide the ratio: a pixel of RGB about 9,12,10 has greenness about 0.12 and
+passes as a leaf core, while the pots around it (about 7,7,7) have greenness 0 and pass the lower
+cutoff, and grow joins them. The error is in code levels, not in brightness as such.
+
+**What was rejected (Aaron, 2026-11-24), and why it is not tested.** Lighting differs between
+experiments and chambers and cannot be controlled, so:
+
+1. *A fixed brightness limit* (`R+G+B` or the largest channel below a number): a number measured on
+   November photos may not hold under other light.
+2. *A limit relative to the AprilTags in the same photo*: tags are not always black and white, and are
+   not as deep black as the pots.
+3. *A limit relative to the tray's own soil brightness*: it fails under blue mats and on emptied
+   trays, which are the cases this fixes.
+
+**The rule under test (noise-aware).** A pixel may be a leaf core, and may be grown into, only if its
+green exceeds red by more than noise can produce, in actual code levels:
+`G - R > k * sigma`, with `sigma` the noise (standard deviation, in code levels) of a pixel of that
+photo, and `k` a single dimensionless factor. `G > R` is already required of a core
+(`segmentation.grow_from_cores`); this makes the margin a measured quantity instead of 1 level.
+Whether the rule also needs the blue channel (`G - B`) is looked at in the data, not assumed. The
+noise should depend on the camera's analogue gain (recorded in every capture's sidecar as
+`sensor_metadata.AnalogueGain`, with `ExposureTime` and `DigitalGain`) and on the JPEG quality
+(`photo_quality`, #359), not on how bright the room is. That is a hypothesis, tested below.
+
+**Question.** Does one `k` work in every condition below: it removes the pots' false plant without
+removing leaves?
+
+**Conditions and data (production only, read-only; nothing run or written on the rig).**
+
+| Condition | What | Available |
+|---|---|---|
+| Before and after the harvest | Experiment 18, trays 4 to 6 (after 23 November), trays 1 to 3 (after 16 November), the same trays with plants before | Yes |
+| Another layout | Experiment 20, a dummy run, not a real experiment (Aaron, 2026-11-24): a blue 4 x 5 tray with the green target and a paper tag sheet, the other cells empty with no pots (from 24 November 07:33 UTC, 300 s interval; folder `2026-11-24_d0fc0d74`) | Yes, 6 photos copied (09:00 to 10:00 UTC, two of them while the light was still changing), nothing run on the rig |
+| Time of day | Morning, midday, evening, lit and counted (section 43) | Yes |
+| Different gains | See the limit below | **Not on lit photos** |
+| Both JPEG settings | `photo_quality` of each photo | To be read from the sidecars; only the settings really used are tested |
+| Development rig | Experiment 4 "Dario 13 Emergence", `2026-11-13_f991a199` | Yes since Aaron's answer of 2026-11-24: 5 photos copied read-only with `rsync` (JPEG 85, 4:4:4, lit at gain 1.0 and 1.5, lights off at gain 4.0). No tray outlines (the rig's API was not asked), so only fixed rectangles |
+
+*What the sidecars show.* On a sample of 12 lit photos of experiment 18 (20 to 23 November at 07:00,
+13:00, 20:00 UTC) and the first lit photo of experiment 20, every one has analogue gain 1.0 and
+exposure about 1.7 ms (auto exposure converged); the photos at gain 4.0 are the lights-off ones (02:00
+to 06:00 UTC, exposure tens of ms), which the app leaves out. So lit production photos carry **one**
+gain, and the gain dependence of the noise cannot be tested on counted production photos. It can be
+looked at on the lights-off photos of the same pots (gain 4, no plant seen), which are not counted
+photos, as a check on whether the noise rises with gain; it is not a test of the rule on leaves.
+
+**Pixels.**
+
+1. *Empty-pot pixels.* Emptied trays of experiment 18 and any empty pots in experiment 20: the cells
+   the app places (`tray_placement.place_cells`), every pixel inside the opening that is not blue or
+   white or in the tag's enlarged square (the app's own rules), in cells judged empty by looking at the
+   crop. The list of cells is kept. This is chosen by eye because no rule for "empty pot" exists.
+2. *The 60-cell reference set (section 33)*: the lossless crops and Aaron's truth masks.
+3. *Dense late-November canopy, an upper bound.* Photos of experiment 18 trays with full canopy,
+   16 to 22 November, run through `grow_from_cores` as the app does. The pixels of the app's own grown
+   mask that the rule would remove, as a share of the mask, are an **upper bound** on the shaded leaf
+   the rule could cost: some of them are false plant, and there is no hand outline of them. No new
+   outlines are drawn (Aaron, 2026-11-24).
+
+**How `sigma` can be found (the options reported to Aaron; the choice is his, see below).** The test
+runs the chosen option; the options are compared on the same photos if time allows.
+
+- *(a) A table, gain to noise,* measured once from stored photos of a still, dark pot, applied by the
+  photo's recorded gain and JPEG quality. Cheap, no circularity in use. Needs photos at each gain and
+  quality: lit production has only gain 1.0.
+- *(b) Measured in each photo from the image,* from the noise of pixels known not to be plant: for
+  example the difference between each pixel and the median of its neighbours, taken in dark flat
+  areas of the tray (pot, plastic, tag), as a robust spread (median absolute deviation). It adapts to
+  gain, JPEG quality and sensor, and to a photo whose settings are not recorded. The risk is
+  circularity: if a tray is all pot, the pots are the sample, and the spread of a dark area of noise
+  is the very thing being thresholded. It is avoided by taking the noise from pixels of a
+  different kind, or by checking that the estimate does not move when the pots are removed.
+- *(c) A fixed floor in code levels* (`G - R` at least a few levels), with its gain dependence
+  checked. Simplest, and needs the least code. It holds only as far as the noise does not move with
+  gain and JPEG quality; the data here show one gain, so that check is not complete.
+- *Ordinary exposure state instead of gain:* use `ExposureTime` times gain (the E of section 43) as
+  the predictor. Not tested separately; E is already about 1.7 ms times 1.0 on every lit photo.
+
+**What is reported.**
+
+1. The noise in code levels, in each photo, for pot pixels: standard deviation and median absolute
+   deviation of `G - R`, and of each channel, per photo, with its gain, exposure and JPEG quality; by
+   time of day.
+2. The false-plant pixels (what `grow_from_cores` marks in an emptied tray): their `G - R` (code
+   levels) and their `R+G+B`, percentiles 1, 50, 99, 99.9 and the maximum.
+3. For each `k` in 0 to 12 in steps of 1: (a) the emptied trays' grown area, (b) the 60 reference
+   cells' IoU and area ratio against truth, (c) the canopy upper bound, all by the app's
+   `grow_from_cores` with the rule applied in an experiment-side copy (a pixel failing the rule is not
+   a core and is not grown into), so no app code changes.
+4. Whether one `k` serves all conditions, or whether the best `k` of each condition differs.
+5. **Grown over fixed area on ordinary readings:** from the 183 hourly tray readings of 16 to 23
+   November (`~/temp.nobackup/rig-copies/ac-testing/review-434/readings/`), the ratio
+   `grown_area_mm2 / fixed area` per tray reading, percentiles and largest, and for tray 4's false
+   readings. This is for Aaron's decision on #484's "many times the fixed area" warning factor. No
+   factor is chosen here.
+
+**Pass and fail, decided before any pixel is measured.** A single `k` **passes** if at that `k`, in
+every condition that has data:
+
+1. the false-plant pot pixels fall to under 1% of their number without the rule (**placeholder**),
+   and emptied trays read about the fixed cutoff's 19 to 54 mm² (I take 60 mm², a **placeholder**, as
+   the most that counts);
+2. on the 60 reference cells the mean IoU loses at most 0.005 (**placeholder**) and the area ratio
+   stays within 0.02 of the figure without the rule (**placeholder**). *Corrected 2026-11-24 on Aaron's
+   instruction: this was first written as "not below section 34's 0.874 by more than 0.005", a
+   comparison with whole-photo runs that these crops do not reproduce (they score 0.926 without the
+   rule, 46.4). The loss is judged on the same cells, without the rule.*
+3. the canopy upper bound is at most 1% of the grown mask on every photo (**placeholder**).
+
+The placeholders put a number on "about" and "small"; they are decisions made here, not measurements,
+and the full table over `k` is published so anyone can use others. If no `k` passes in every
+condition, the result is **"no single `k` works"** and this section says so, with what fails, before
+anything is coded in #484.
+
+### 46.0 Amendments before measuring (Aaron, 2026-11-24) and what was added after
+
+Written before any area was measured, from Aaron's answers:
+
+1. **The noise estimate.** Methods (b) (noise measured in each photo, above) and (c) (a fixed floor in
+   code levels) are run side by side on the same photos and both are reported. Method (a) (a table of
+   noise against gain) is used only as a side check, on the lights-off photos at gain 4.0.
+2. **Gain.** Counted production photos all have analogue gain 1.0, so what is tested is stated as
+   "counted production photos at gain 1.0 only" (46.7). Development's photos are also read, to look
+   for lit photos at another gain.
+3. **Pass numbers as written above** (all placeholders): emptied trays at most 60 mm², the 60 cells'
+   mean IoU loses at most 0.005 against the same cells without the rule, area ratio within 0.02 of the ratio
+   without the rule, canopy upper bound at most 1% of the grown mask on every photo, false-plant pot
+   pixels under 1% of their number without the rule.
+4. **Experiment 20's blue tray** is a test condition: (a) its green target (a known object: the flat
+   target of section 17.5, 149.9 x 149.8 mm by callipers, 22,455 mm² nominal) must keep its grown area;
+   (b) its empty cells, which hold no pots, must read about 0 mm². The app reads the target at 23,600
+   to 24,600 mm² with the rule off (5 to 10% above the nominal area; the target lies on the tray top at
+   100 mm, and this section does not look into why), so the rule-off reading is the reference. No
+   number for "keep" was set before measuring; the change is reported.
+
+**Added after rule A had been measured.** Rule A (`G - R > thr`, as written) was run first and removed
+about half of every reference cell (46.2). A second form, **rule B**, was then tried: the greenness
+test keeps its cutoff and its numerator must clear the cutoff by more than `thr` code levels,
+`(2G - R - B) - cutoff x (R + G + B) > thr`, with the core cutoff on cores and the lower cutoff on
+growth. In `thr = 0` it is the app's own test. Rule B was chosen because rule A had failed, so it
+is not a test fixed before the data; the same pass numbers are used on it. In method (b) the noise for
+rule B is measured on `2G - R - B` (the residual about its 15 x 15 neighbourhood mean) and for rule A on
+`G - R` (about the neighbourhood median), in the darkest tenth of the pixels inside the trays' outlines
+(by rank in each photo, no fixed value), as a root mean square. The robust spread first tried
+(median absolute deviation) is 0: most dark pixels have a residual of exactly 0.
+
+*What the code does.* `experiments/497-dark-pots/code/rule.py` is a copy of `grow_from_cores` with the
+rule added; with the rule off it gives the app's mask pixel for pixel (checked on a crop with
+`code/check_copy.py`: 0 pixels different), and its pixel count on every full photo equals the count the app
+stored (for example 286,088 px for tray 4 on 23 November 13:00). Tray outlines and tags are the ones
+the app stored, read from the rig's API (`GET /api/captures/trays/...`) and kept in `data/api/`;
+the tag square is taken from cell A1's corners shrunk from the cell (about 59 mm) to the tag (40 mm).
+
+### 46.1 Data used
+
+| Condition | Photos | What was read |
+|---|---|---|
+| Experiment 18, emptied trays | 23 Nov 11:00, 12:00, 13:00, 14:00 UTC (4 photos; tray 4 emptied about 11:00, tray 5 about 13:00, tray 6 about 14:00) | trays 4 to 6 once empty (the app's fixed cutoff reads 6 to 54 mm²) |
+| Experiment 18, canopy | 18 Nov 13:00; 20 Nov 13:00, 20:00; 22 Nov 09:00, 13:00, 20:00; 23 Nov 09:00 (7 photos) | trays 4 to 7 with plants (fixed cutoff 7,100 to 14,200 mm²) |
+| Experiment 18, green target | the same 11 photos | tray 10 |
+| Experiment 20 | 24 Nov 08:09, 08:34 (light still changing, so not counted by the app), 09:04, 09:29, 09:44, 09:59; the sweeps use all 6, the cell readings of 46.8 only the 4 counted | tray 10: green target, tag sheet, empty cells |
+| 60 reference cells (section 33) | the lossless crops with Aaron's truth masks | 30 production, 30 development; the lower cutoff given as the draft's (the whole tray's, from the manifest) |
+| Development, experiment 4 | 23 Nov 12:00 and 20:00, 24 Nov 08:05 (gain 1.5), 10:00; lights off 24 Nov 05:00 (gain 4.0) | two fixed rectangles over two trays of seedlings on soil plugs |
+| Lights-off, experiment 18 | 24 Nov 03:00 and 07:00 | the outlines of trays 4 to 6 as at 23 Nov 14:00 |
+
+Photos are at `~/temp.nobackup/rig-copies/ac-testing/497-dark-pots/` and `.../npec-rig-01/497-dark-pots/`
+(not in git); experiment 18's JPEG setting is 75, 4:2:0 and development's is 85, 4:4:4. Trays 1 to 3 of
+experiment 18 left the table on 16 November and have no pots left to read.
+
+### 46.2 Rule A, `G - R > thr`: fails on the reference cells at every value
+
+On the 60 reference cells the mean IoU is 0.926 with no rule, **0.551 at `thr = 0`**, 0.505 at 2, 0.449 at
+4, and 0.214 at 12 (method (c)); method (b) is lower still. Rule A leaves out every pixel the lower
+cutoff admits with green not above red (leaf edges, grey pixels joined to a leaf, shaded leaf) and the
+reference masks contain many of them. It does cut the emptied trays to 9 mm² at 2 levels. It loses
+0.375 of IoU on the same cells (0.926 to 0.551) against the 0.005 allowed, and is not considered further; the numbers are in
+`data/summary_levels.csv` (form A).
+
+### 46.3 Rule B: emptied trays, empty cells, the target
+
+Method (c), floor of N levels (largest of the 4 emptied photos' readings of trays 4 to 6; share of the
+false-plant pixels left; the app's mask has 286,088 px, 11,789 mm², on tray 4 at 13:00):
+
+| N | Emptied trays, largest mm² | False-plant pixels left | Experiment 20 and tray 10, other than the target, largest mm² | Target, change in grown area (17 photos) |
+|---|---|---|---|---|
+| 0 (no rule) | 11,789 | 100% | 413 | 0 |
+| 1 | 357 | 4.1% | 600 | -0.30 to -0.10% |
+| 2 | 96 | 1.4% | 577 | -0.61 to -0.31% |
+| **3** | **45** | **0.73%** | **34** | **-0.72 to -0.43%** |
+| 4 | 16 | 0.28% | 23 | -0.77 to -0.51% |
+| 5 | 9 | 0.14% | 16 | -0.87 to -0.59% |
+| 8 | 2.8 | 0.02% | 6.8 | -1.19 to -0.78% |
+
+(The tray 10 column covers both experiments' photos: patches in the dark cells that hold no pot or that sit
+beside the target. The target's change is measured on the target alone: what survives an opening of 201 px
+of the app's mask, widened by 15 px, so the patches in the dark cells that touch it are not counted;
+`code/target_zone.py`. With the rule off the target's zone holds 565,000 to 573,000 px.) Method (b), k
+times the photo's own noise: **k = 3 gives 58.8 mm² and 0.91% left** (just inside 60 mm² and 1%); k = 2
+gives 136 mm² and 1.7%, k = 1 gives 1,135 mm² and 10.5%.
+
+*The false plant at a floor of 3.* What it removes is picture 46a, picture 46b and the table above: in
+the emptied tray 4 at 13:00 the app counted 286,088 px and the floor of 3 leaves 1,026 px (42 mm²;
+`figures/46/tray4-emptied-2026-11-23T1300.jpg`). The pixels it counts as plant have a margin of
+under 1 level in 83.8% of the cases, under 4 levels in 98.7% and under 9 in 99.9% (margins are floored to
+whole levels before they are counted; `figures/46/margin-cdf.png`).
+
+### 46.4 Rule B: the leaves
+
+*The 60 reference cells* (mean IoU against Aaron's masks; area ratio, mask over truth, pooled):
+
+| | No rule | N = 1 | N = 2 | N = 3 | N = 4 | N = 5 | k = 1 | k = 2 | k = 3 |
+|---|---|---|---|---|---|---|---|---|---|
+| All 60 | 0.926 / 1.046 | 0.905 / 1.034 | 0.897 / 1.024 | 0.888 / 1.015 | 0.878 / 1.006 | 0.869 / 0.998 | 0.867 / 0.992 | 0.785 / 0.946 | 0.663 / 0.886 |
+| 38 corrected by Aaron | 0.911 / 1.050 | 0.888 / 1.038 | 0.883 / 1.028 | 0.879 / 1.018 | 0.874 / 1.010 | 0.867 / 1.002 | 0.864 / 0.996 | 0.796 / 0.951 | 0.675 / 0.894 |
+| 30 production | 0.899 / 0.988 | 0.860 / 0.950 | 0.847 / 0.936 | 0.833 / 0.922 | 0.818 / 0.907 | 0.804 / 0.895 | 0.812 / 0.902 | 0.707 / 0.823 | 0.555 / 0.702 |
+| 30 development | 0.954 / 1.048 | 0.951 / 1.038 | 0.947 / 1.029 | 0.943 / 1.019 | 0.939 / 1.011 | 0.934 / 1.003 | 0.923 / 0.997 | 0.863 / 0.952 | 0.771 / 0.895 |
+
+(The rows by group come from `code/analyze.py`, written to `data/ref_iou_by_group.csv`.) The mean IoU of 0.926 with no rule is above section 34's 0.874 to 0.879, because these crops are scored with
+the draft's own lower cutoff and 21 of the 60 truth masks are accepted drafts (section 33); the loss is
+therefore taken against the same cells without the rule. **Method (c) loses 0.021 at N = 1 and 0.038 at N = 3
+(0.066 on production's 30 cells), against the 0.005 allowed: it fails at every N from 1.** (Held to an
+absolute 0.869, the 60-cell mean would pass to N = 5; that is not the number fixed, and it is not used.) Method (b) measures the noise of each crop at 3.1 to 7.7 (production, median 4.8)
+and 4.7 to 9.3 (development, median 6.5), so k = 1 is a floor of 3 to 9 levels and loses 0.03 to 0.09 at k = 1.
+
+*Dense canopy, an upper bound on the leaf a rule could take.* Share of the app's mask the floor removes, per
+tray and photo, at N = 3 (trays 4 to 6: 0.07% to 0.50%; tray 7, 8 photos: 0.18%, 1.15%, 1.36%, 6.63%, 1.48%,
+0.91%, 2.22%, 2.58%). Tray 7 is above 1% on 6 of 8 photos, so the pass number (1% on every photo) is not met.
+The removal is not spread over leaves (`data/tray7_cells.csv`): on 22 November 09:00 it is 97% in cell D5,
+a black pot where the app counted 23,835 px (6.6% of the tray) on that photo and 213 px on 18 November
+(`figures/46/tray7-canopy-2026-11-22T0900.jpg`), and in the other photos about a third of it is in cell C1,
+a plant with dark leaves, of which the floor of 3 removes 11% to 47% of the pixels the app counts (1,116 to
+2,536 of 4,961 to 10,562 px). So the upper bound mixes false plant, correctly removed, with a real cost on dark leaves that
+no hand outline measures. On development's seedlings (JPEG 85; `data/dev_rect.csv`) a floor of 3 removes 6.5%
+to 8.3% of the app's mask of one tray (left, 9,200 to 14,800 px) and 1.6% to 2.6% of another (top right,
+99,000 to 112,000 px), 6.5% and 1.6% on the one photo at gain 1.5 against 7.8% to 8.3% and 2.1% to 2.6% on the two at gain 1.0 (the three photos differ in more than gain, so one photo at 1.5 shows nothing about gain).
+
+### 46.5 Noise: how it moves with the photo, the gain and the settings
+
+Method (b) reads the noise from the image. In the darkest tenth of the tray pixels it gives, in code levels
+of `2G - R - B` (`figures/46/noise-estimate-by-condition.png`):
+
+| Photos | Noise by method (b) |
+|---|---|
+| Experiment 18, 4 emptied-tray photos | 0.82 to 0.95 |
+| Experiment 20, 6 photos | 1.04 to 1.13 |
+| Experiment 18, 7 canopy photos | 2.75 to 3.96 |
+| Reference crops, production, 30 | 3.1 to 7.7 |
+| Reference crops, development, 30 | 4.7 to 9.3 |
+
+The estimate follows what is in the trays, not the camera: the same camera at the same gain 1.0 and the same
+JPEG setting gives 0.9 over empty pots and 3.1 over canopy, a factor of 3.4 (about 2.9 to 4.8 from the ranges above, 0.82 to 0.95 against 2.75 to 3.96). That is the circularity: the darkest
+tenth of an emptied tray is the pots themselves, whose noise is not the noise of a leaf's shade. With
+k = 3 the emptied trays are just inside the pass number (a floor of about 2.7 levels) while on canopy photos
+the same k is a floor of 8 to 12 levels.
+
+*Side check, method (a), gain.* The noise of the same pixels, root mean square of the residual of `2G - R - B`
+(all pixels of the region, then the darkest tenth; `data/noise_vs_gain.csv`):
+
+| Photo | Gain, exposure | JPEG | Mean R+G+B | All | Darkest tenth |
+|---|---|---|---|---|---|
+| Production, trays 4 to 6, 23 Nov 14:00 | 1.0, 1.8 ms | 75 4:2:0 | 120 | 2.85 | 0.87 |
+| Production, 23 Nov 13:00 | 1.0, 1.7 ms | 75 4:2:0 | 213 | 2.62 | 0.77 |
+| Production, lights off, 24 Nov 03:00 and 07:00 | 4.0, 66.5 ms | 75 4:2:0 | 1.5 | 0.53 | 0.54 and 0.56 |
+| Development, left tray, 23 Nov 12:00, 20:00, 24 Nov 10:00 | 1.0, 3.5 ms | 85 4:4:4 | 194 to 200 | 4.29 to 4.35 | 2.35 to 2.39 |
+| Development, 24 Nov 08:05 (lit, converged) | 1.5, 16 ms | 85 4:4:4 | 197 | 4.34 | 2.32 |
+| Development, lights off, 24 Nov 05:00 | 4.0, 66.5 ms | 85 4:4:4 | 4.1 | 1.10 | 0.86 |
+
+On development, a lit photo at gain 1.5 has the same noise as the three at gain 1.0 (4.34 against 4.29 to
+4.35). The lights-off photos at gain 4.0 are almost black (mean R+G+B 1.5 and 4.1), the sensor is clipped at
+0, and their noise is lower, not higher. So **how the noise grows with gain is not shown**: no counted
+production photo has a gain other than 1.0, the only lit photos at another gain are development's 11
+converged photos at 1.5 at about 08:05 UTC, and the lights-off photos carry no information on it. Development's
+JPEG (85, 4:4:4) reads about 1.6 times the production noise on pixels that differ in content (soil plugs
+against canopy), which is not a comparison of the settings alone.
+
+### 46.6 Grown area over fixed area on ordinary readings (for the warning factor)
+
+From the 183 hourly readings of production (16 to 23 November, `review-434/readings/`), counted readings
+of trays with a fixed area of 100 mm² or more: **548 tray readings in 111 photos**. The ratio of the
+grown to the fixed area is 0.98 to 1.65 (median 1.10; 5th percentile 0.99; 95th 1.34; 99th 1.54). By tray:
+tray 4, 1.06 to 1.63; tray 5, 1.08 to 1.65; tray 6, 1.06 to 1.31; tray 7 (green squares and leaves), 0.99 to 1.11;
+tray 10 (green target), 0.98 to 1.00. The 14 counted readings of trays with a fixed area under 100 mm²
+are all above 2.5: trays leaving on 16 November at 11 to 32 mm² fixed read 2.6 to 6.4 times
+(33 to 186 mm² grown), and the dark pots of tray 4 read 133 to 272 times (4,856 to 11,789 mm² grown, fixed 19
+to 54 mm²), trays 5 and 6 read 10 to 15 times (69 to 161 mm²). Among ordinary readings the ratio never
+reaches 2; among small readings a ratio is large for areas that are themselves tiny. The factor, and
+whether to ask for a minimum area, are Aaron's decisions; none is proposed here.
+
+### 46.7 Verdict, what it covers and does not
+
+**No single pixel rule passes every number fixed before the measurement. Nothing is coded.**
+
+| | Rule A (`G - R`) | Rule B, (c) floor of N | Rule B, (b) k times noise |
+|---|---|---|---|
+| False plant removed, emptied trays at most 60 mm², under 1% left | Yes from N = 2 | Yes from N = 3 (45 mm², 0.73%) | Yes only at k = 3 or more (58.8 mm², 0.91%) |
+| Experiment 20's empty cells about 0 | Yes from N = 2 | Yes from N = 3 (at most 34 mm²) | Yes from k = 3 |
+| Green target keeps its area | No (-0.6 to -0.3% at N = 2) | -0.7 to -0.4% at N = 3; no number was set | -1.2 to -0.4% at k = 3 |
+| 60 reference cells, IoU loss at most 0.005 (from 0.926) | **No: loses 0.375 at the smallest value** | **No: loses 0.021 at N = 1, 0.038 at N = 3** (0.066 on production's 30) | **No: loses 0.26 at k = 3** |
+| Canopy upper bound at most 1% on every photo | No | **No: tray 7 loses 0.18% to 6.63% (the 6.63% is 97% a black pot in cell D5; without that photo, 0.18% to 2.6%, mostly cell C1's dark leaves)** | **No** |
+| One factor across all conditions | No | No | **No: the noise estimate itself moves by 3.4 (2.9 to 4.8)** |
+
+- **Method (b) fails the question asked.** Its noise estimate is 3.4 times higher (2.9 to 4.8) on canopy photos than
+  on emptied-tray photos at the same gain, so k = 3 is a floor of 2.7 levels in one and 8 to 12 in the
+  other; at k = 3 the reference cells' IoU is 0.66.
+- **Method (c), a floor of 3 or 4 code levels on the greenness margin, removes the false plant but at a
+  cost on real leaves.** It removes 99.3% to 99.7% of the false-plant pixels and takes the empty cells and the
+  dark pots to 45 mm² or less. The cost is on dark leaves and seedlings: 0.038 of IoU on the 60 cells (0.066
+  on production's 30), 11% to 47% of one dark-leaved plant, 0.18% to 6.63% of tray 7's mask (0.07% to 0.5% for trays 4 to 6; the 6.63% is a black pot, and without that photo 0.18% to 2.6%), 6.5% to 8.3% of a
+  tray of small seedlings, and 0.4% to 0.7% of the green target's area.
+- **Recommendation and decision (Aaron, 2026-11-24): no pixel rule.** Empty pots and empty cells are of no
+  interest to researchers, who follow plants by tray and cell, and a floor would shrink real dark-leaved
+  plants and seedlings with nothing on the page saying so. Instead a **cell is flagged** when its grown area
+  is much larger than its fixed-cutoff area ("grown area includes background, cell probably empty"), and a
+  tray keeps its total and adds "N cells flagged, together X mm²". The flag uses only the two areas
+  already stored per cell, so a change of light moves both together. #484 is changed to that flag.
+  Section 46.8 gives the cell-level ratios and records the factor Aaron chose (R = 5, A = 100 mm²).
+- **Not covered:** gain other than 1.0 on counted photos (stated limit; development's gain 1.5 photo shows the
+  same noise as gain 1.0, nothing beyond); another pot or tray plastic, another light program or camera; a
+  development rig measured with tray outlines; the bound on shaded leaf is not a measurement of shaded leaf,
+  because no outline of late canopy exists; JPEG settings are two (75 4:2:0 and 85 4:4:4), on different
+  scenes. The reference cells are young plants (production 22 October to 9 November, development 3 to 9 November).
+
+### 46.8 The cell-level grown over fixed area, for the flag's factor (a development check, written after 46.7)
+
+**What is read.** The two areas the app already stores for each cell: the fixed green cutoff's `area_mm2`
+and grow from leaf cores' `grown_area_mm2` (a missing area counts as 0). Production's 183 hourly readings of
+16 to 23 November, counted photos only (`~/temp.nobackup/rig-copies/ac-testing/review-434/readings/`), and the
+4 counted photos of experiment 20 (`data/api/`; its 08:09 and 08:34 photos are marked "light changing" and are not counted, so the 40 readings are 4 photos of 10 cells); tag cells and cells whose status is "leaves over other cells" (the
+green target's cells) are left out. Development has no stored cell readings in what was copied, so
+development's seedlings are read from the 60 reference crops (section 33), whose two areas were recomputed
+with the app's green threshold and grow from leaf cores (the draft's lower cutoff); a crop holds the cell with a 40
+px margin, so a neighbour's leaf can count. `code/cell_ratio.py`, `code/cell_ratio_tables.py`,
+`data/cell_ratio.csv`, `data/cell_ratio_ref.csv`.
+
+**Groups, and how a cell is put in one.**
+
+- *(a1) Plant cells:* cells of trays with plants (production, 16 to 23 November) whose fixed area is at
+  least 20 mm². This is a size rule chosen here, not a look at each cell; it leaves out cells whose plant the
+  fixed cutoff barely sees. 7,989 cell readings. Cells with 1 to 20 mm² (489) and under 1 mm² (973) are
+  listed apart.
+- *(a2) Production plants in the reference set:* the 26 cells with plants (sizes 1 to 5 of 5, blue mats, green soil;
+  22 October to 9 November, young plants).
+- *(c) Seedlings:* development's 27 reference cells with plants (sizes 1 to 5 of 5, green soil), JPEG 85, the smallest
+  at 71 to 332 mm² fixed. Production's smallest plants are in (a2).
+- *(b) Empty cells:* the 133 cell readings of production's trays 4 to 6 once emptied on 23 November (the harvest
+  was recorded: tray 4 at 11:00 UTC, tray 5 at 13:00, tray 6 at 14:00), 33 of which hold false plant (grown 20
+  mm² or more; 23 to 1,661 mm², median 836 mm²). Also experiment 20's cells without the target (40 cell readings,
+  no pots) and the 6 empty reference cells.
+
+**Ratio of grown to fixed area, per group** (percentiles of the cell readings):
+
+| Group | Cells | Fixed area (mm², median) | Grown over fixed |
+|---|---|---|---|
+| (a1) plant cells, fixed at least 20 mm² | 7,989 | 426 | 1st 0.50, 5th 0.94, median 1.11, 95th 1.9, 99th 2.9, 99.9th 6.3, largest 17.1 |
+| Plant-tray cells, fixed 1 to 20 mm² | 489 | 2.9 | median 0.27, 95th 5.0, 99th 26, largest 117 |
+| Plant-tray cells, fixed under 1 mm² | 973 | 0.12 | grown above 0 in 285; ratio 22 at the 95th, 156 largest |
+| (a2) production reference plants | 26 | 18 | smallest 1.3, median 5.7, 90th 74, largest 677 (fixed 0 to 171 mm², grown 26 to 274 mm²) |
+| (c) development reference seedlings | 27 | 360 | smallest 1.11, median 1.42, 90th 2.0, largest 3.0 |
+| (b) emptied-tray cells holding false plant | 33 | 2.6 (largest 16) | smallest 9.2, then 29, 43, 54; the rest higher |
+| (b) experiment 20 cells without the target | 40 | 1.2 | 23 with grown above 0, grown largest 8.0 mm²; ratio 95th 2.9, largest 12.5 |
+
+**Does one ratio separate the plants from the empty cells?** Not by itself. (a1) and (c) mostly sit below 2
+(95th percentile 1.9 and 2.0), and (b)'s false-plant cells sit above 9. But production's young plants (a2) have
+ratios of 1.3 to 677, because the fixed cutoff reads a young dark leaf as 0 to 30 mm² while grow from leaf
+cores reads 26 to 274: a cell of a few mm² fixed and 26 to 50 mm² grown is a seedling there, and looks like an
+empty cell with a little false plant. The groups differ more in the size of the excess: the false-plant cells
+have an excess of 22 to 1,660 mm² (median 831; 28 of 33 above 200), while production's young plants (a2) have 26 to
+274 mm² grown and development's seedlings (c) 133 to 460 mm² grown for sizes 1 and 2 with a ratio of at most 2.3.
+Two false-plant cells (23 and 24 mm²) are as small as a production seedling.
+
+**Cells flagged by a candidate** (grown above R times fixed *and* grown minus fixed at least A mm²; with fixed
+0 any grown area above 0 is above R times it; counts of cell readings):
+
+| A (mm²) | R | (a1) plant, of 7,989 | (a2) production reference plants, of 26 | (c) development seedlings, of 27 | (b) emptied-tray cells flagged, of 33 holding false plant | Share of the emptied trays' false grown area (27,190 mm²) flagged | Experiment 20 empty cells flagged, of 40 |
+|---|---|---|---|---|---|---|---|
+| 0 | 2 | 341 | 22 | 3 | 33 | 100% | 4 |
+| 0 | 3 | 74 | 19 | 1 | 33 | 100% | 2 |
+| 0 | 5 | 15 | 14 | 0 | 33 | 100% | 1 |
+| 20 | 2 | 341 | 22 | 3 | 33 | 98% | 0 |
+| 20 | 3 | 74 | 19 | 1 | 33 | 98% | 0 |
+| 50 | 2 | 339 | 9 | 3 | 31 | 98% | 0 |
+| 50 | 2.5 | 146 | 9 | 1 | 31 | 98% | 0 |
+| 50 | 3 | 74 | 7 | 1 | 31 | 98% | 0 |
+| 50 | 5 | 15 | 4 | 0 | 31 | 98% | 0 |
+| 100 | 3 | 61 | 1 | 1 | 30 | 98% | 0 |
+| 100 | 5 | 15 | 0 | 0 | 30 | 98% | 0 |
+
+(All candidates of R = 2, 2.5, 3, 5 and A = 0, 20, 50, 100, for every group including experiment 20, are in `code/cell_ratio_tables.py`'s output.)
+
+- **A minimum on the fixed area would exclude the cells to flag:** the false-plant cells' fixed area is
+  at most 16 mm² (median 2.6; 7 of 33 have 5 mm² or more, 2 have 10 mm² or more), so a minimum of 5 mm² would
+  drop 26 of the 33 and a division by a fixed area of 0 is avoided by writing the test as grown above R times
+  fixed. A minimum on the *excess* (grown minus fixed) is what keeps small seedlings and noise out: without it (A = 0) 19 to 22 of the 26
+  production reference plants and 3 of 27 seedlings are flagged at R = 2 to 3; with A = 50 mm², 7 and 1 at R = 3, and with
+  A = 100 mm², 1 and 1.
+- **Plant cells flagged are few cells read many times:** at R = 3 and A = 50 mm², 74 of 7,989 readings (0.9%), in
+  20 cells, 18 of them in tray 7 cell C1 (a dark-leaved plant, fixed 30 to 93 mm² against 208 to 354 mm² grown)
+  and 9 in tray 6 cell D2; they are real plants whose leaves the fixed cutoff mostly misses. The flag marks
+  them although they are not empty.
+- **Cells flagged correctly:** at A = 50 mm² 31 of the 33 false-plant cells and 98% of the false grown area,
+  for every R from 2 to 5; the two missed hold 23 and 24 mm².
+- **Not covered:** one harvest on one rig (trays 4 to 6, 23 November); dark pots of another colour or a dark
+  soil; development's seedlings only as crops with neighbours' leaves; production's plants after 23 November
+  and any plant with leaves the fixed cutoff reads well from the start.
+
+**Decision (Aaron, 2026-11-24): R = 5 and A = 100 mm².** A cell is flagged when its grown area is more than 5
+times its fixed-cutoff area *and* the grown area exceeds the fixed area by at least 100 mm². This is a decision
+made on the numbers above, not a measurement. On the data it flags 30 of the 33 false-plant cells (98% of the
+emptied trays' false grown area), 15 of the 7,989 plant-cell readings (0.2%), 0 of the 26 young production
+reference plants, 0 of the 27 development seedlings and 0 of experiment 20's 40 empty-cell readings (4 counted photos). Among the plant-tray cells with a fixed area under 20 mm² (1,462 readings, not in the 7,989) it flags 5, all with a fixed area of 1 to 20 mm²; they were not looked at one by one (a black pot such as tray 7 cell D5 is one possible kind). It rests on
+one harvest on one rig (production's trays 4 to 6, 23 November) and on the reference crops for young plants and
+seedlings; it is not shown for other pots, soils, plant types or rigs.
+
+*Figures.*
+
+- [`46/margin-cdf.png`](figures/46/margin-cdf.png): share of pixels with a margin at or below N levels, for the
+  false plant of the emptied trays, the reference leaf pixels and the app's mask in canopy trays 4 to 7.
+  `code/margins_and_pictures.py`, `data/margin_hist.csv`.
+- [`46/sweep-rule-b.png`](figures/46/sweep-rule-b.png): the sweep of N and k against the four measures.
+  `code/plots.py` from `data/summary_levels.csv` and `data/target_zone_B.csv`.
+- [`46/noise-estimate-by-condition.png`](figures/46/noise-estimate-by-condition.png): method (b)'s noise by
+  condition. `code/plots.py`.
+- [`46/tray4-emptied-2026-11-23T1300.jpg`](figures/46/tray4-emptied-2026-11-23T1300.jpg),
+  [`46/tray7-canopy-2026-11-22T0900.jpg`](figures/46/tray7-canopy-2026-11-22T0900.jpg),
+  [`46/tray10-target-2026-11-22T2000.jpg`](figures/46/tray10-target-2026-11-22T2000.jpg): each tray as the
+  photo, the app's mask (green), and after a floor of 3 (green kept, red removed), at a quarter of the
+  size. `code/margins_and_pictures.py`.
+
+*Raw data and code.* `experiments/497-dark-pots/data/` (sweeps `sweep_e18_{A,B}.csv`, `sweep_e20_{A,B}.csv`,
+`sweep_ref_{A,B}.csv`, the API readings in `api/`, `target_zone_*.csv`, `tray7_cells.csv`, `dev_rect.csv`,
+`noise_vs_gain.csv`, `margin_hist.csv`, `summary_levels.csv`), run by `code/run_all.sh A|B`, `code/ref_cells.py`,
+`code/analyze.py`, `data/cell_ratio*.csv`.
+
+**Raw data.** Photos stay in `~/temp.nobackup/rig-copies/ac-testing/497-dark-pots/` (production's copy is
+unchanged); the statistics, the cell list and the scripts go under `experiments/497-dark-pots/`.
+
+**Limits, known before the run.** One rig, one pot and tray plastic, one lighting program, one gain on
+every counted photo, one camera. Two experiments, a few days. A noise-aware rule is not shown to hold
+at a gain other than 1.0 on counted photos, for another JPEG setting not in the data, or on the
+development rig. The 60 reference cells hold young plants (production 22 October to 9 November,
+development 3 to 9 November); late canopy shade is bounded, not outlined.
+
+## 47. How far apart are two outlines of one tray, and what does a shift of the outline cost? (issue #483, method written 2026-11-24, before the script was run)
+
+**Label: development check.** Reprocess reads a photo's trays again. A saved grown mask holds plant
+only inside the outlines found when it was made (section 41, finding 7 of the #480 review), so
+Reprocess must grow the photo again when a tray's outline now differs from the saved one, and may
+reuse the mask when it does not. The program decides this with one number, `OUTLINE_SAME_PX` in
+`src/npec_rig/tray_readings.py`: two outlines are the same when no corner of one lies farther than
+that from a corner of the other. The number is a **decision, not a measurement**; this section
+records the numbers behind it.
+
+**Decision (Aaron, 2026-11-24).** A false "changed" costs only a regrow (time). A missed change gives
+a wrong number with no warning. So the tolerance is as small as the storage allows. The outlines
+are saved in rig.db as JSON of floats (`tray_reading.outline`, `docs/database.md`), which Python
+reads back exactly, so an unchanged outline comes back identical and float noise is below 1e-9 px.
+`OUTLINE_SAME_PX` is 0.01 px: far above float noise, far below a shift that matters.
+
+**Method.** Script `experiments/483-outline-tolerance/run.py`, run with `PYTHONPATH=src` on the six
+quarter-size stills of `tests/fixtures/trays/blue-finder/` (production and development photos of
+October 2026; `README.md` there). No rig was contacted.
+- (a) `find_outlines` is run twice on each still. The largest distance from a corner of one run to
+  the nearest corner of the other is reported. Expected: 0 px.
+- (b) Each outline of each still is moved by 1, 2 and 5 px (full-size photo pixels), once in x and
+  once in y. The tray's plant area by the fixed green cutoff (`ExGSegmenter`, enlarged 4 times to
+  full size, `measure_trays`) is worked out for the moved outline and compared with the unmoved
+  one, in mm2 and in per cent of the unmoved area.
+
+**Result (a), run 2026-11-24.** Largest corner gap between two runs: 0 px on every still (a1-tags-sheet-on-tray 12 trays,
+dev-2x2-untagged 9, edge-tags 12, pots-touching 12, sheets-every-tray 12; dark has no tray).
+
+**Result (b), run 2026-11-24.**
+
+| still | shift (px) | mean change (mm2) | largest change (mm2) | largest change (% of unshifted area) |
+|---|---|---|---|---|
+| a1-tags-sheet-on-tray | 1 / 2 / 5 | 0.0 / 0.0 / 0.0 | 0.2 / 0.2 / 0.2 | 1.45 / 1.45 / 1.45 |
+| dev-2x2-untagged | 1 | 3.9 | 35.3 | 0.23 |
+| dev-2x2-untagged | 2 | 7.6 | 68.9 | 0.46 |
+| dev-2x2-untagged | 5 | 18.5 | 165.0 | 1.09 |
+| edge-tags | 1 / 2 / 5 | 0.0 / 0.0 / 0.0 | 0.0 / 0.0 / 0.5 | 0.00 / 0.00 / 2.15 |
+| pots-touching | 1 / 2 / 5 | 0.0 / 0.0 / 0.1 | 0.3 / 0.5 / 1.0 | 0.07 / 0.11 / 0.22 |
+| sheets-every-tray | 1 / 2 / 5 | 0.1 / 0.1 / 0.2 | 0.7 / 1.1 / 1.9 | 0.92 / 1.15 / 2.77 |
+
+**What this shows.** Two runs on one photo give identical outlines, so a tolerance of 0.01 px never
+reports a change for an unchanged photo. At 1 px the largest change in a tray's area is 35.3 mm2 (development stills, 0.23%, the largest in mm2) and
+1.45% of the tray's area (a1-tags-sheet-on-tray, where that is 0.2 mm2 of a very small plant area; the
+largest percentage at 1 px, followed by 0.92% on sheets-every-tray, 0.7 mm2). On the development stills the change
+grows with the shift (165 mm2 and 1.09% at 5 px); the largest percentage at 5 px is 2.77%
+(sheets-every-tray, 1.9 mm2).
+
+**What it does not cover.** The stills are quarter-size copies of photos taken for the tray finder
+(little plant at the tray edge, pale sheets and cards on some trays), so the percentages are for the
+fixed cutoff on those pictures only, not for grown plants at the rim of a full tray. It says nothing about outlines found by a changed
+`find_outlines` on a different photo; that is the case the tolerance is there to catch. The
+tolerance of 0.01 px is chosen from the storage format, not from the area changes.
+
+## 48. The grown/fixed flag in the app, and its effect on the data already measured (issue #484, written 2026-11-24, after the flag was coded)
+
+**Label: development check.** #497 (metrology log 46) found that no pixel rule removes the false
+plant grow from leaf cores reads into empty dark pots without also shrinking real dark-leaved
+plants and seedlings (46.7). Aaron's decision was to flag the disagreement instead of correcting
+it (46.8). #484 adds that flag. It uses only the two areas every cell reading already stores, worked
+out when a reading is read back (`tray_readings.capture_readings`), so no past reading needs
+Reprocess and no new pixel is touched.
+
+### 48.1 The rule, and whose decision sets it
+
+A cell is flagged "grown and fixed areas disagree, check the cell" when
+
+```
+grown_area_mm2 > 5 x area_mm2   and   grown_area_mm2 - area_mm2 >= 100 mm2
+```
+
+(`grown_area_mm2` from grow from leaf cores, `area_mm2` from the fixed green cutoff;
+`_grown_far_above_fixed` in `src/npec_rig/tray_readings.py`). Written as "grown more than 5 times
+fixed", a fixed area of 0 still flags. **The factor 5 and the margin 100 mm² are Aaron's decision
+(2026-11-24), not a measurement.** They are informed by, not computed from, the cell-level ratios
+metrology log 46.8 measured, and 46.8's own final paragraph already records the counts this entry
+confirms below. A tray with no cells (a 1 x 1 tray) is tested the same way on its one, whole-tray
+area.
+
+### 48.2 The effect on the data metrology log 46.8 measured
+
+Applying the rule to the cell readings 46.8 used, from production (`ac-testing`): the plant-cell
+readings are its hourly readings of 16 to 23 November 2026, and the false-plant readings are from
+the one harvest on 23 November 2026 (trays 4 to 6):
+
+- Of the 7,989 ordinary plant-cell readings (cells of trays carrying plants, fixed area at least
+  20 mm²), 15 are flagged (0.2%), mostly one dark-leaved plant, tray 7 cell C1.
+- Of the 26 cells of young production reference plants (section 33) and the 27 cells of
+  development's reference seedlings, none is flagged.
+- Of the 33 cells known to hold false plant (the emptied trays of the 23 November harvest), 30 are
+  flagged: 98% of the false grown area in that set. The two misses hold 23 and 24 mm² of false
+  plant, under the 100 mm² margin.
+
+These are the same counts 46.8 reports for R = 5, A = 100 mm²; nothing here is a new measurement.
+It restates them against the rule as coded, run over the stored values, in place of a candidate read
+off a table. `tests/test_tray_readings.py` and `tests/test_exports.py` check the same arithmetic
+against made-up readings, not against production data.
+
+### 48.3 What this does not cover
+
+One harvest (23 November 2026) on one rig, production (`ac-testing`): that chamber's dark pots and
+soil only. Not shown: another pot colour, tray plastic or soil; another crop; another lighting
+program; whether the two areas' ratio drifts over a longer run; cells near the 5x/100 mm² boundary
+outside this sample. Development enters only through the 27 reference crops of section 33 (section
+46.8, "Data used"), not through its own stored hourly readings.
+
+### Wording and where the flag appears
+
+The tray warning line Aaron approved: "N cells where grown and fixed areas disagree (X mm² in
+total). Usually an empty pot. Check the cells." (singular wording, no "in total", for one cell).
+Nothing is removed or corrected; the stored areas are unchanged, and a tray keeps its total area
+with the flagged cells and their summed grown area shown alongside it.
+
+**Source.** Issue #484; the data and its method are metrology log 46 and 46.8 (issue #497, PR
+#500); the flag's code and tests are `src/npec_rig/tray_readings.py`, `src/npec_rig/exports.py`,
+`src/npec_rig/export_fields.yaml`, `tests/test_tray_readings.py`, `tests/test_exports.py`,
+`tests/web/test_gallery_routes.py`, on branch `484-flag-cells`.
+
+## 49. The production device is replaced: `d6-daylight` for `ac-testing` (issue #513, written 2026-11-25, after the device was read)
+
+**Label: development check.** This records a change of hardware. It is not a measurement of area, and
+no area was measured on the new device. It is here so that a reader of sections 1 to 48 knows which
+device "production" and `ac-testing` mean, and what the new one lacks.
+
+### 49.1 What changed
+
+On 2026-11-25 Aaron told the session that the old production Pi, `ac-testing`, had issues and was
+taken out of service, and that `d6-daylight` replaces it. It is a different Pi, not a rename and not a
+reimage. The camera is the same Arducam 64MP; everything else is new; it has no Hailo and less
+memory (Aaron). Every section above that says production or `ac-testing` is about the old device,
+and stays worded that way on purpose: it is the device the measurement was taken on. Section 33's
+production reference plants, experiment 18, the production calibration and validation, and the
+Hailo-8 build in section 44 all belong to it.
+
+### 49.2 How it was read, and what it showed
+
+**Method.** From the controller (`testpi-02`), on 2026-11-25 between about 11:15 and 12:00 UTC
+(12:15 to 13:00 Dutch time): `ssh pi@d6-daylight` and `ssh pi@10.248.49.137` (read only: `uname`,
+`/etc/os-release`, `free -m`, `df`, `lspci`, `lsmod`, `ls /dev/hailo*`, `rpicam-hello
+--list-cameras`, `ps`, `git describe`); the port 8000 API (`/api/about`, `/camera/health`,
+`/api/experiments`, `/focus/status`, `/snapshot.jpg`). One read of each, no repeats. Nothing on the
+device was changed. Its SSH host key (ed25519, `SHA256:4vCV5x+S2heIIrrzTs4OFquLeS9+OiG9i4LlBwOaZ/s`) was the
+same by name and by address, so both reach one device; the controller's stale `known_hosts` line for
+that address (left from an earlier device) was replaced with Aaron's approval.
+
+| | `ac-testing` (retired) | `d6-daylight` (production from 2026-11-25) |
+|---|---|---|
+| Address | LAN `10.248.49.131`, Tailscale `100.99.221.85` | LAN `10.248.49.137`, Tailscale `100.87.234.36` |
+| Board | Raspberry Pi 5 | Raspberry Pi 5 Model B Rev 1.1, 4 cores |
+| Memory | not recorded here; more than the new one (Aaron) | 4049 MB total (3104 MB free at the read); development `npec-rig-01` has 8062 MB |
+| AI accelerator | Hailo-8, HailoRT 4.23.0 (section 44) | none: no `/dev/hailo*`, nothing in `lspci` or `lsmod`, `/api/about` `ai_accelerator: false` |
+| System | not recorded in this log | Debian 13 (trixie), kernel 6.18.50+rpt-rpi-2712, Python 3.13.5, Europe/Amsterdam |
+| Disk | not recorded here | 235 GB SD card, 6.3 GB used (`/api/about`: 234.4 GB free of 251.4 GB) |
+| App | main, last recorded a6632d6 (2026-11-17) | release v0.5.0, commit `9498c0f` (2026-11-24T14:08:45+01:00), schema version 26, plain uvicorn on port 8000 |
+| Camera | Arducam 64MP | Arducam 64MP, `arducam_64mp` on `rp1/i2c@88000`, 9248x6944 10-bit RGGB, state ok; serial not read |
+| Data | experiment 18 and the calibration of sections 15 to 48 | none: `/api/experiments` is `[]`, calibration null, validation "No calibration yet", focus locked at lens position 6.0 |
+
+The app started at 09:48:26 UTC on 2026-11-25. One camera fault is logged at 09:48:05 UTC ("the
+camera program ended during capture_array", 1228 s after boot, so the Pi booted about 09:27 UTC); the
+camera program restarted and `/camera/health` reports ok, `restarts_24h: 1`. `/snapshot.jpg` returned a
+valid JPEG of the table with the four corner tags visible (HTTP 200, 173 KB).
+
+### 49.3 What this does and does not cover
+
+It covers the state of one device at one time, read once. It does not show:
+
+- that the table, tags, camera mounting or lens position match the old setup. The calibration and
+  validation of sections 15 to 48 were made on `ac-testing` and do not carry over; no area from
+  `d6-daylight` has a band until it is calibrated and validated there;
+- that the camera is the same physical unit (Aaron says it is; the serial was not read);
+- the old Pi's memory, disk and system, which this log never recorded;
+- how the app behaves on 4 GB. Section 25 measured the app's memory on the 8 GB
+  development Pi, and said that this does not show a 4 GB Pi 5. `d6-daylight` is the first rig that can
+  show it; nothing has been run on it yet.
+
+**What it changes in earlier results.** Section 44 compiled the plant network for the Hailo-8 and the
+Hailo-10H and timed the Hailo-10H on the development Pi (the Hailo-8 was not timed, because production
+was read only). Production now has no accelerator, so the Hailo-8 build has nowhere to run there. The
+fixed green cutoff and grow from leaf cores (`segmentation.py`) are the only readings that can run on
+production unless Aaron decides otherwise (issue #513 lists this as a decision, not a change made).
+
+**Source.** Issue #513; Aaron's messages of 2026-11-25; the reads above, run from the controller on
+the same day. Project text that names the device was changed in the same change: `CLAUDE.md`,
+`CONTRIBUTING.md`, `hardware/Installation.md`.
+
+## 50. Soil counts as hidden only when blue covers most of the tray: a placeholder threshold, not yet measured (issue #486, written 2026-11-25, before any photo is measured)
+
+**Not yet a result: the threshold below is a decision, not a measurement.** #434 (metrology log 39)
+made a tray's soil level fall back to a fixed floor cutoff whenever it landed in the greenness
+histogram's top bin, on the assumption that only blue mats covering most of the soil could put it
+there. #480's review (finding 3) showed ordinary soil a little greener than usual lands in the same
+bin, with no mats anywhere, and was wrongly given the same fallback: a 200 x 200 px tray box with a
+1,600 px leaf read as 40,000 px of plant once its soil greenness crossed 0.0435 (issue #486).
+
+**Decided (Aaron, 2026-11-23, decision 3).** Soil counts as hidden only when blue covers most of
+the tray. Otherwise the soil-based cutoff is kept and a "soil looks green" warning is added instead.
+
+**The fix (#486).** `grow_from_cores` (`src/npec_rig/segmentation.py`) now measures `blue_coverage`:
+the fraction of the tray's countable area, a leaf core left out so its own growth over an
+experiment never changes the reading, that is blue. "Hidden" (`segmentation.soil_hidden`) requires
+both a soil level in the top bin and `blue_coverage >= GROWN_BLUE_COVERAGE_MIN`; a top-bin level
+found without that keeps the soil-based cutoff and is marked `SOIL_GREEN` instead
+(`segmentation.soil_green`). Every tray's `blue_coverage` is saved with its reading (`rig.db`
+`tray_reading.grown_blue_coverage`, migration 28 — renumbered from 27 after #518 merged its own
+migration 27 first) so a reading made under the old, soil-level-only rule is never silently
+reclassified: `blue_coverage` is `NULL` for every reading saved before this change, and only such a
+reading falls back to the old rule.
+
+**Amendment (code review of #486, 2026-11-26): an empty cell, or the tray itself, is not a mat.**
+Checked against real photos (a development 2 x 2 tray, no mats anywhere): blue coverage over the
+whole tray read 0.52 to 0.56, above the threshold, purely from the tray's own blue plastic — a 2 x 2
+tray's walls and rim are about 57% of it, a 4 x 5's about 37%, and an empty cell (no pot placed)
+shows its own blue bottom the same way a mat would. Neither can be told apart from a mat by colour
+alone (open since #424). Since a cell with no leaf core cannot grow any plant mask regardless of the
+cutoff chosen, excluding it from the measurement costs no plant-area accuracy: `blue_coverage` is
+now counted only inside cells that hold a core (`tray_placement.place_cells`'s geometry, the tag's
+own cell left out), falling back to the whole tray when none does (a tray whose cells are not known,
+or none of them seeded yet). Known, accepted gaps, not fixed here: a neighbouring leaf overhanging
+into an empty cell still marks it as cored; a round pot's corners inside a square cell can still
+show the tray's blue even when planted.
+
+**What is still open.** `GROWN_BLUE_COVERAGE_MIN = 0.5` ("most of the tray") is a placeholder,
+chosen to make the fix testable, not measured. "Most of the tray" is to be set from stored photos
+with mats (logs 39 and 42) and without them; the method for that measurement is written up in this
+log, as its own numbered entry, before any photo is measured, per the usual rule. The cell-only
+restriction above changes what fraction 0.5 is measured against (walls and rim no longer count), so
+that measurement must use the same restriction, not the whole-tray fraction logs 39 and 42
+describe. Until then, 0.5 is a guess, not a result, and should not be cited as one.
+
+**Source.** Issue #486; the decision is Aaron, 2026-11-23 (issue #486, decision 3), 2026-11-25
+(session following #480's review) and 2026-11-26 (the cell amendment, found checking real
+development photos and reviewed by an Opus agent before and after coding); the code is
+`src/npec_rig/segmentation.py`, `src/npec_rig/tray_readings.py`, `src/npec_rig/database.py`, tested
+in `tests/test_segmentation.py`, `tests/test_tray_readings.py`, `tests/test_database.py`,
+`tests/test_timelapse.py` (confirming `SOIL_GREEN` stays off video frames, no source change
+needed), on branch `486-soil-looks-green`.
+
+## 51. M5 acceptance: green squares of known area in all 12 slots (issue #78, method written 2026-11-26, before the photos)
+
+**Label: validation.** Purpose: the M5 acceptance test of `PLAN.md`. A flat object of known area
+lies in each of the 12 slots, and for each one we check whether the area the rig reads, with the
+band the rig gives beside it, contains the calliper area. Run on the production rig `d6-daylight`
+(section 49), with the app at 3136f5e, the calibration of 2026-11-25 13:29 UTC (lens position 6.0)
+and the validation of 2026-11-25. The plant pixels come from the current green threshold, as
+decided on 2026-10-27: the result is recorded as measured, and a fail is the evidence for choosing
+an edge method (section 18.9 read 55 mm squares about +6.5% and 10 mm squares about +28%).
+
+**Objects.** The twelve green test squares A to L of section 18.5, with their calliper areas
+there (98.60 to 3,023.17 mm²). They are not measured again.
+
+**Placement as planned.** Twelve tagged trays, portrait, in slots North 1 to 6 and South 1 to 6,
+off the corner tags. One square per tray, flat on the pot top of cell C3, taped underneath only.
+This is the plan as written before the run; what was placed is under *Placement as placed* below.
+
+| Slot | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| North | I (55 mm) | A (10 mm) | E (20 mm) | K (40 mm) | B (10 mm) | F (20 mm) |
+| South | G (20 mm) | L (40 mm) | C (10 mm) | H (20 mm) | J (55 mm) | D (10 mm) |
+
+Each size is in both rows; the centre slots 3 and 4 (the central low reading,
+`reference/arducam-central-error-2026-10.md`) hold three sizes. Aaron records each tray's tag ID,
+and any cell other than C3 used where a square does not fit. Cell C3 holds nothing else green: any
+plant or green soil in it would be added to the square.
+
+**Placement as placed (read from the stills and confirmed by Aaron on 2026-11-26, after the
+runs).** Aaron placed the squares by the planned table counting the South row from the other end
+than the app does, so the South row is in reverse order. Slots are the app's names, and each square
+is in cell C3. Aaron gave the size class of each slot (1 = 10 mm, 2 = 20 mm, 3 = 40 mm, 4 = 55 mm);
+the letters were read from the tags beside the squares in the stills.
+
+| Slot | North 1 | North 2 | North 3 | North 4 | North 5 | North 6 |
+|---|---|---|---|---|---|---|
+| Tray tag | 56 | 52 | 55 | 50 | 60 | 29 |
+| Square | I (55 mm) | A (10 mm) | E (20 mm) | K (40 mm) | B (10 mm) | F (10 mm) |
+
+| Slot | South 1 | South 2 | South 3 | South 4 | South 5 | South 6 |
+|---|---|---|---|---|---|---|
+| Tray tag | 35 | 53 | 36 | 26 | 34 | 59 |
+| Square | D (20 mm) | J (55 mm) | H (20 mm) | C (10 mm) | L (40 mm) | G (20 mm) |
+
+**A labelling error in section 18.5.** Aaron's sizes make D 20 mm and F 10 mm. Section 18.5 lists D
+as 10 mm (9.910 x 9.983 mm) and F as 20 mm (20.007 x 19.957 mm). The 10 mm squares placed here are
+A, B, C and F, and the 20 mm squares D, E, G and H, so the two rows of 18.5 have the letters D and F
+swapped. Aaron's callipers of F on 2026-11-26 (3 readings per side, 9.96 / 9.96 / 9.96 and
+9.92 / 9.91 / 9.90 mm, mean 9.960 x 9.910 mm, 98.7 mm²) agree with the 18.5 row labelled D (98.93 mm²)
+to 0.2%. This section therefore scores D against the 18.5 row labelled F (399.27 mm²) and F against the
+row labelled D (98.93 mm²). No calliper reading of D was taken; using the mean of its size class
+instead (398.3 mm² for 20 mm, 98.8 mm² for 10 mm) moves the errors by 0.3% or less. No reading of
+section 18.5 changes; it carries a note of the swap since 2026-11-27 (issue #573).
+
+**Runs.** A test experiment on the Experiments page, stills taken by Aaron, at least 5 per run,
+under the steady chamber lights, no camera setting changed. Aaron notes the start and end of each
+run (Dutch local time, UTC+1; converted to UTC here).
+
+1. Run 1: edges parallel to the tray edges.
+2. Run 2: each square lifted and taped back on the same pot top, turned about 45 degrees.
+3. Run 3, if time allows: lifted and taped back, edges parallel again.
+
+Lifting the squares makes the runs differ: without it, runs 2 and 3 would repeat run 1's scene and
+show only the photo-to-photo change. Section 18.5 found the background under a square changes its
+reading; the 45 degree turn changes how the edges meet the pixel grid, as leaves lie at any angle.
+
+**Analysis** (read-only, on copies of the photos and of `rig.db`):
+
+1. For each still, the area the rig reads for the cell holding each square, and the band shown
+   beside it.
+2. Per square and run: the median area over the run's stills; error = median / calliper area - 1;
+   inside = the calliper area lies within the band around the median.
+3. Pass rule (issue #78, 2026-10-09): at least 11 of 12 inside in every run, and no slot outside
+   in 2 runs.
+
+**What it covers and does not.** Flat green squares at pot-top height, with the current green
+threshold, on one rig, one calibration and one lens position. Not plant height, soil, blue mats or
+leaf shapes. The second acceptance step of `PLAN.md` (change the calibration, Reprocess, the areas
+update) was dropped from the acceptance test: Reprocess is a development-only tool for testing
+new area methods, not part of the system researchers use (Aaron, 2026-11-26).
+
+**Results (2026-11-26).** Production `d6-daylight`, app 3136f5e, calibration 20261125T132847632943,
+validation 20261125T133149250777. Experiment 1 "I78 Milestone" (folder `2026-11-26_a6eb8878`),
+stills one per minute, taken by the scheduler. The squares were in place from the first still.
+Aaron stopped the experiment after the last run; its photos stay on production and were not copied.
+
+| Run | Squares | Stills | UTC (Dutch time is one hour later) |
+|---|---|---|---|
+| 1 | parallel to the tray edges | 7 | 12:38:08 to 12:44:08 |
+| 2 | each lifted, put back turned about 45 degrees | 13 | 12:47:08 to 12:59:08 |
+| 3 | each lifted, put back parallel again | 6 | 13:02:08 to 13:07:08 |
+
+Four stills fall while Aaron was handling the squares (12:45:08, 12:46:08, 13:00:08 and 13:01:08) and
+are in no run. A tray of loose tags in the lower left of the frame, outside the table, made the
+gallery warn that it saw extra tags; it is outside the 12 slots and is not used here.
+
+**Two changes from the method above.** The squares lay on blue mats (the method's list of what the
+test does not cover names blue mats, and the results therefore cover them), and the readings were
+taken through the rig's API and not from copies of the photos and of `rig.db`; the photos stay on
+production.
+
+**Two methods, both reported.** The method above named the green threshold (decision of 2026-10-27).
+Aaron decided on 2026-11-26, after seeing its result, to score the same stills with Grow from leaf
+cores as well, which researchers now see, and to report both. Both values come from the rig's own
+per-cell readings of each still (`green threshold, 0.1`: `area_mm2`; Grow from leaf cores, core
+0.07: `grown_area_mm2`), made by app 3136f5e. For each square and run, the reading is the median
+over the run's stills of the area of cell C3. Error = reading / calliper area - 1. A square is
+inside when the calliper area lies within the slot's band, taken as the reading times the slot's
+`band_pct`. The band is the validation band of the slot (flat targets at tray-top height); it does
+not include segmentation error (`CLAUDE.md`, *Facts not to rediscover*).
+
+Error by square and run (%), the band, and whether the square is inside (Y) or outside (n) in
+runs 1, 2 and 3:
+
+| Slot | Square | Calliper (mm²) | Green threshold, runs 1 / 2 / 3 | Grow from leaf cores, runs 1 / 2 / 3 | Band (±%) | Inside, grown |
+|---|---|---|---|---|---|---|
+| North 1 | I | 3,018.77 | +6.4 / +7.6 / +4.0 | +5.9 / +2.9 / +5.2 | 1.6 | n n n |
+| North 2 | A | 98.60 | +6.5 / +6.4 / +10.9 | +6.8 / +8.6 / +10.5 | 1.4 | n n n |
+| North 3 | E | 397.74 | -11.2 / -10.6 / -5.5 | +0.4 / +0.7 / +0.5 | 3.0 | Y Y Y |
+| North 4 | K | 1,599.87 | -33.6 / -35.9 / -24.2 | -0.7 / -0.1 / +0.1 | 3.1 | Y Y Y |
+| North 5 | B | 98.97 | -4.0 / -16.0 / -6.0 | +2.8 / +6.8 / +4.6 | 1.8 | n n n |
+| North 6 | F | 98.93 | +12.7 / +16.2 / +17.8 | +4.2 / +5.1 / +4.1 | 1.7 | n n n |
+| South 1 | D | 399.27 | +9.1 / +10.2 / +9.2 | +7.5 / +7.4 / +4.8 | 1.8 | n n n |
+| South 2 | J | 3,023.17 | +2.8 / +2.6 / +3.0 | +3.8 / +3.3 / +3.8 | 1.2 | n n n |
+| South 3 | H | 397.40 | -29.0 / -34.3 / -63.7 | +0.3 / 0.0 / +0.8 | 2.9 | Y Y Y |
+| South 4 | C | 98.87 | -93.4 / -83.8 / -79.5 | +3.2 / +2.5 / +3.1 | 2.9 | n Y n |
+| South 5 | L | 1,596.00 | +4.0 / +5.1 / +4.9 | +2.5 / +3.3 / +3.3 | 1.5 | n n n |
+| South 6 | G | 398.80 | +7.5 / +10.4 / +10.4 | +2.3 / +5.0 / +5.9 | 1.8 | n n n |
+
+| | Green threshold | Grow from leaf cores |
+|---|---|---|
+| Squares inside the band, runs 1 / 2 / 3 | 0 / 0 / 0 of 12 | 3 / 4 / 3 of 12 |
+| Mean size of the error, runs 1 / 2 / 3 | 18.4 / 19.9 / 19.9% | 3.4 / 3.8 / 3.9% |
+| Range of the errors | -93.4% to +17.8% | -0.7% to +10.5% |
+| Slots outside the band in 2 or more runs | 12 | 9 |
+| Pass rule (11 of 12 inside in every run, no slot outside in 2 runs) | **fail** | **fail** |
+
+![Error of each square by slot, both methods, with the band of each slot](figures/51/errors-by-slot-2026-11-26.png)
+
+*Figure 51a. Error of each square, by slot and run, for the two methods. Top: all 12 slots, scale
+-100% to +20%. Bottom: Grow from leaf cores only, scale -2% to +12%, where the grey band of each
+slot can be read. Made 2026-11-26 by `experiments/78-acceptance/fig51.py` from
+`experiments/78-acceptance/score78g.json`; the readings are in `rows78g.json` there.*
+
+**The jump between the square and the blue.** For the green threshold, the mask's index is
+(2G - R - B) / (R + G + B) with a cut at 0.1. In one still of run 1 (12:41:08) and one of run 3
+(13:05:08), full size, the index was measured inside each square (the median over the square
+shrunk by 4 px) and on the blue ring 20 to 30 px outside it (median). The jump is the first minus
+the second. "Kept" is the share of the square's pixels, found by a looser test (green above red
+and blue), that pass the 0.1 cut. Run 1 values; run 3 differs by 0.02 or less in every index, and
+in "kept" by up to 41 points (South 3, 75% against 34%) and 11 points (South 4, 7% against 18%):
+
+| Slot | Square | Index in the square | Index of the blue | Jump | Kept by the 0.1 cut |
+|---|---|---|---|---|---|
+| North 1 | I | 0.185 | -0.046 | 0.231 | 99% |
+| North 2 | A | 0.147 | -0.075 | 0.222 | 97% |
+| North 3 | E | 0.110 | -0.052 | 0.162 | 88% |
+| North 4 | K | 0.105 | -0.045 | 0.149 | 68% |
+| North 5 | B | 0.129 | -0.076 | 0.206 | 93% |
+| North 6 | F | 0.181 | -0.023 | 0.204 | 100% |
+| South 1 | D | 0.154 | -0.042 | 0.196 | 98% |
+| South 2 | J | 0.147 | -0.075 | 0.222 | 99% |
+| South 3 | H | 0.105 | -0.046 | 0.151 | 75% |
+| South 4 | C | 0.088 | -0.049 | 0.137 | 7% |
+| South 5 | L | 0.145 | -0.027 | 0.172 | 100% |
+| South 6 | G | 0.183 | -0.040 | 0.223 | 100% |
+
+**What the results show.**
+
+1. **Both methods fail the acceptance rule.** No square was inside its band with the green threshold
+   in any run. With Grow from leaf cores 3, 4 and 3 of 12 were, against the 11 needed.
+2. **The green threshold is wrong by position.** The four centre slots (North 3, North 4, South 3,
+   South 4) read 5% to 93% small, and the other slots 3% to 18% large, except North 5 (B), 4% to
+   16% small. In the centre the index in the
+   square falls to 0.09 to 0.11, at the cut of 0.1, and the cut keeps only 7% to 88% of the square
+   in run 1 (18% to 93% in run 3).
+   The squares are one material, printed together and kept together (Aaron, 2026-11-26), so the
+   difference in how green they look is the light and the lens, not the squares.
+3. **Grow from leaf cores removes the position dependence.** Its centre-slot squares are within
+   +3.2% and -0.7%, because its core cutoff of 0.07 lies below the index of every square (0.088 to
+   0.185). What is left is an over-read of +2% to +11% on 9 of the 12 squares (up to +10.5% on a
+   10 mm square), larger than the bands of 1.2% to 3.1%.
+4. **The over-read is beyond the calliper error.** Calliper error at 0.1 mm is about ±2% in area on a 10 mm
+   square, ±1% on 20 mm, ±0.5% on 40 mm and ±0.4% on 55 mm (section 18.5). The 55 mm squares and the 40 mm
+   square L read +2.5% to +5.9% large with Grow from leaf cores, beyond that error.
+5. **Putting the squares back changes the reading.** With Grow from leaf cores the same square read
+   up to 4 points differently from run to run (B +2.8 / +6.8 / +4.6, G +2.3 / +5.0 / +5.9), as the
+   background under it and its angle changed (section 18.5).
+6. **Blue is not the problem.** The blue is at -0.02 to -0.08 on the index in every slot and the
+   jump is 0.14 to 0.24, so the edge is clear. The green threshold fails because one fixed cut sits
+   at the level of the paler squares; the over-read on the others is the blurred edge (sections 18.2
+   and 18.9).
+
+**What it covers and does not.** A *validation* of flat green squares at pot-top height, on blue
+mats, on one rig (`d6-daylight`), with one calibration and one lens position, 26 stills, both
+methods as they stood on 2026-11-26. It does not cover plants, plant height, soil, overlapping
+leaves or other backgrounds. Grow from leaf cores sets its levels from the tray's soil (sections 33 and
+34.1) and its own warning says leaf edges on blue mats read a little small; a flat square has no soil, so
+that this test reads the square's edge cleanly is not shown for leaves. The jump was measured in
+two stills. The calliper areas of D and F come from the swapped rows of 18.5 (above); D was not
+measured again. No Reprocess step was run (dropped from the acceptance test, Aaron, 2026-11-26).
+
+**Source.** Photos and readings on the rig; the script, readings and scores in
+`experiments/78-acceptance/`; Aaron's placement and size classes of 2026-11-26.
+
+### 51.1 Conclusions of the M5 acceptance test (written 2026-11-26, after the results of section 51)
+
+**Label: validation.** Written by the agent for Aaron from section 51 and his statements of
+2026-11-26, to be cited as "log 51.1". M5 is recorded as not met (`PLAN.md`, M5 status line; issue
+#78). No rerun is planned, because the chamber is not free (Aaron, 2026-11-26).
+
+**What the test shows.** Twelve flat green squares of known area on blue mats, one in each slot, were
+read in 3 runs (26 stills, production `d6-daylight`). The rule was at least 11 of 12 squares inside
+the slot's band in every run, and no slot outside in 2 runs. Neither method met it:
+
+- The green threshold put 0 of 12 inside the band in every run, with errors from -93% to +18%. It
+  under-read the four centre slots, where the light and the lens bring the green down to the fixed
+  cut of 0.1, and over-read most of the others.
+- Grow from leaf cores put 3, 4 and 3 of 12 inside, with errors from -0.7% to +10.5%. It removed the
+  centre-slot error. What is left is mostly an over-read, largest on the 10 mm squares, and larger
+  than the bands of 1.2% to 3.1%.
+
+**Conclusions.**
+
+1. Segmentation, not geometry, is the largest remaining error source for area, and the bands do
+   not include it. With Grow from leaf cores the error was larger than the band on 9 of the 12
+   squares, by up to about 7 times; with the green threshold it was larger on all 12 (section 51).
+2. The rig therefore gives an area as an estimate. It does not give a definite plant area, and no
+   measured error range exists for living plants.
+3. The error depends on the object's size and, for the green threshold, on where it lies in the
+   frame. A bias that changes with size bends a growth curve as a plant grows. How much it changes
+   a comparison between treatments is not shown here.
+4. The bands remain what `docs/measurement-trust.md` says: for flat objects at tray-top height, at
+   the locked focus. This test did not recheck them on flat targets.
+
+**Limits of these conclusions.**
+
+- One rig, one calibration, one lens position, flat squares only, 26 stills.
+- The three runs differ only in how the squares were put back. The slots stayed the same, so no run
+  is independent data for a band fitted to these results. The test was not rerun in different slots,
+  so a band that includes segmentation error is not validated.
+- Fixes for the over-read were tried and work only for the setup they were tuned on. That is Aaron's
+  assessment of 2026-11-26. It is not a measured result and no record of those attempts is in this
+  log.
+- Plants, plant height, soil, overlapping leaves and backgrounds other than blue mats are not covered.
+
+**What would change them.** A rerun with the squares in different slots, to check a band that
+includes a measured segmentation term; a measurement on living plants against a hand reference
+(sections 33 and 34.1 started this); or a segmentation method that works across setups. None is
+planned. What researchers see in the meantime is issue #536.
+
+**Where the rest is.** Results, data and the jump table: section 51 above and
+`experiments/78-acceptance/`. The claim's scope: `docs/measurement-trust.md`, *The claim* and
+*Limits of the evidence*.
+
+## 52. Time-lapse video memory: the peak while the rig keeps working (issue #503, method written 2026-11-26, before the run)
+
+**Label: development check.** Purpose: find how much memory a time-lapse video needs at its peak
+while the rig keeps taking its scheduled photos and reading its trays, so that the memory limit of
+the video job (`MEMORY_LIMIT_BYTES` in `src/npec_rig/timelapse.py`) rests on a measurement. This
+section is written before the run. The limit is a decision at the end (52.6), not a result.
+
+### 52.1 Why this is measured
+
+A video is made in a child process, and ffmpeg runs inside that child. The child sets a cap with
+`RLIMIT_AS` to `MEMORY_LIMIT_BYTES`, now 2 GiB. That number is a placeholder, never measured
+(`timelapse.py`, comment above the constant). Making a video while the rig keeps taking photos is
+normal use, and a process killed for lack of memory could disturb a running experiment (#430, #503).
+
+Three memory figures are read from `/proc`, and they mean different things:
+
+- **VmPeak**: the highest virtual size of a process (address space reserved, not all in use).
+  `RLIMIT_AS` caps this figure, so the limit is set from VmPeak.
+- **VmHWM**: the highest resident size (memory actually held in RAM). The Linux out-of-memory
+  killer acts on resident memory, so VmHWM is what threatens other processes.
+- **MemAvailable**: what the whole Pi can still give out. Pi-wide used memory is MemTotal minus
+  MemAvailable.
+
+ffmpeg inherits its own separate 2 GiB cap, so the child and ffmpeg together can reach about twice
+the limit. `choose_frames` holds database rows, not pixels, so the frame count does not by itself
+raise memory; each frame is decoded one at a time in `_encode`.
+
+### 52.2 Rig and data
+
+Development `npec-rig-01` (Pi 5, **8 GB**, 2 GiB swap). This is not the 4 GB production Pi, so
+absolute per-process peaks and Pi-wide used memory are reported, from which a 4 GB budget is worked
+out in 52.6. App version d6feef7 (branch 531-auto-exposure-rig-settings), checked identical to main
+e312cff in `timelapse.py`, `routes/data.py`, `tray_readings.py` and `camera_process.py`. No deploy
+and no restart.
+
+Data: experiment 4 "Dario 13 Emergence", running, one photo every 300 s, about 3,800 photos since
+2026-11-13 (about 13 days), 6 trays. The issue's longest case (about 1,000 frames per tray, 3 weeks
+at 2 an hour) is out of reach. **5 photos an hour on one tray (about 1,560 frames) is a stand-in
+for it**, not the case itself.
+
+### 52.3 Cases
+
+Start is at or before the experiment's start and end is the time of the run's start. Smallest first.
+Every case runs while the app keeps its normal live capture and tray reading.
+
+| Case | Trays | Photos an hour | Mask | Frames (about) |
+|---|---|---|---|---|
+| A | one | 1 | no | 313 |
+| B | one | 2 | yes | 626 |
+| C | all 6 | 1 | no | 1,900 |
+| D (stand-in) | one | 5 | no | 1,560 |
+| E | the case with the highest child VmPeak, repeated once | | | |
+
+**Case F was added after A to D were run:** one tray, 5 photos an hour, with the mask. Case B (the mask)
+had the highest child VmPeak and case D (the stand-in rate) the most frames, so F puts the two together.
+It was not in the method as first written. Frame counts in the table are the estimates made before the
+run; the counts found are in 52.8.
+
+Each job is started about 20 s before the next scheduled photo is due, so the tray reading of that
+photo overlaps the video. No export and no Reprocess run (the app refuses the combination).
+**No "alone" case is run.** An "alone" run for all trays would pause the experiment. So the share
+of memory due to the video alone, against the rig's own use, is not separated from it; the figures
+are the peak of both together.
+
+### 52.4 Method
+
+1. The sampler `experiments/503-timelapse-memory/sample.py` (standard library only) reads `/proc`
+   every 0.25 s and keeps the highest VmPeak and VmHWM of each process: the app, the video child and
+   ffmpeg (the camera child is not sampled by itself; its memory is part of Pi-wide used memory). It
+   writes one CSV row per second:
+   VmPeak, VmHWM and VmRSS of each, MemTotal, MemAvailable and used memory.
+2. Jobs are started by `POST /api/data/timelapse` on the development server.
+3. **Safety.** Smallest case first. `free -m` before each run; start only with about 5 GiB
+   available. The sampler aborts the video job (ffmpeg first, then the video child; never the app or
+   the camera child) if used memory passes 3.0 GiB or MemAvailable falls below 1.0 GiB. After each
+   case: `NRestarts` of `npec-rig`, the kernel log for out-of-memory kills, and whether experiment
+   4's photos stayed on time.
+4. A case that fails with "ran out of memory" has reached the 2 GiB cap. That is itself a result.
+   Measuring beyond it needs a build with a higher cap and Aaron's approval.
+
+### 52.5 What the results will give
+
+Per case: frames, highest VmPeak and VmHWM of each process, lowest MemAvailable, highest used
+memory, whether photos stayed on time, and the CSV paths (`experiments/503-timelapse-memory/data/`,
+or the path set at the run).
+
+### 52.6 Decision rule, written before the run (a decision, not a measurement)
+
+`MEMORY_LIMIT_BYTES` = the largest measured child VmPeak plus a margin, **only if** the summed
+resident peaks (app, camera child, video child and ffmpeg) fit a 4 GB Pi with 0.5 GiB to spare.
+Otherwise the limit is set lower, so large requests fail with the existing message instead of
+pushing the Pi towards an out-of-memory kill.
+
+**The margin (decision, Aaron, 2026-11-26): 25%, rounded up to a multiple of 256 MiB.** It was proposed before the run and confirmed after the results.
+
+### 52.7 Limits of the evidence
+
+- One rig, with 8 GB, not the 4 GB production Pi; the 4 GB fit is worked out from absolute figures,
+  not observed.
+- One experiment's photo sizes, as stored (the photo quality setting of that time).
+- 13 days of data, not 3 weeks; case D is a stand-in.
+- The issue's longest case (3 weeks, about 1,000 frames per tray, with the mask) was not run: development
+  holds 13 days. At 1.5 GiB such a video could fail with "ran out of memory" where it would have passed at
+  2 GiB. Case F, the nearest, sits 0.35 GiB under the new cap; the slope in 52.8 puts the longer case
+  below it, but that is read off six runs and is not a measurement.
+- No "alone" case (52.3). The cap itself was never reached: no run ended with "ran out of memory",
+  so how a video behaves at the new, lower cap is not observed on the rig.
+- If ffmpeg reaches its own cap, the message shown does not mention memory.
+- The cap message says "GB" for a value in GiB (`_failure`); fixed in the same change as the constant (52.8).
+
+### 52.8 Results
+
+**Label: development check.** Run 2026-11-26 15:07 to 15:43 UTC on `npec-rig-01`, app `d6feef7`, experiment 4
+running. Every video ended `ready`. `NRestarts` of `npec-rig` stayed 0, the kernel log held no
+out-of-memory kill, and the app's journal held no error in that time. Photos stayed on time: 10 photos
+between 15:00 and 15:50 UTC (the list is in `data/photo-times-15-00-to-15-50.txt`), each 300 s after the one before. Every run took place alongside the live
+photo and tray reading (52.3). Raw data: `experiments/503-timelapse-memory/data/` (one CSV of the
+sampler and one JSON of the run per case); scripts `sample.py` and `run_case.py` in the folder above.
+
+Peaks are the highest value seen (sampled every 0.25 s). Memory is in GiB (1 GiB = 1,048,576 kB).
+
+| Case | Frames | Seconds | Child VmPeak | Child VmHWM | ffmpeg VmPeak | ffmpeg VmHWM | Lowest MemAvailable | Highest used (Pi-wide) |
+|---|---|---|---|---|---|---|---|---|
+| A one tray, 1 an hour | 133 | 60 | 0.93 | 0.40 | 0.74 | 0.18 | 5.42 | 2.42 |
+| B one tray, 2 an hour, mask | 256 | 155 | 1.08 | 0.56 | 0.74 | 0.18 | 5.44 | 2.43 |
+| B again | 256 | 166 | 1.08 | 0.56 | 0.74 | 0.18 | 5.29 | 2.56 |
+| C all 6 trays, 1 an hour | 664 | 289 | 0.94 | 0.41 | 0.74 | 0.18 | 5.48 | 2.35 |
+| D one tray, 5 an hour (stand-in) | 631 | 277 | 1.02 | 0.49 | 0.74 | 0.18 | 5.37 | 2.50 |
+| F one tray, 5 an hour, mask (added) | 632 | 407 | **1.15** | 0.63 | 0.74 | 0.18 | 5.17 | 2.55 |
+
+"Highest used" is MemTotal minus MemAvailable in the one-second rows; the lowest MemAvailable is from
+the 0.25 s samples, so the two do not add up to the 7.9 GiB total. The app's own figures are for its
+whole run since it started, not for the video: VmPeak 2.16 GiB and VmHWM 1.23 to 1.24 GiB in the cases (the
+camera child is not sampled by itself). The frame counts are lower than the estimates in 52.3: steps
+with the lights off in every photo give no frame (`choose_frames`), and 9 to 52 steps with photos but
+no usable tray were skipped. The two runs of case B had the same child VmPeak (1,137,232 kB).
+
+What the figures show:
+
+- The child's VmPeak is set mostly by the mask and little by the number of frames. Going from 133 to
+  631 frames (A to D, no mask) raised it by 0.09 GiB; adding the mask (D to F) raised it by 0.14 GiB.
+  Whole-rig 3-week cases were not run, so this slope is read off these six runs and is not a
+  measurement beyond them.
+- ffmpeg's VmPeak was the same, 0.74 GiB, in all runs, and its resident peak 0.18 GiB.
+- Neither cap (2 GiB each) was reached.
+- The 4 GB budget. The rule in 52.6 sums the resident peaks of four processes; the camera child was not
+  sampled, so that sum could not be made, and the Pi-wide figure is used instead (a change from the
+  method as written). The highest Pi-wide use was 2.56 GiB, on a Pi whose idle use was about 0.9 GiB
+  (Hailo-10H and the development services in it). A 4 GB Pi has about 3.8 GiB usable (an assumption, not read
+  from a 4 GB Pi), so about 1.2 GiB would stay free. Production's idle use was not measured here, so this is a fit worked out from
+  dev's absolute figures, not observed.
+
+**Decision (not a measurement): `MEMORY_LIMIT_BYTES` = 1.5 GiB (1536 MiB).** It is the highest child
+VmPeak, 1.15 GiB, plus 25%, rounded up to 256 MiB, which is the rule of 52.6, and the 4 GB fit above
+holds. It replaces the 2 GiB placeholder. The 25% margin was confirmed by Aaron on
+2026-11-26 (52.6). The failure message now gives the limit in decimal GB with one decimal
+(1.5 GiB shows as "1.6 GB"); before it printed GiB as "GB" rounded to a whole number.
+
+## 53. JPEG ringing at a sharp edge in a synthetic test scene, on and off the 8 x 8 block grid (issue #547, written 2026-11-26, after the measurement)
+
+**Label: development check.** This is about a test fixture, not about the rig's trays, plants or
+table. It is written down because it changed how a test scene is drawn, and because the margin it
+measures is small enough that the next person halving a scene should know about it.
+
+### 53.1 Why it was measured
+
+Issue #547 halved the synthetic scenes of `tests/test_tray_readings.py` from 10 px/mm to 5 px/mm to
+cut the file's run time. One of them, `_matted_tray_scene`, draws a tray whose soil is hidden under
+blue mats: a large rectangle of mat-edge colour (`MAT_EDGE_RGB`, RGB 100, 105, 96) on a blue tray,
+with a mint leaf elsewhere on the tray. The mats must not read as plant. Halved exactly, the scene
+stopped behaving: the mats seeded their own leaf cores and the tray's grown area came out at
+7,756 mm² where 1,156 mm² was expected.
+
+### 53.2 What was measured and how
+
+A photo was taken of each scene through the ordinary capture path (`captures.take_photo`, the
+synthetic camera backend, the rig's own JPEG settings), the stored JPEG was read back, and the
+greenness of every pixel inside the mat rectangle was worked out the way the segmenter does,
+`(2G - R - B) / (R + G + B)`. Two numbers are reported for each scene: the highest greenness
+inside the rectangle, and how many of its pixels reach `segmentation.GROWN_CORE_MIN` (0.07), the
+cutoff above which a pixel can start a leaf. The mat colour itself is a flat 0.0465, so anything
+higher is the JPEG's doing. One photo per scene; the drawing and the encoder are deterministic, so
+there is no spread to report. Measured 2026-11-26 on the controller `testpi-02`, branch
+`547-faster-unit-suite`.
+
+Three scenes:
+
+| Scene | Mat rectangle | On the JPEG 8 x 8 grid? |
+|---|---|---|
+| 10 px/mm, as it stood before #547 | y 600 to 1200, x 2000 to 3100 (660,000 px) | No |
+| 5 px/mm, halved exactly | y 300 to 600, x 1000 to 1550 (165,000 px) | No |
+| 5 px/mm, moved onto the grid | y 304 to 600, x 1000 to 1552 (163,392 px) | Yes |
+
+### 53.3 Results
+
+| Scene | Highest greenness in the mats | Pixels at or above 0.07 | Margin to the 0.07 cutoff |
+|---|---|---|---|
+| 10 px/mm, off the grid | 0.0612 | 0 | 0.0088 under |
+| 5 px/mm, halved exactly, off the grid | 0.2263 | 603 | 0.1563 over |
+| 5 px/mm, on the grid | 0.0535 | 0 | 0.0165 under |
+
+JPEG encodes in 8 x 8 blocks. An edge that falls inside a block is spread across the whole block
+when it is encoded, and the ringing around it reaches further from the true colour than an edge
+lying on a block boundary. At 10 px/mm the scene was already off the grid, but its ringing stopped
+0.0088 below the leaf-core cutoff; halving the coordinates moved every edge to a different place
+inside its block and the ringing rose past the cutoff, by a wide margin. Aligning the two blocks to
+multiples of 8 put the whole mat rectangle 0.0165 under it again.
+
+### 53.4 What was decided, and what it does and does not cover
+
+The on-grid 5 px/mm scene was kept. The alternative, keeping this one scene at 10 px/mm, was
+timed: one photo of it read through `tray_readings.read_photo` takes 1.33 s at 10 px/mm against
+0.33 s at 5 px/mm, and twelve tests in the file use the scene, so the alternative costs at least
+12 s on a file that now runs in about 31 s.
+
+This covers:
+
+- One synthetic scene, one colour pair (`MAT_EDGE_RGB` against `TRAY_BLUE`), one rectangle size,
+  the rig's current JPEG quality setting, and one encoder (Pillow, as `captures` uses it).
+
+It does not cover:
+
+- Real photographs. Real mats are not aligned to the JPEG block grid, so this scene now exercises
+  an alignment production never meets. Nothing in the test suite now catches "leaf-core growth
+  seeds itself from a mat edge in a real photo"; if that is wanted it needs a fixture photograph,
+  not a drawn scene.
+- Any claim about how much ringing a real photograph has. The figures above come from a drawn
+  rectangle with a perfectly sharp edge, which is the worst case for ringing; a photographed edge
+  is already soft.
+- The other scenes in the file. They were halved without moving onto the grid and they still read
+  the areas expected of them, but their margin to the cutoff was not measured.
+
+## 54. M4 acceptance: 12 trays identified, a tray moved, a tag covered by black marker on clear plastic (issue #72, method written 2026-11-27, before the session)
+
+**Label: development check.** The known answer is the layout a person sets out and records, not an
+independent measurement of the trays, so this is not a reference comparison. It is the M4
+acceptance test of `PLAN.md`, run on the development rig `npec-rig-01` with the app at `bfb5de2`
+(no code change, no migration). The results are in 54.1.
+
+**Changes since the issue was written (2026-10-08).** The 12 regions of `PLAN.md` became 6 table
+locations (NW NM NE along the top of the photo, SW SM SE along the bottom) in #332. A tray counts as
+moved after it has been found in another location for over 1 hour (`dwell.MOVE_AFTER`, a decision of
+Aaron, 2026-10-30). Trays are placed from their cell A1 tag (#247); the app stores no rotation, so
+the check reads it from the cell readings: cell A1 in the south-west corner of the tray outline is 0 degrees,
+in the north-east corner 180. Dirty tags have no special handling: an unreadable tag gives a tray
+outlined with "No tag" and a "not seen" report for 48 hours (#331, #318); measuring a tray with no
+tag is #471, not part of this test (triage of #68, Aaron, 2026-10-27).
+
+**Setup.** Experiment 4 (Dario 13 Emergence, 6 trays: tags 8, 9, 11, 12, 25, 51) keeps running with its
+5 minute interval, and none of its settings is changed. Its 6 trays stay on the table, slid a few
+centimetres to touch, each in the table location it had before, and are put back at the end (a
+`restore` check compares each tray's location, cell A1 corner and centre with a snapshot taken
+before). Six spare 4 x 5 trays (tags 55, 29, 49, 36, 50, 33, named A to F), each with its own unused
+tag in cell A1, take the other slots. The test photos are taken by hand with the Capture button of
+the Gallery, which puts them into the running experiment, so they are read for trays like the
+scheduled ones; the scheduled photos continue and also count. The spare trays and the hand-taken
+photos therefore appear in experiment 4's own readings and Table locations panel (a decision of
+Aaron, 2026-11-27: leaving the experiment running is acceptable). Chamber lights are steady from about
+08:35 to 00:00 UTC.
+
+The layout was chosen by hand before the session, not drawn at random: 12 trays in 2 rows of 6
+(North 1 to 6, South 1 to 6, trays touching), every tray at 0 or 180 degrees (A1 south-west or
+north-east, the 12-tray rule of `reference/trays.md`), with a mix of both, and experiment 4's trays
+kept in their table locations so that its own dwell record does not change. The layout is in the
+rig's `m4.py` (below) and in the figures.
+
+**Check 1, 12 trays identified.** After the layout is set and nobody is in the chamber, the newest
+5 photos with the lights on are read for trays. Pass: in every one of them, all 12 tags are read
+with the tray found in the photo, each tray is in the planned table location with cell A1 in the
+planned corner, no tag is read that is not on the layout, and no tag is read twice.
+
+**Check 2, a moved tray.** Two spare trays (E, in South 3 turned 180 degrees, and F, in South 6 at 0)
+are lifted off and put back in each other's slots, each turned 180 degrees. Nothing else moves for the
+next hour and a few minutes. Pass: the first photo after the swap lists both as moved since the
+previous photo (SM to SE and SE to SM); about 65 minutes later the Experiments page's Table
+locations panel shows, for each of the two, a move from the old to the new location and "Now in" the
+new one; no other tray of the experiment shows a move.
+
+**Check 3, a covered tag.** Soil cannot be brought into the chamber (it could interfere with the
+running experiment), so dirt is stood in for by clear plastic sheets about 7 x 7 cm with solid black
+permanent marker on them, made beforehand over a printed copy of the tag. There are five, one per
+level: 0, no marker (a control: does clear plastic alone change the reading); 1, about 10% of the
+tag's area covered (a 13 mm blotch over one corner of a 40 mm tag); 2, about 25% (a band across one
+side); 3, about 50%; 4, all of it. The fractions are a choice, not measurements, and the tag size is
+to be measured when the sheets are made. On one spare tray, a sheet is taped by one edge over its tag
+for each level in turn, 3 hand-taken photos after each level (a burst), then the sheet is taken off and 3 photos follow.
+Levels after the first one at which the tag is no longer read are skipped. Pass, from the decision
+of 2026-10-27 (today's behaviour): at no level is any tag number read that is not on the layout or
+any other tray named by this tray's number; the rig keeps taking a photo a minute and its pages
+load; a tag that is no longer read shows as a tray outlined with "No tag" or as "not seen" with its
+warning; the other 11 trays keep reading as in check 1; with the sheet off, the tag is read again
+within 3 photos.
+
+**What is recorded.** Every check command of `~/scratch/72-m4-acceptance/m4.py` (read only: GET
+requests to the rig and one ssh read) is appended with its UTC time to `session-log.txt`. The person
+writes nothing down: the photos carry their own times, hand-taken photos come in bursts (3 after the
+layout is set, 2 after the swap, 3 per cover level, 3 after the sheet is off), and the person's
+messages to the checker mark each step. The photos and their tray readings stay in the
+experiment's folder on `npec-rig-01`. At the write-up the session log is copied to
+`docs/figures/54/` and the overlays the Gallery draws for the first photo of each check are copied
+beside it, as `docs/figures/README.md` asks.
+
+**What it covers and does not.** One rig, one calibration, one layout of 12 empty or lightly planted
+4 x 5 trays, one tag per tray in cell A1, one covered tag, black marker on clear plastic as the stand-in for dirt. Not covered: other
+rotations (any angle other than 0 and 180), fewer than 12 trays, a tag half hidden by a leaf,
+real dirt (sharp-edged covers are not irregular soil or smears), a tray out of the chamber for over 48 hours, and centroids against a tape
+measure (the issue asks for identification, movement and degradation). The layout is not random.
+
+### 54.1 Results (session of 2026-11-27, 08:51 to 10:26 UTC, written the same day)
+
+**Label: development check.** Development rig `npec-rig-01`, app `bfb5de2`, inside the running experiment 4
+(folder `2026-11-13_f991a199`), calibration `20261113T080210445944`, validation `20261113T080345991857`, lens 5.75
+locked. Experiment 4 kept its 5 minute interval; no setting was changed and none of its photos was missed (271 taken
+since its last start, 0 missed, read from the rig at 11:41 UTC). 54 photos from 08:51:15 to 10:26:15 UTC were
+analysed, 21 on the 5 minute schedule and the rest taken by hand with the Capture button. None carried an exclusion.
+Spares A to F were tags 55, 29, 49, 36, 50 and 33. Data: `docs/figures/54/photos72.csv` (one row per photo),
+`data72.json`, `session-log.txt`; scripts in `experiments/72-m4-acceptance/`; run with `analyse72.py` after the session
+(read only, GET requests).
+
+*Figure 54-a.* `docs/figures/54/timeline-54.png`: every photo of the session. A circle is read or as planned, a cross is
+not read or not as planned; the grey bars are what lay on tag 49. Made with `make_figure72.py` from `photos72.csv`.
+The layouts are `layout-1.png` and `layout-2.png` (`make_layouts.py`) and experiment 4's trays before the session are
+in `before-exp4-layout.jpg` (numbered by `m4.py snapshot`, taken from experiment 4's photo of 08:36:15 UTC).
+
+**Check 1, 12 trays identified: met.** The spares were placed between 08:51 and 08:56. In the 4 photos from 08:56:15
+to 08:57:16 UTC (3 taken by hand, 1 scheduled) all 12 tags were read with the tray found in the photo, each in its
+planned table location with cell A1 in the planned corner (0 degrees for 9 trays, 180 for 3: tags 29, 49 and 50), no
+tag read that is not on the layout and none read twice. Tray 36, at the east edge of the frame, carried the warning
+"partly outside the photo" and was read correctly. The method asked for 5 photos; there were 4 (the photo of 08:51:15
+is from before the spares were placed). Not met in the 4 photos: nothing.
+
+**Check 2, a moved tray: met.** Tray 50 was lifted from South 3 and put in South 6, tray 33 from South 6 to South 3,
+each turned 180 degrees (tags 50 and 33). The first photo after (09:01:18 UTC, `2026-11-27T090118_293174`) lists
+"tray 33 SE to SM" and "tray 50 SM to SE" as moved since the previous photo, and it and the next 3 photos (09:01:18
+to 09:01:27) read all 12 trays as planned for layout 2. The Table locations panel was read at 10:18 UTC, after the
+first photo more than an hour later (10:06:15): tray 50 shows "SM to SE, 27 Nov 09:01" and "Now in SE"; tray 33 shows
+"SE to SM, 27 Nov 09:01" and "Now in SM". No other tray showed a move that day: trays 25, 29, 36, 49, 51 and 55 had
+none, and trays 8, 9, 11 and 12 show only their moves of 16 November, from experiment 4's own shuffle. A first read at
+10:18 gave tray 50 as "now SW" because the checking script attached tray 51's line to tray 50 (warned trays have an
+extra line in the panel); the panel was right, the script was fixed and run again.
+
+**Check 3, a covered tag: met for the claim tested, with a result the claim did not ask for.** The plan was five
+clear plastic sheets with black marker. The first, a control with no marker, hid the tag (Aaron: "control tag reflects
+too much light"), so from the second the pieces were the black parts cut out of the plastic, ink side up,
+taped by their outer edge. Aaron measured them (instrument and number of readings not stated to me) and the share is of a
+nominal 40 x 40 mm tag, whose own size was not measured here.
+
+| What lay on tag 49 | Size (mm) | Share of tag | Photos | Tag 49 read | Other 11 trays as planned | Wrong or repeated tag |
+|---|---|---|---|---|---|---|
+| Nothing (before), 08:56 to 09:01 | | 0% | 8 | 8 of 8 | 8 of 8 | 0 |
+| Clear plastic, no marker | not measured | 0% of black | 3 | 0 of 3 | 3 of 3 | 0 |
+| Plastic off | | 0% | 2 | 2 of 2 | 2 of 2 | 0 |
+| Black piece 1, centre of tag | 13.99 x 10.65 | 9.3% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Black piece 2 | 21.29 x 20.8 | 27.7% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Black piece 3 | 31.92 x 29.64 | 59.1% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Black piece 4 | 40.45 x 39.36 | 99.5% | 4 | 0 of 4 | 4 of 4 | 0 |
+| Black piece 1 again, just inside the black edge | 13.99 x 10.65 | 9.3% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Nothing, all covers off, 09:16 to 10:16 (scheduled) | | 0% | 13 | 13 of 13 | 13 of 13 | 0 |
+| Small piece | 4.83 x 4.85 | 1.5% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Medium piece | 6.71 x 7.34 | 3.1% | 3 | 0 of 3 | 3 of 3 | 0 |
+| Large piece | 9.65 x 9.44 | 5.7% | 4 | 0 of 4 | 4 of 4 | 0 |
+
+The photos are assigned to what lay on the tag from Aaron's messages (times in chamber time, +1 hour) and from the
+bursts of hand-taken photos, 3 per piece; the windows are in `analyse72.py`, `STATES`. Where a photo's state is a
+guess, it is a scheduled photo that fell inside a burst: 09:06:15 (taken as clear plastic, since the next photo 29 s
+later reads the tag), 09:11:15 (piece 4) and 10:21:16 (large piece). Aaron's first piece was not "too large": it was
+9.3%, a little under the 10% planned; the planned 25% and 50% came out at 27.7% and 59.1%.
+
+- **No wrong number.** In all 54 photos no tag was read that is not on the layout and none was read twice. In all 29
+  photos with something on tag 49 (3 plastic, 16 in the first series of pieces, 10 in the second), the tag was not read,
+  the tray was outlined with no tag and the rig reported "not seen" for tray 49. That is today's behaviour decided on
+  2026-10-27 (#68).
+- **The other 11 trays were unaffected** in all 29 covered photos and in every photo with the spares on the table
+  except one taken during the put-back.
+- **The rig kept running.** The scheduled photos of the experiment followed 5 minutes apart and none was missed, including the 13 from 09:16 to 10:16 after the first covers;
+  every reading above was made through the rig's API while the covers were on.
+- **Tag 49 was read again after the covers came off:** in 2 photos within 1 minute of the plastic coming off (09:06:44
+  and 09:06:48) and in all 13 scheduled photos from 09:16:15 to 10:16:15 after the black pieces (the first photo after the pieces came off, 09:16:15, already read it). After the small, medium
+  and large pieces no photo of the tag followed, because the trays were being removed; so recovery is shown after the
+  first two series only.
+- **A cover of about one square of the tag loses it.** The smallest piece, 4.83 x 4.85 mm, about one of the 8 x 8
+  squares of a 40 mm tag (to be checked on the tag itself), was enough, in the centre of the tag (9.3% piece) and just
+  inside the black edge. No smaller piece was tried, so no size below which the tag still reads is known. The reader
+  reads a tag fully or not at all: no partly read tag gave a wrong number.
+
+**Restore.** Experiment 4's trays were put back by Aaron. Trays 8, 9, 11 and 12 lie in the same table location with A1
+in the same corner (centres about 39 to 81 mm east of before, up to 23 mm south, at about 4.85 pixels per millimetre). Trays 25 and 51 lay on the line between the
+north and the south row and are now in NW instead of SW (40 and 23 mm north of before). Aaron accepted this on
+2026-11-27 ("the location is fine"). The rig recorded it: experiment 4's panel shows "SW to NW, 27 Nov 10:26" for both
+at 11:41 UTC. This is a move of the trays as the rig reads them, in a running experiment.
+
+**Where it differs from the method.** 4 photos for check 1, not 5. The levels of check 3 are not the 10, 25, 50 and 100%
+planned, and the clear sheets were dropped for black pieces cut to size, after the control failed. A second 10% run and
+three smaller pieces were added at Aaron's choice. The test went into experiment 4's own data (decision of Aaron,
+2026-11-27): its readings, export and Table locations panel now hold the 6 spare trays for 48 hours, and its photos
+hold 33 hand-taken photos.
+
+**What it covers and does not.** One rig, one calibration, one hand-chosen layout, 12 empty or lightly planted 4 x 5
+trays at 0 and 180 degrees, one swap of one pair, one covered tag with black pieces on a tag in cell A1. Not covered:
+random positions and rotations, other angles, fewer than 12 trays, soil or other dirt, a patch smaller than 1.5%,
+other tags, how often a tag is hit by dirt in a real run, a tray left more than 48 hours, and centroids against a tape
+measure. The covered tag results come from one tag. The time-in-location rule (1 hour) was checked with one pair of
+trays: the panel could show the move from the scheduled photo of 10:06:15, 1 hour 5 minutes after the swap photo, and
+showed it at the first read, 10:18; when it first showed it was not read.
+
+
+## 55. A tray lying off the grid of its touching neighbours (issue #577, written 2026-11-27, after the measurement)
+
+**Label: development check.** Why the app returned twelve tray outlines for eleven trays on a
+production photo, what the wrong outlines cost in the reported numbers, and what was tried against
+it. Written after the measurement: the fault was found while looking at a live experiment, not in
+a planned test. It extends sections 20 and 21, which chose and built the blue finder; nothing
+there has a tray lying off its neighbours' grid.
+
+*Data.* Production (`d6-daylight`), experiment 2 ("Preliminary test parent lines"), photo 319 of
+2026-11-27 13:20 UTC, copied read only with its calibration and its saved tag detections. Ten
+trays lie touching in two rows of five; an eleventh (tag 27) lies to their left, shifted down by
+about half a tray, so it straddles the boundary between the two rows. The same twelve outlines are
+in all 41 daytime photos of this layout, 09:40 to 13:20 UTC: one layout, not 41 independent cases.
+Scripts and the copied data: `experiments/577-tray-offset-repair/`.
+
+*Method.* The app's own finder (`tray_placement.find_outlines`, commit `6014fb9`) was run offline
+on the copied photo with the production calibration, and its outlines compared with the
+`tray_reading` rows production had already stored. The left tray's true outline was read by eye on
+a full-size crop, repeatable to about 10 px (1 mm at this scale).
+
+*Result (2026-11-27).* The offline run reproduced production exactly: the same twelve outlines.
+
+| Measured | Value |
+|---|---|
+| Left tray, known outline (by eye, full-size crop) | x 257 to 1746, y 2774 to 4564 px; centre (1001, 3669) |
+| The two app outlines covering it, centres off by | 970 px and 835 px, about 196 mm and 169 mm |
+| Plant area on the untagged outline | 82.3 mm² |
+| Plant area reported for tray 27 | 6.6 mm² |
+| Tray 27's twenty cells span | y 2010 to 3382 px, against the tray's real 2774 to 4564 |
+| Cells of tray 27 holding any green | 4 of 20 |
+
+So the plants of one tray were counted on an outline with no tray ID, and the named tray reported
+a twelfth of the area actually in it. The cause is in `_cells`: the blue rims of touching trays
+form one blob, and the blob's rectangle is cut into a uniform grid of tray-sized cells (here
+6 x 2 = 12). A tray that does not sit on that grid cannot be represented.
+
+*What the rig said about it.* Nothing that pointed at the fault. Tray 27 carried only "partly
+outside the photo", which is false for it: that flag belonged to the whole blue blob, so every one
+of the twelve outlines carried it because one tray at the end of the block met the frame. The
+untagged outline carried "no tag", which was true but said nothing about its tagged neighbour.
+
+*Options tried, all on copied data.* Scored as in section 20 (a tray is found when its centre lies
+within 30 mm of the known centre and the outlines overlap by at least 0.80), on photo 319 and on
+the 44 stills with known answers of section 20.
+
+| Option | Photo 319 | The 44 old stills | Time per photo | Verdict |
+|---|---|---|---|---|
+| A. The app now: blue rim, uniform grid cut | 12 outlines, the left tray split across two | prod 12/12, dev 8/8, hard 11/11 | 0.4 s | Fails on this layout |
+| B. Method E of section 20: rectangles fitted to the whole picture, tags off | 7 of 11 trays, 1 false; left tray at (1008, 3680) | not rerun | 26 s | Too slow, loses trays |
+| C. Ring fit alone: the tray-sized rectangle whose outer rim loop the blue best covers | 11 trays; left tray at (1006, 3672) | prod 11/12, dev 6/8 | 0.6 s | Worse than A |
+| D. A, then repair only the cells the blue rim does not support | 11 trays, one per tray; left tray at (1006, 3672), 1 mm from the known centre | identical to A on all 44, and on the 24 held-out stills of 20.1 | 6 to 9 s | Works here, not adopted |
+
+Option D separates well on this photo: the two bad cells score 0.38 on rim coverage and the ten
+regular trays 0.61 to 0.92. Its thresholds (0.45 suspect, 0.60 accept, a minimum move of a quarter
+of a tray) are decisions, not measurements, chosen against this one photo.
+
+**Limits of the evidence.** One real failing layout and one photo; the other 40 are repeats of it.
+The 44 and 24 stills show that D changes nothing where the app is already right, not that D fixes
+anything: none of them has a grid failure. Nothing here shows D works on another offset layout, a
+tray turned sideways, two offset trays, or a tray offset along its row. The left tray's known
+answer is one reading of one crop by one person, good to about 10 px. The top and bottom plastic
+edges of the ten regular trays lie within 6 mm of the app's outlines; their left-right positions
+were not measured independently, and A and C differ by 3 to 18 mm there, with no evidence which is
+closer. Right-edge trays, partly outside the frame, are the weak spot of any ring fit. Timings are
+on the controller with 800 MB free; production is a 4 GB Pi 5 and was not timed.
+
+*What was done (2026-11-27, Aaron).* Option D was **not** adopted: it patches a cut that assumes
+touching trays lie on a grid, which this photo shows they do not, and its three thresholds rest on
+this one case. Two things were shipped instead, neither of which moves any outline:
+
+1. "Partly outside the photo" is now worked out per tray instead of per blue blob, so only a tray
+   that really reaches the frame carries it.
+2. A block of touching trays holding both a tag and an outline with no tag — fewer tags than
+   outlines, as here, 11 against 12 — warns every tray in the block with **"fewer tags than
+   trays"**, not only the untagged outline. Tray 27 would have carried it. A block with no tag at
+   all is not warned: nothing there says how many trays it holds, so the count cannot be short,
+   and the development rig's 2 x 2 trays were photographed untagged (section 20). That is the
+   blind spot of counting tags, and a block whose tags were all missed stays silent.
+
+The way the trays are placed is to change next, to placing each tray from its own tag and letting
+the blue account for the rest, measured against this photo and a wider set of production photos
+before it goes in (#577).
+
+*Figure.* `docs/figures/55/compare-319.jpg`: photo 319 with the app's twelve outlines (left) and
+option D's eleven (right); the left tray is the one split in the left-hand picture. Made by
+`experiments/577-tray-offset-repair/scripts/hybrid_319.py` as `compare_319.png` in that folder,
+scaled to 2318 px wide and saved as JPEG quality 85 for this section on 2026-11-27.
+
+![Photo 319: the app's twelve outlines against option D's eleven](figures/55/compare-319.jpg)
+
+## 56. Placing each tray from its own tag, against the blue finder (issue #577, method written 2026-11-27, before any still is read)
+
+**Label: development check.** Section 55 showed that cutting one blue blob into a uniform grid of
+tray-sized cells cannot represent a tray lying off its neighbours' grid, and what that costs. This
+test asks whether placing each tray from its own tag does better, and whether it does any harm on
+the layouts the blue finder already gets right. Nothing is changed in the app until this is
+answered. Written before any still is read: the stills, the scoring and the result that would
+justify a change are all fixed here first.
+
+### 56.1 Methods
+
+| Method | What places the tray | What the blue is used for |
+|---|---|---|
+| A. The app now (baseline) | the blue rim, cut into a uniform grid of tray-sized cells (`tray_placement.find_outlines`, `name_trays`) | everything; tags only name the outline they lie inside |
+| B. Tags alone | each tray tag, offset to its tray's centre | nothing |
+| C. Tags anchor, blue explains the rest | each tray tag, as in B, then the outline nudged onto the blue rim beside it | the nudge, and the leftover: blue that no placed tray accounts for, and any overlap between two placed trays, is flagged |
+
+B and C place a tray from its tag using **that tray's own learned tag-to-tray relationship**, not
+from the tag's rotation. On a 4 x 5 tray the tag lies in cell A1, so the offset is known by
+construction. On a 2 x 2 tray there is no A1: a corner is chosen and stays the same for the whole
+experiment, so the offset and the direction of the tray's long side are taken from that tray's
+first good photo and carried forward (`tag_on_tray`, `a1_bearing_deg`, as the app already does for
+cells). This is stated before the run because `place_trays` today takes the tray's tilt from the
+tag's own rotation, and researchers glue tags on at whatever angle they like (#385, section 32.2),
+so that path is not used here.
+
+### 56.2 Stills
+
+About 40 stills, read only, copied with their calibration and their stored tag detections; nothing
+is written on any rig. Three sources:
+
+| Source | Where | What it contributes |
+|---|---|---|
+| Old production | the `ac-testing` disk image on the T7 backup, read with `debugfs`, not mounted | several experiments over several days, including the tray-tracking run where trays were deliberately moved |
+| Production | `d6-daylight`, read over ssh | experiment 2, including photo 319 of 2026-11-27 13:20 UTC, the one failing layout of section 55 |
+| Development | `npec-rig-01`, read over ssh | 2 x 2 trays photographed untagged, and 4 x 5 trays |
+
+Chosen before the methods are run, from contact sheets, to be spread over experiments and days
+rather than repeats of one layout, and to hold all four of these:
+
+1. The tray lying off its neighbours' grid (photo 319), the case the change exists for.
+2. Stills where leaves cover one or more tags, the case B is expected to fail.
+3. Stills of untagged trays, where B places nothing at all.
+4. Tidy touching grids that A already gets right, for the no-harm check, which must be the
+   largest group.
+
+### 56.3 Truth and scoring, fixed before the results
+
+*Truth.* By Aaron's inspection of each still, outlines drawn in magenta or red (never blue or
+cyan: they cannot be seen on blue trays) and numbered, as in section 20.1. For photo 319 the known
+outline of section 55 is used as well.
+
+*Scoring, as section 20.* A tray is found when its outline's centre lies within 30 mm of the known
+centre and the two outlines overlap by at least 0.80 (intersection over union). Also counted per
+still: trays missed, outlines matching no tray, and, where both carry a tray ID, whether the IDs
+agree. Reported per source and over the whole set.
+
+*Also measured.* Seconds and peak memory per still, measured on a Pi 5 class device, not on the
+controller or on `media-server`. Production is a 4 GB Pi 5 with no accelerator; the app's finder
+takes 0.4 s per photo today.
+
+### 56.4 What would justify changing the app, fixed before the results
+
+C replaces A only if **all** of these hold:
+
+1. C finds the off-grid tray of photo 319 within 30 mm of its known centre, which A does not.
+2. On the tidy stills C's outlines agree with the known answer at least as often as A's. A result
+   where C fixes photo 319 but loses a tray anywhere else is not enough.
+3. C places no tray on a still where there is none, and finds nothing in a dark still.
+4. C's leftover check flags the stills where it is wrong, rather than being quietly wrong.
+5. C's time per still on a Pi 5 is within the budget Aaron sets when the number is known.
+
+B alone is not expected to replace A: it places nothing for an untagged tray and nothing for a
+tray whose tag is covered. It is scored to show how much of C's result comes from the tags and how
+much from the blue.
+
+### 56.5 Limits of the evidence, stated before the run
+
+The off-grid case rests on one real layout, the one of section 55; the other photos of it are
+repeats. Nothing in this set is known to hold a tray turned sideways, two trays offset at once, or
+a tray offset along its row, so the result will not cover those. Truth is one person's reading of
+each still, good to about 10 px on a full-size crop. The left-right position of a regular tray in
+a touching block has never been measured independently (section 55), so a disagreement there
+between A and C cannot be judged by this test. Right-edge trays, partly outside the frame, are the
+weak spot of any method that fits to the blue. The stills are chosen by eye for variety, not at
+random, and the methods are being compared on stills that will also have been looked at while
+choosing them.
+
+### 56.6 Result (2026-11-27)
+
+*Stills actually used.* 59, read only: 12 from production `d6-daylight`, 12 from development
+`npec-rig-01`, and 35 from the `ac-testing` disk image on the T7 backup, spread over 14 experiment
+groups and 2026-10-09 to 2026-11-27. Two more were copied and could not be scored: their tag
+search was never stored and their photo is of a scene with no trays. The off-grid layout of
+section 55 is in the production set (four photos of it, the same layout). The set does **not**
+hold a tray turned sideways, two trays offset at once, or a tray offset along its row, so the
+result says nothing about those.
+
+*How the methods compare, by the scoring of 56.3.*
+
+| Set | Stills | A trays | C trays (from tags + from blue) | A's trays matched by C | C's trays matched by A |
+|---|---|---|---|---|---|
+| Development | 12 | 72 | 73 (47 + 26) | **72 (100%)** | 72 (99%) |
+| Production | 12 | 89 | 108 (80 + 28) | 80 (90%) | 80 (74%) |
+| Old production (T7) | 35 | 372 | 425 (376 + 49) | 299 (80%) | 299 (70%) |
+
+- **C never comes up empty where A finds trays** (0 of 59 stills), the failure B has by
+  construction. Where no tag is read, C falls back to the blue and returns what A returns.
+- **C finds fewer trays than A on exactly 4 stills**, and they are the four of the off-grid
+  layout: 11 against A's 12. That is the fault of section 55, corrected. On that still C's rim
+  coverage is 0.82 to 0.98 per tray, the leftover blue is 0.18 of a tray, and C agrees with A on
+  10 of A's 12 outlines, differing on exactly the two A splits wrongly.
+- **C finds more trays than A on 21 stills.** This is its main fault and it has one cause: C
+  places a tray for every tray tag it sees, including tags that are not on a tray.
+- 20 stills have two C trays overlapping, which the leftover check reports.
+
+*Rim coverage, 606 placed trays.* The share of a tray's 9 mm rim band that is blue.
+
+| Trays | Count | Min | 1st decile | Median | 9th decile | Max |
+|---|---|---|---|---|---|---|
+| Placed from a tag | 503 | 0.08 | 0.48 | 0.76 | 0.95 | 0.99 |
+| Found in the leftover blue | 103 | 0.00 | 0.06 | 0.39 | 0.78 | 0.95 |
+
+*A floor on rim coverage, chosen from the spread above and not before it.* Dropping a tag-placed
+tray whose rim band is less than a given share blue:
+
+| Floor | Tag trays dropped | Stills where C > A | Stills where C < A | Stills where C = A |
+|---|---|---|---|---|
+| none | 0 | 21 | 4 | 34 |
+| 0.30 | 16 | 18 | 4 | 37 |
+| **0.40** | **28** | **16** | **4** | **39** |
+| 0.45 | 35 | 15 | 6 | 38 |
+| 0.50 | 61 | 12 | 19 | 28 |
+| 0.60 | 115 | 8 | 22 | 29 |
+
+0.40 is the knee: it removes the most trays that are not there before it starts removing trays
+that are. At 0.45 genuine trays begin to go (C < A rises from 4 to 6) and by 0.50 the method is
+losing 19 stills' worth. **The floor is a decision read off this table, not a measurement.**
+
+*Time per still, measured on `ac-testing` (aarch64, 4 cores, 4 GB, the same class as production,
+idle, nothing else running).*
+
+| Step | Seconds |
+|---|---|
+| Decoding the photo at quarter size | 0.6 to 1.1 |
+| A, the app's finder | 0.11 to 0.88 |
+| C | 0.17 to 1.98 |
+
+Against a budget of one photo per 60 s shared with every other task (Aaron, 2026-11-27), C costs
+about 1 to 2 s. **Measured idle: not measured with the camera, scheduler and web server running,
+which is the figure that counts.** Two things made that possible and are worth recording: the rim
+band is scored only in the tray's own neighbourhood rather than across the whole frame, and the
+nudge searches coarsely then finely. Before those, C took 6 to 9 s per still on a much faster
+machine and gave the same answer.
+
+*Against the conditions set in 56.4.*
+
+| Condition | Met |
+|---|---|
+| 1. Finds the off-grid tray of photo 319 | **Yes**, within 1 mm of the known centre of section 55 |
+| 2. At least as good as A on the tidy stills | **No.** 100% on development, but C places trays that are not there on 21 stills, 16 after the 0.40 floor |
+| 3. Places no tray where there is none | **No**, for the same reason |
+| 4. Flags itself when it is wrong rather than being quietly wrong | **Partly.** Overlaps are reported on 20 stills; a tray placed on a tag that is not on a tray is not |
+| 5. Within the time budget | **Yes** idle, 1 to 2 s against 60 s; not yet measured under load |
+
+**C is not adopted yet.** It does what it was built for and it never loses a tray, but it invents
+trays from tags that are not on trays, and conditions 2 and 3 were written to stop exactly that.
+
+*Two faults found while building the methods, recorded so they are not met again.* A tray tag lies
+in one corner cell of its tray, but which corner depends on how the tray was laid down, and the
+two readings put the tray's centre about 350 mm apart. The app settles it with the slot layout;
+these methods had none and first took one reading always, which put 5 of 11 trays off the table on
+the production still. Letting the blue settle it -- the corner whose outline covers more blue --
+took the mean rim coverage on that still from 0.25 to 0.93 and the leftover blue from 1.04 trays
+to 0.18.
+
+**Covered trays are beyond both methods.** On a production still of about ten trays under clear
+propagator lids, the blue is hidden, no tray tag is read, and some trays run out of frame. A finds
+4 outlines, one of them turned about 45 degrees to the table, and C returns the same 4 because it
+has no tag to anchor on. The rig reports those 4 as trays with only "no tag" against them. On a
+still like this the honest answer is that the trays are covered and not measured, and an outline
+turned about 45 degrees to the table and to every other tray is not a tray. Neither check exists
+(Aaron, 2026-11-27).
+
+### 56.7 The same stills split by which tag the trays carried (2026-11-27, after 56.6)
+
+56.6 scored all 59 stills together, and that understates C. Looking at the sheets, Aaron picked
+out an October still where C was far worse than A: eighteen trays against A's twelve, overlapping
+and turned at angles. That still is not a hard scene. It is the **20 mm edge tag** layout of 12 to
+19 October, where a tag was stuck on the rim of a tray instead of lying in a corner cell. C places
+a tray by stepping a fixed distance from the tag's corner cell, so with an edge tag the step is
+simply wrong and every tag throws out a tray. Section 20.1 recorded the same failure for every
+tag-led method on these stills. Those tags were replaced by the roughly 40 mm cell A1 tags on
+2026-10-19 (Aaron, CLAUDE.md), so the layout no longer occurs.
+
+Splitting the 59 stills on that date:
+
+| Stills | Count | A trays | C trays | Extra | C = A on | Mean nudge |
+|---|---|---|---|---|---|---|
+| Before 2026-10-20, 20 mm edge tags, obsolete | 20 | 240 | 290 | +50 | 6 of 20 | 23 mm |
+| 2026-10-20 onward, cell A1 tags, as used now | 39 | 293 | 316 | +23 | 28 of 39 | 11 mm |
+
+The mean nudge tells the same story: on the obsolete stills C moves each tray 23 mm, against its
+25 mm limit, because there is nothing for it to settle on; on current stills it moves 11 mm.
+
+*With the 0.40 rim-coverage floor of 56.6, on the 39 current stills only:*
+
+| Floor | Extra trays over A | C > A | C < A | C = A |
+|---|---|---|---|---|
+| none | +23 | 7 | 4 | 28 |
+| **0.40** | **0** | **4** | **4** | **31** |
+| 0.50 | -15 | 3 | 14 | 22 |
+
+At 0.40 the net extra trays fall to zero and C matches A on 31 of 39 stills. Of the 8 that differ,
+**4 are the off-grid layout where A is wrong and C is right**, and 4 have one extra tray each.
+
+**What this does and does not show.** It does not show C is correct. A is not truth: on the four
+off-grid stills A is the method known to be wrong. For the four stills where C has one tray more
+than A, nobody has yet looked at which is right. The floor was also read off this same set, so it
+is fitted to it. What the split does show is that C's bad behaviour in 56.6 was concentrated in a
+tag layout the rig stopped using in October, and that on the layouts in use now C and A agree on
+four stills in five.
+
+**A remains better than C on the obsolete stills, and on covered trays**, where C has nothing to
+anchor on and falls back to A anyway.
+
+### 56.8 A tray placed in the gangway, and why no rim score rejects it (2026-11-27)
+
+Aaron found the case on the still of 2026-11-09 (old production, current cell A1 tags, grown
+plants): the app finds 10 trays, C finds 11, and C's extra one sits in the empty gangway between
+the two rows of trays, on bare table. The tray it was placed from is found correctly in the same
+run, from the blue, so C reports the same physical tray twice: once in the right place with no
+name, and once in the gangway carrying the tag's ID.
+
+*Cause.* A tray tag lies in a corner cell, and stepping from it to the tray's centre has two
+readings 350 mm apart (56.6). C chooses between them by which outline covers more blue. In the
+gangway the wrong reading's rim band clips the real tray above it and the real tray below it, so
+it picks up blue on two of its four sides and wins the vote.
+
+*Does a floor reject it?* No, by either rule. Measured on that still:
+
+| Tray | Whole rim loop | Worst side | Second worst side |
+|---|---|---|---|
+| The gangway tray | 0.662 | 0.453 | 0.460 |
+| Genuine trays, range | 0.362 to 0.867 | 0.155 to 0.624 | 0.157 to 0.815 |
+
+The gangway tray scores **above** the 0.40 floor of 56.6 on the whole loop, and its worst side,
+0.453, is higher than the worst side of several genuine trays, the lowest of which is 0.211 (a
+tray partly under a calibration sheet). Taking the worst of the four sides instead of the loop as
+a whole, which was tried because a tray ought to have blue on all four sides, does not separate
+them: the two distributions overlap.
+
+**So rim coverage cannot tell a tray from a well-placed guess.** The quantity that was meant to
+make C self-checking does not do it, and no threshold read off this still would. This is the
+second case Aaron picked out of the sheets where the app's method is the better of the two, after
+the trays under clear lids (56.6).
+
+*Standing.* C fixes the fault of section 55 on the four stills that have it, and on 31 of 39
+current stills it agrees with the app. Against that it places trays that are not there, by a
+mechanism no measurement in this test rejects. Condition 3 of 56.4 is not met and no fix for it
+has been found. **C is not adopted, and no further version of it should be built until there is a
+measurement that separates a real tray from a well-placed guess.**
+
+### 56.9 Method D: the app everywhere, tags re-cutting only a block short of tags (2026-11-27)
+
+56.8 closed the line of work where tags place every tray: no measurement separated a real tray
+from a well-placed guess, so the method made trays that were not there. D takes the opposite
+shape, and it follows from what 56.6 to 56.8 measured.
+
+*The method.* The app runs unchanged. Only a block of touching trays whose grid cut returned more
+outlines than the tags read in it -- the signal already shipped as the warning "fewer tags than
+trays" (#579) -- is re-cut, by placing one tray per tag inside that block. **Every tray so placed
+must have its centre inside that block's own blue**, with 40 mm of slack for a tray at the edge of
+the block. Blue in the block that no placed tray covers keeps the app's outline. Everything
+outside such a block is the app's own answer, untouched.
+
+That constraint is what rules out the two faults Aaron found in the sheets. The gangway between
+two rows of trays is not part of a blue block, so a tray cannot be placed there (56.8). A tag that
+is not on a tray is not inside a suspect block, so it places nothing (the still of 2026-11-26 with
+23 tray tags).
+
+*Result, on the 69 stills of 56.2 plus the 10 calibration and validation stills of 56.7.*
+
+| Measure | Value |
+|---|---|
+| Stills where D's tray count equals the app's | **63 of 69** |
+| Stills where D re-cut any block at all | 11 |
+| Stills where D differs from the app | 6 |
+| Of those, the off-grid layout of section 55 | 4, each 12 outlines down to 11, one per tray |
+| Of those, 15 October stills with the obsolete 20 mm edge tags | 2 |
+
+On every still taken with the cell A1 tags in use now, D differs from the app **only** on the four
+that carry the fault it exists to fix.
+
+*Truth by inspection (Aaron, 2026-11-27).* Ten sheets covering the off-grid layout, grown plants,
+pots, empty trays, trays under clear lids, a still with 23 tray tags, production validation,
+archive calibration and validation, and a development still with two untagged trays. His verdict:
+"The before and after were similar for most and the edge cases were all better on the after with
+the exception of" the still of trays under clear lids, which he called "a legitimately hard one to
+deal with".
+
+*The one still he excepted is unchanged by D.* Trays under clear propagator lids: the blue is
+hidden, no tray tag is read, so no block is suspect and D returns the app's own four outlines, one
+of them turned about 45 degrees to the table where there are about ten trays. That is the
+pre-existing limit recorded in 56.6, not something D introduces, and it is still open.
+
+*Decision in D, not a measurement.* The 40 mm of slack on the block hull, which lets a tray at the
+edge of a block reach past the blue of its neighbours.
+
+*A decision that belongs to C, recorded here because it was measured.* C hands the blue its placed
+trays do not cover back to the app's finder, and blanking only the outline leaves each tray's own
+rim behind as a strip; two such strips either side of a gangway merge into a tray that is not
+there. On the validation still of 2026-10-27, blanking 5 mm beyond each tray removed that false
+tray and changed nothing on the other calibration and validation stills. D does not hand anything
+back to the finder, so it does not need this.
+
+*Figures.* `docs/figures/56/off-grid-tray-before-after.jpg`: production photo 319, the app's
+twelve outlines above and D's eleven below, outlines in yellow and numbered; the tray at the left
+is the one the app splits. `docs/figures/56/trays-under-lids-before-after.jpg`: the still Aaron
+excepted, where D returns the app's own four outlines for about ten trays under clear lids. Both
+made by `experiments/577-tray-from-tags/draw_method_d.py` on 2026-11-27 and scaled to 1400 px
+wide. (`draw.py` beside it draws method C, which was not adopted; the figures show D, which was.)
+
+![Photo 319, the app's outlines above and method D's below](figures/56/off-grid-tray-before-after.jpg)
+
+![Trays under clear lids, unchanged by method D](figures/56/trays-under-lids-before-after.jpg)
+
+### 56.10 What was built into the app, measured again (2026-11-27)
+
+`tray_placement.recut_short_blocks` is D with four changes made after a review of the branch, and
+it was measured again on the same 69 stills rather than assumed to behave as D did. The changes:
+a re-cut tray keeps "partly outside the photo" when it reaches the frame (D dropped it, so a tray
+half out of the picture had its area reported as if it were whole); two placed trays may not
+overlap by more than `MAX_OVERLAP`, as the grid cut already required, so a spare tag lying on a
+tray cannot put the same plants on two trays; which outline a tag belongs to is taken from one
+rule shared with `name_trays`, so a block cannot be warned without being re-cut; and the nudge may
+leave a tray where its tag put it, which D's search could not.
+
+*Result, scored as 56.3, split on the date the 20 mm edge tags were replaced.*
+
+| Stills | Count | Same tray count as the app | Every app outline reproduced | Differ |
+|---|---|---|---|---|
+| 2026-10-20 onward, cell A1 tags as used now | 49 | 45 | 45 | **4** |
+| Before 2026-10-20, 20 mm edge tags, obsolete | 20 | 20 | 13 | 7 |
+
+On the stills using today's tags the app's answer is reproduced exactly on 45 of 49, and the four
+that differ are the off-grid layout: 12 outlines become 11, ten of the app's twelve are kept and
+the two that split a tray are replaced by one tray on it. This is better than D, which left 6
+stills differing: the overlap guard removed two of them.
+
+**On the obsolete edge-tag stills the tray count never changes but the outlines move**, on 7 of
+20, down to 5 of 12 reproduced on the worst. Those tags did not lie in a corner cell, so a tray
+placed from one lands wrongly; the block hull keeps it inside the trays' own blue, which is why
+the count holds. Neither rig has used that layout since 2026-10-19 and no experiment running now
+carries it, but **re-reading a still from before that date would move its trays**. Nothing here
+measures which of the two is nearer the truth on those stills; section 20.1 found the tag-led
+methods wrong on them and the blue finder right, so the app's own outlines should be preferred
+there.
+
+Six stills, all of that obsolete set, gain one more "partly outside the photo" than the app gives.
+A tray is never left without the mark where the app set it.
+
+*Where the raw data is.* Scripts in `experiments/577-tray-from-tags/`: `methods.py` holds B, C and
+D, `compare.py` scores A, B and C on one still, `run_method_d.py` scores D, and `draw.py` makes the
+before-and-after sheet. Each takes a folder of copied stills, so the numbers above can be produced
+again from a copy of the same photographs; the photographs themselves are not in the repository
+and the per-still output (`cmp.jsonl`, `d.jsonl`) is not either. The sheets Aaron inspected were
+served from a scratch folder that is not kept; the two that carry the result are in
+`docs/figures/56/`.
+

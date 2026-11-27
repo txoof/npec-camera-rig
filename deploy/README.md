@@ -29,8 +29,12 @@ sudo deploy/install.sh
 It installs `npec-rig.service` and `time-wait-limit.conf`, enables them, and starts the service
 if it is not running. Run it again after either file changes. A running service is not
 restarted, so an experiment is not interrupted; the script says when a restart is needed.
-This is the only way the service file is installed: Ansible runs this script too (#62), so
-every rig runs the service file in this repo.
+It warns when `ffmpeg` is missing (time lapse videos need it, #64); it does not install packages.
+Rigs set up with Ansible (`txoof/ansible-npec`) do not run this script. Ansible installs its own
+copy of `npec-rig.service`, kept in step with the one here (its header names the commit it was
+last synced with), and the same `time-wait-limit.conf`, and enables both. It writes per-rig
+environment variables into that copy rather than a drop-in. When either file here changes, the
+copy in ansible-npec must be updated by hand (ansible-npec#3 would switch Ansible to this script).
 
 Settings that differ per rig, such as environment variables, go in a drop-in in
 `/etc/systemd/system/npec-rig.service.d/`, which the script never changes.

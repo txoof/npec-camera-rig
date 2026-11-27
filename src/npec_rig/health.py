@@ -16,6 +16,8 @@ from __future__ import annotations
 import contextlib
 import functools
 import logging
+import os
+import shutil
 import socket
 import sqlite3
 import subprocess
@@ -26,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock
 
+from npec_rig import settings
 from npec_rig.settings import db_path
 
 logger = logging.getLogger(__name__)
@@ -164,7 +167,7 @@ def _connect() -> sqlite3.Connection:
     """A connection to rig.db; the table is created on the first connection to each database."""
     path = db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, timeout=10)
+    conn = sqlite3.connect(path, timeout=settings.LOCK_WAIT_S)
     if path not in _prepared:
         conn.executescript(_SCHEMA)
         _prepared.add(path)
@@ -324,6 +327,93 @@ def camera_health() -> dict:
         "photos_flagged_reason": check["reason"],
         "camera_fault_window_s": CAMERA_FAULT_WINDOW_S,
     }
+
+
+# Disk headroom (#307). Researchers need to know the disk is filling in time to act, so free space
+# is shown as days left at the rate the rig has been writing files. The levels are Aaron's
+# decision (2026-11-13), not measurements. The window is a choice: the last day of files; in the
+# first day of a run the rate reads low.
+DISK_YELLOW_DAYS = 5.0
+DISK_RED_DAYS = 3.0
+DISK_RATE_WINDOW_S = 24 * 3600.0
+# A floor on free space itself (#506): with nothing written in the last day there is no rate and
+# no days figure, yet a nearly full disk must still warn, and a video must not fill it. Aaron's
+# decision (2026-11-25), not a measurement. Decimal GB, as the About page shows them.
+DISK_RED_BYTES = 3_000_000_000
+DISK_YELLOW_BYTES = 5_000_000_000
+_LEVELS = ("ok", "yellow", "red")
+
+
+def _bytes_written_since(root: Path, since: float, skip: set[Path]) -> int:
+    """Bytes in files under `root` changed since `since`, leaving out the files in `skip`
+    (resolved paths; only a file with one of their names is resolved, so the scan stays fast)."""
+    names = {p.name for p in skip}
+    total = 0
+    stack = [root]
+    while stack:
+        try:
+            with os.scandir(stack.pop()) as entries:
+                for e in entries:
+                    if e.is_dir(follow_symlinks=False):
+                        stack.append(Path(e.path))
+                    elif e.is_file(follow_symlinks=False):
+                        if e.name in names and Path(e.path).resolve() in skip:
+                            continue
+                        st = e.stat(follow_symlinks=False)
+                        if st.st_mtime >= since:
+                            total += st.st_size
+        except FileNotFoundError:  # deleted while the folder was read (a purge, #63)
+            continue
+    return total
+
+
+def disk_headroom(root: Path, free_bytes: int, now: float) -> dict:
+    """Days of free space left at the rate files were written under `root` in the last day, and
+    the warning level: the worse of the days level and the free space level (#506).
+    `level_reason` says which one set it, "days" or "bytes"."""
+    # rig.db and its journals are rewritten all day, not added to: their whole size is not a rate.
+    db = db_path()
+    skip = {p.resolve() for p in (db, db.with_name(db.name + "-wal"), db.with_name(db.name + "-shm"))}
+    per_day = _bytes_written_since(root, now - DISK_RATE_WINDOW_S, skip) * 86400.0 / DISK_RATE_WINDOW_S
+    days = free_bytes / per_day if per_day else None
+    days_level = (
+        "ok" if days is None
+        else "red" if days <= DISK_RED_DAYS
+        else "yellow" if days <= DISK_YELLOW_DAYS
+        else "ok"
+    )
+    bytes_level = (
+        "red" if free_bytes <= DISK_RED_BYTES
+        else "yellow" if free_bytes <= DISK_YELLOW_BYTES
+        else "ok"
+    )
+    # The worse of the two; on a tie, free space is the reason given.
+    if _LEVELS.index(days_level) > _LEVELS.index(bytes_level):
+        level, reason = days_level, "days"
+    else:
+        level, reason = bytes_level, "bytes"
+    return {"free_bytes": free_bytes, "bytes_per_day": per_day, "days_left": days, "level": level,
+            "level_reason": reason}
+
+
+# The status line asks every 10 s; the folder holds about 100 000 files on production (0.2 s to
+# scan, 2026-11-13), so the figure is worked out at most once per DISK_CACHE_S per folder.
+DISK_CACHE_S = 600.0
+_disk_lock = Lock()
+_disk_cache: dict[Path, tuple[float, dict]] = {}
+
+
+def disk_status() -> dict:
+    """Disk headroom of the data folder (the one holding rig.db, /var/lib/npec-rig on a rig),
+    with the free space `df` reports for it."""
+    root = db_path().parent
+    with _disk_lock:
+        cached = _disk_cache.get(root)
+        if cached and time.monotonic() - cached[0] < DISK_CACHE_S:
+            return cached[1]
+        result = disk_headroom(root, shutil.disk_usage(root).free, time.time())
+        _disk_cache[root] = (time.monotonic(), result)
+        return result
 
 
 def _reset_for_tests() -> None:

@@ -2,59 +2,526 @@
 {% set nav_active = "setup" %}
 {% block title_suffix %} — Setup{% endblock %}
 
-{% block head_extra %}<script src="/static/validation-status.js"></script>{% endblock %}
+{#- The Setup page (#473): the setup pages on one tab, the rig settings on the other. The server
+    gives every estimate (photo_size.estimate) in `estimates`; the script only looks them up. -#}
+
+{#- A card that is a link keeps the card's text colour. -#}
+{% block head_extra %}<style>a.step-link { color: inherit; text-decoration: none; }</style>{% endblock %}
+
+{% block subhead %}
+{{ ui.tabs("setup-tabs", "Setup views", [("steps", "Setup steps", ""), ("settings", "Rig settings", "")], "steps") }}
+{% endblock %}
 
 {% block content %}
-  <p class="validation-status" data-validation-status>
-    <span class="validation-status-text">Reading validation status&hellip;</span>
-    <a href="/setup/validation">Go to Validation</a>
-  </p>
-  <p style="margin: 0 0 0.75rem; color: #aaa; font-size: 0.85rem;">
-    One-time (or occasional) rig setup. Everyday capture and browsing live under
-    "Capture &amp; Gallery" instead.
-  </p>
+{%- if not failed %}
+{%- set colour = {"4:4:4": "full", "4:2:0": "half"} %}
+{%- set ns = namespace(name="Override") %}
+{%- set options = [] %}
+{%- for p in presets %}
+  {%- if p.quality == saved.quality and p.chroma == saved.chroma %}{% set ns.name = p.label %}{% endif %}
+  {%- set _ = options.append((p.quality ~ "|" ~ p.chroma, p.label, p.quality ~ ", " ~ colour[p.chroma] ~ " colour")) %}
+{%- endfor %}
+{%- set _ = options.append(("override", "Override", "Choose any")) %}
+{%- endif %}
+<div class="stack" data-tab-panel="steps">
+  {#- Each card is the link: on a wide screen a button at its far end was hard to find (Aaron,
+      2026-11-23). The same markup as ui.card, as an <a>. -#}
+  {%- for step in steps %}
+  <a class="card condensed hit step-link" href="{{ step.href }}">
+    <div class="card-info">
+      <div class="card-head"><h3>{{ step.title }} {{ ui.icon("next") }}</h3>{% if step.status %}{{ ui.chip(step.status[0], step.status[1]) }}{% endif %}</div>
+      <p class="card-meta">{% for item in step.meta %}<span>{{ item }}</span>{% endfor %}</p>
+    </div>
+  </a>
+  {%- endfor %}
+</div>
 
-  <h2>Focus &amp; Square</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Autofocus, manual lens control, and the squareness guide lines. Check this first, and any
-    time the lens may have moved.
-  </p>
-  <p style="margin: 0 0 1.25rem;">
-    <a href="/setup/focus">Go to Focus &amp; Square →</a>
-  </p>
+{%- if failed %}
+<div class="stack" data-tab-panel="settings" hidden>
+  {% call ui.alert_card("Rig settings could not be read", "warn") %}
+    <p>The rig did not answer. Wait a minute and reload the page. The setup pages can still be opened.</p>
+    <div class="card-actions">{{ ui.button("Reload", id="setup-reload") }}</div>
+  {% endcall %}
+</div>
+<script>
+window.addEventListener("load", () => {
+  const tabs = document.getElementById("setup-tabs");
+  ui.bindTabs(tabs, (tab) => history.replaceState(null, "", "#" + tab));
+  if (location.hash === "#settings") tabs.querySelector('[data-value="settings"]').click();
+  // A link to this same address would only move within the page, so the button reloads it.
+  document.getElementById("setup-reload").addEventListener("click", () => location.reload());
+});
+</script>
+{%- else %}
+<div class="stack" data-tab-panel="settings" hidden>
+  <section class="card" aria-labelledby="pq-title">
+    <div class="card-head"><h3 id="pq-title">Photo quality</h3><span id="pq-now">
+      {%- if ns.name == default.label %}{{ ui.chip("ok", "Recommended in use") }}
+      {%- else %}{{ ui.chip("warn", ns.name ~ " in use, " ~ saved.quality ~ " " ~ colour[saved.chroma]) }}{% endif %}</span></div>
+    {%- if running %}
+    {% call ui.banner("warn", "Experiment running") %}
+      <p>A change now shifts the recorded area values and is not recommended for consistency.</p>
+    {% endcall %}
+    {%- endif %}
+    {{ ui.choices("pq-preset", "Photo quality", options) }}
+    <div id="pq-warn-75|4:4:4" hidden>
+    {% call ui.banner("warn", "Loss of quality") %}
+      <p>Plant areas read about 0.6% low, against 0.4% at Recommended.</p>
+    {% endcall %}
+    </div>
+    <div id="pq-warn-95|4:4:4" hidden>
+    {% call ui.banner("warn", "Increased storage") %}
+      <p>Each photo takes about twice the disk space of Recommended, for almost no gain in plant area.</p>
+    {% endcall %}
+    </div>
+    <div id="pq-override" class="stack" hidden>
+      {% call ui.banner("warn", "Not recommended") %}
+        <p>Half colour, the old default (75, half), reads plant areas about 1.4% low.</p>
+      {% endcall %}
+      {% call ui.field("pq-quality", "JPEG quality", "1 to 95") %}
+        {{ ui.stepper("pq-quality-step", "JPEG quality", saved.quality, "", 1, 95, 5) }}
+      {% endcall %}
+      {% call ui.field("pq-chroma", "Colour resolution") %}
+        {{ ui.choices("pq-chroma-choice", "Colour resolution", [("4:4:4", "Full", "4:4:4"), ("4:2:0", "Half", "4:2:0")], saved.chroma) }}
+      {% endcall %}
+    </div>
+    <dl class="readout">
+      <dt>Plant areas</dt><dd id="est-area"></dd>
+    </dl>
+    <dl class="readout" id="est-sizes"{% if not pixels %} hidden{% endif %}>
+      <dt>Each photo</dt><dd id="est-photo"></dd>
+      <dt>Each day</dt><dd id="est-day"></dd>
+      <dt>Disk</dt><dd id="est-disk"></dd>
+    </dl>
+    <p class="field-help">
+      {%- if pixels %}Photos are {{ pixels[0] }} x {{ pixels[1] }} px ({{ "%.1f" | format(pixels[0] * pixels[1] / 1e6) }} MP).
+      Sizes are measured on the 64 MP camera and scaled to these pixels, for daytime photos; night photos are smaller.
+      {%- else %}Photo size is not known yet.{% endif %}<span id="est-guess" hidden> Below quality 75 the size is a guess.</span></p>
+    {% call ui.help("Changes") %}
+      {% call ui.data_table(["Changed", "Quality", "Colour"], id="pq-changes") %}
+        {%- for c in changes %}
+        <tr><td><time datetime="{{ c.changed_at }}">{{ c.changed_at[:16] | replace("T", " ") }} UTC</time></td><td>{{ c.quality }}</td><td>{{ colour[c.chroma] | capitalize }} ({{ c.chroma }})</td></tr>
+        {%- else %}
+        <tr><td colspan="3">No changes recorded</td></tr>
+        {%- endfor %}
+      {% endcall %}
+    {% endcall %}
+  </section>
 
-  <h2>Calibration</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Level &amp; square, place calibration sheets, run calibration, read the report, and the
-    diagnostics that go with it. Rare — chamber initiation, or when the app asks.
-  </p>
-  <p style="margin: 0 0 1.25rem;">
-    <a href="/setup/calibration">Go to Calibration →</a>
-  </p>
+  <section class="card" aria-labelledby="cam-title">
+    <div class="card-head"><h3 id="cam-title">Camera</h3></div>
+    {%- if running %}
+    {% call ui.banner("warn", "Experiment running") %}
+      <p>Changing white balance, Auto exposure, Exposure or Gain now changes the photos recorded. This may impact recorded area values and is not recommended for consistency.</p>
+    {% endcall %}
+    {%- endif %}
+    {{ ui.switch("awb", "Auto white balance", "Changes the colours recorded, and may change area values. Not recommended.") }}
+    {{ ui.switch("auto-exposure", "Auto exposure", "Off: the camera no longer adjusts to the light, and the rig cannot tell photos taken with the lights off. Keep it on during an experiment.") }}
+    {% call ui.help("About Auto exposure") %}
+      <p>Auto exposure lets the camera set exposure and gain for each photo as the light changes. The rig tells a photo taken with the lights off from how the camera's auto exposure reacts to the light. With Auto exposure off, the camera reports the same state for lit and dark photos (metrology log 29.4), so the rig cannot tell them apart. The Gallery marks each such photo "Lights not checked: auto exposure was off". Its plant areas are still counted, dark photos too. Keep Auto exposure on during an experiment unless you need fixed settings.</p>
+      <p>Exposure is how long the sensor collects light for one photo. Each press is one third of a camera stop, shown as a shutter speed such as 1/125 s, or tap the value to type milliseconds.</p>
+      <p>Gain brightens the image in the sensor, like a camera's ISO. 1 is the sensor's own sensitivity. More gain means more noise, so prefer a longer exposure.</p>
+    {% endcall %}
+    <p class="field-help" id="auto-using" hidden>The camera is using <span class="auto-values" id="auto-values"></span></p>
+    <div id="exposure-row" hidden>
+      {% call ui.field("exposure-field", "Exposure") %}
+        {{ ui.stepper("exposure", "Exposure", "", "ms", 0.1, 1000, 1, 3) }}
+      {% endcall %}
+    </div>
+    <div id="gain-row" hidden>
+      {% call ui.field("gain-field", "Gain") %}
+        {{ ui.stepper("gain", "Gain", "", "x", 1, 16, 1, 2) }}
+      {% endcall %}
+    </div>
+    <dl class="readout">
+      <dt>Lens</dt><dd>{{ lens }}</dd>
+    </dl>
+    <div class="card-actions">{{ ui.link_button("Change on Focus & Square", "/setup/focus") }}</div>
+  </section>
+</div>
+<script>
+window.addEventListener("load", () => {
+  const $ = (id) => document.getElementById(id);
+  const EST = {{ estimates | tojson }}, FREE_GB = {{ free_bytes / 1e9 }}, PER_DAY = {{ per_day_text | tojson }};
+  const LOCAL_TIMES = {{ local_times | tojson }};
+  const PRESETS = {{ preset_names | tojson }}, DEFAULT = "{{ default.quality }}|{{ default.chroma }}";
+  const colour = (c) => (c === "4:4:4" ? "full" : "half");
+  const keyOf = (s) => `${s.quality}|${s.chroma}`;
+  const nameOf = (s) => PRESETS[keyOf(s)] || "Override";
+  const saved = {{ saved | tojson }}, now = { ...saved };
+  const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  const bar = document.querySelector(".action-bar"), save = $("pq-save");
 
-  <h2>Calibration history</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    Browse every saved calibration, make an old one active again, or delete old ones.
-  </p>
-  <p style="margin: 0 0 1.25rem;">
-    <a href="/setup/calibration-history">Go to Calibration history →</a>
-  </p>
+  // Save sits in the action bar, shown on the Rig settings tab only.
+  const tabs = $("setup-tabs");
+  ui.bindTabs(tabs, (tab) => { bar.hidden = tab !== "settings"; history.replaceState(null, "", "#" + tab); });
+  if (location.hash === "#settings") tabs.querySelector('[data-value="settings"]').click();
+  else bar.hidden = true;
 
-  <h2>Validation</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    How far a measured area can be trusted in each tray slot. Move the sheets and trays, capture
-    a round, repeat. Run after every calibration, and any time on demand.
-  </p>
-  <p style="margin: 0 0 1.25rem;">
-    <a href="/setup/validation">Go to Validation →</a>
-  </p>
+  // Times in the browser's own zone; without JavaScript they stay UTC.
+  for (const span of document.querySelectorAll(".card-meta span")) {
+    const t = LOCAL_TIMES[span.textContent];
+    if (t) span.textContent = `${t[0]} ${when(t[1])}`;
+  }
+  for (const el of document.querySelectorAll("#pq-changes time")) el.textContent = when(el.getAttribute("datetime"));
+  const showChanges = (changes) => {
+    $("pq-changes").tBodies[0].innerHTML = changes.map((c) => `<tr><td>${ui.esc(when(c.changed_at))}</td><td>${c.quality}</td>`
+      + `<td>${c.chroma === "4:4:4" ? "Full" : "Half"} (${c.chroma})</td></tr>`).join("") || '<tr><td colspan="3">No changes recorded</td></tr>';
+  };
 
-  <h2>Health check</h2>
-  <p style="margin: 0 0 0.5rem; color: #aaa; font-size: 0.85rem;">
-    On-demand checks outside the linear Calibration wizard — currently the tripwire check
-    (roll/knock acceptance test).
-  </p>
-  <p style="margin: 0 0 1.25rem;">
-    <a href="/setup/health-check">Go to Health check →</a>
-  </p>
+  const refresh = () => {
+    const e = EST[now.chroma][now.quality - 1];
+    $("est-area").textContent = e.area_change_pct === null ? "Not measured at this setting" : `About ${Math.abs(e.area_change_pct).toFixed(1)}% low`;
+    if (!$("est-sizes").hidden) {
+      $("est-photo").textContent = `About ${e.mb_per_photo.toFixed(1)} MB (estimate)`;
+      $("est-day").textContent = `About ${e.gb_per_day.toFixed(1)} GB at ${PER_DAY}`;
+      $("est-disk").textContent = `${FREE_GB.toFixed(0)} GB free: about ${Math.floor(FREE_GB / e.gb_per_day)} days of photos at this size`;
+      $("est-guess").hidden = !e.size_is_guess;
+    }
+    for (const key of Object.keys(PRESETS)) {
+      const warn = $(`pq-warn-${key}`);
+      if (warn) warn.hidden = keyOf(now) !== key || !$("pq-override").hidden;
+    }
+    const changed = keyOf(now) !== keyOf(saved);
+    save.disabled = !changed;
+    save.textContent = changed ? `Save: ${nameOf(now)}, ${now.quality} ${colour(now.chroma)}` : "Save photo quality";
+    $("pq-now").innerHTML = keyOf(saved) === DEFAULT ? ui.chip("ok", "Recommended in use")
+      : ui.chip("warn", `${nameOf(saved)} in use, ${saved.quality} ${colour(saved.chroma)}`);
+  };
+  const preset = $("pq-preset"), qStep = $("pq-quality-step"), chroma = $("pq-chroma-choice");
+  const override = !PRESETS[keyOf(saved)];
+  preset.querySelectorAll("[data-value]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === (override ? "override" : keyOf(saved)))));
+  $("pq-override").hidden = !override;
+  ui.bindChoices(preset, (v) => {
+    $("pq-override").hidden = v !== "override";
+    if (v !== "override") {
+      [now.quality, now.chroma] = [Number(v.split("|")[0]), v.split("|")[1]];
+      ui.showField(qStep.querySelector(".field-btn"), String(now.quality));
+      chroma.querySelectorAll("[data-value]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === now.chroma)));
+    }
+    refresh();
+  });
+  ui.bindStepper(qStep, (v) => { now.quality = Math.min(95, Math.max(1, Math.round(Number(v)))); refresh(); });
+  ui.bindChoices(chroma, (v) => { now.chroma = v; refresh(); });
+
+  const doSave = async () => {
+    save.disabled = true;
+    try {
+      const r = await fetch("/api/photo-quality", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quality: now.quality, chroma: now.chroma }) });
+      if (!r.ok) throw new Error(r.statusText);
+      const body = await r.json();
+      Object.assign(saved, { quality: body.quality, chroma: body.chroma });
+      ui.toast("Photo quality saved");
+    } catch (err) {
+      ui.toast("Photo quality could not be saved");
+      refresh();
+      return;
+    }
+    refresh();
+    // The change list is a refresh only: the setting is saved even if this read fails.
+    fetch("/api/photo-quality").then((r) => r.json()).then((b) => showChanges(b.changes)).catch(() => {});
+  };
+  // Whether an experiment runs is read again at each tap, since one may have started after the
+  // page opened. If it cannot be read, the page asks anyway (review of PR #475).
+  const runningNow = async () => {
+    try {
+      const r = await fetch("/api/experiments");
+      if (!r.ok) throw new Error(r.statusText);
+      const found = (await r.json()).find((x) => x.state === "running");
+      return found ? { name: found.name } : null;
+    } catch (err) {
+      return { unsure: true };
+    }
+  };
+  const runningText = (run) => (run.unsure ? "An experiment may be running."
+    : run.name ? `Experiment <strong>${ui.esc(run.name)}</strong> is running.` : "An experiment is running.");
+  const shiftText = () => {
+    const a = EST[saved.chroma][saved.quality - 1].area_change_pct, b = EST[now.chroma][now.quality - 1].area_change_pct;
+    if (a === null || b === null) return "The shift in its plant areas is not measured for this change.";
+    return `Its plant areas read about ${Math.abs(b).toFixed(1)}% low instead of ${Math.abs(a).toFixed(1)}% low (metrology log 26.1).`;
+  };
+  save.addEventListener("click", async () => {
+    // The setting may have been changed in another tab since the page opened (review of PR #475).
+    try {
+      const r = await fetch("/api/photo-quality");
+      if (r.ok) { const b = await r.json(); Object.assign(saved, { quality: b.quality, chroma: b.chroma }); showChanges(b.changes); }
+    } catch (err) { /* keep the page's value */ }
+    if (keyOf(now) === keyOf(saved)) { refresh(); ui.toast("This photo quality is already in use"); return; }
+    const run = await runningNow();
+    if (run === null) return doSave();
+    ui.confirmPanel({
+      title: "Change photo quality during the experiment?",
+      body: `<p>${runningText(run)} Photos from the next one on are saved at ${now.quality}, ${colour(now.chroma)} colour. ${shiftText()} The change is listed with its time.</p>`,
+      ok: "Save", onOk: doSave });
+  });
+
+  // Camera: white balance, Auto exposure, Exposure and Gain are set here; the lens is set on
+  // Focus & Square. While an experiment runs, each change asks first (runningNow).
+  const awb = $("awb"), ae = $("auto-exposure");
+  // Off until /controls has said the real state; a second tap while the experiment check runs
+  // is ignored (the confirmation then covers the page) (review of PR #475).
+  ui.setDisabled(awb, true);
+  ui.setDisabled(ae, true);
+  let awbChecking = false, aeChecking = false;
+  const setAwb = async (on) => {
+    ui.setSwitch(awb, on);
+    const r = await fetch("/controls/AwbEnable", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value: on }) }).catch(() => null);
+    if (!r || !r.ok) { ui.toast("Auto white balance could not be changed"); ui.setSwitch(awb, !on); }
+  };
+  awb.addEventListener("click", async () => {
+    if (awbChecking) return;
+    const on = awb.getAttribute("aria-checked") !== "true";
+    awbChecking = true;
+    const run = await runningNow();
+    awbChecking = false;
+    if (run === null) return setAwb(on);
+    ui.confirmPanel({
+      title: `Turn auto white balance ${on ? "on" : "off"} during the experiment?`,
+      body: `<p>${runningText(run)} The colours of its photos change from the next photo on, and with them its plant areas. The size of the effect is not measured.</p>`,
+      ok: `Turn ${on ? "on" : "off"}`, onOk: () => setAwb(on) });
+  });
+
+  // Exposure and gain: steppers in 1/3 stops. DSLR series, as the camera shows them (Aaron,
+  // 2026-10-08). Each step sends the labelled value exactly (1/125 is 8000 us); the camera then
+  // reports the nearest value its sensor can make (for example 7998 us).
+  const AE_DEPENDENT = ["ExposureTime", "AnalogueGain"];
+  const exposureStepper = $("exposure"), gainStepper = $("gain");
+  const exposureField = $("exposure-value"), gainField = $("gain-value");
+  const EXPOSURE_STOP_LABELS = [
+    "1/6400", "1/5000", "1/4000", "1/3200", "1/2500", "1/2000", "1/1600", "1/1250", "1/1000",
+    "1/800", "1/640", "1/500", "1/400", "1/320", "1/250", "1/200", "1/160", "1/125", "1/100",
+    "1/80", "1/60", "1/50", "1/40", "1/30", "1/25", "1/20", "1/15", "1/13", "1/10", "1/8",
+    "1/6", "1/5", "1/4", "0.3", "0.4", "0.5", "0.6", "0.8", "1",
+  ];
+  const EXPOSURE_STOPS_US = EXPOSURE_STOP_LABELS.map((label) => {
+    const [num, den] = label.includes("/") ? label.split("/").map(Number) : [Number(label), 1];
+    return Math.round((num / den) * 1e6);
+  });
+  const GAIN_STOPS = [1, 1.25, 1.6, 2, 2.5, 3.2, 4, 5, 6.4, 8, 10, 12.5, 16, 20, 25, 32, 40, 50, 64];
+  // The steppers' stops, in the fields' units (ms and x), cut to the camera's range in
+  // loadControls(). Filled in place: the steppers hold these same arrays.
+  const exposureStops = [], gainStops = [];
+  const usToMs = (us) => Number((us / 1000).toFixed(3));
+  const msToUs = (ms) => Math.round(ms * 1000);
+  // A value read back from the camera within this share of a step is shown with that step's
+  // label: the sensor rounds to its own line time (8000 us comes back as 7998).
+  const STOP_LABEL_TOLERANCE = 0.02;
+  const nearestStopIndex = (stops, value) => {
+    // Nearest on a ratio scale, since the stops are equal ratios apart.
+    if (!(value > 0)) return 0;
+    let best = 0;
+    stops.forEach((stop, i) => {
+      if (Math.abs(Math.log(stop / value)) < Math.abs(Math.log(stops[best] / value))) best = i;
+    });
+    return best;
+  };
+
+  // What the camera is using, as last read from it or sent to it. A press that is not confirmed
+  // puts these back on the steppers.
+  const cameraHas = { exposure: null, gain: null };
+  const shownValues = { exposure: "", gain: "" };
+  const paintAutoValues = () => {
+    $("auto-values").textContent = [shownValues.exposure, shownValues.gain].filter(Boolean).join(", gain ");
+  };
+  // The shutter speed when the value is on a stop, else milliseconds; the keypad takes ms.
+  const exposureText = (us) => {
+    const stop = nearestStopIndex(EXPOSURE_STOPS_US, us);
+    const onStop = Math.abs(us / EXPOSURE_STOPS_US[stop] - 1) <= STOP_LABEL_TOLERANCE;
+    return onStop ? `${EXPOSURE_STOP_LABELS[stop]} s` : `${usToMs(us)} ms`;
+  };
+  const showExposure = (us) => {
+    if (us === null || us === undefined) return;
+    cameraHas.exposure = us;
+    shownValues.exposure = exposureText(us);
+    ui.showField(exposureField, String(usToMs(us)), shownValues.exposure, "");
+    paintAutoValues();
+  };
+  const showGain = (gain) => {
+    if (gain === null || gain === undefined) return;
+    cameraHas.gain = gain;
+    const value = String(Number(Number(gain).toFixed(2)));
+    shownValues.gain = `${value}x`;
+    ui.showField(gainField, value);
+    paintAutoValues();
+  };
+  const SHOW = { ExposureTime: showExposure, AnalogueGain: showGain };
+
+  const postControl = (name, value) => fetch(`/controls/${name}`, { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ value }) });
+
+  // Sends the latest value only: a value that arrives while one is in flight replaces any
+  // waiting one and is sent when that finishes, so the last value is never dropped, also after a
+  // failed request. A refused or failed value reloads the controls, so they never show a setting
+  // the camera is not using.
+  const latestOnlySender = (name) => {
+    let sending = false, waiting = null;
+    const send = async (value) => {
+      if (sending) { waiting = value; return; }
+      sending = true;
+      let refused = false;
+      try {
+        const response = await postControl(name, value);
+        if (!response.ok) refused = true;
+        else {
+          // The camera ignores exposure and gain while auto exposure is on (another tab may
+          // have turned it on): show the controls as the camera has them.
+          const values = await response.json();
+          refused = AE_DEPENDENT.includes(name) && values.AeEnable === true;
+        }
+      } catch (err) {
+        refused = true;
+      } finally {
+        sending = false;
+      }
+      if (waiting !== null) {
+        const next = waiting;
+        waiting = null;
+        send(next);
+      } else if (refused) {
+        loadControls().catch(() => {});
+      }
+    };
+    return send;
+  };
+  const sendExposure = latestOnlySender("ExposureTime"), sendGain = latestOnlySender("AnalogueGain");
+
+  // While Auto is on, the steppers are hidden and the values the camera uses show as text.
+  const aeOn = () => ae.getAttribute("aria-checked") === "true";
+  const showAuto = (on) => {
+    ui.setSwitch(ae, on);
+    $("exposure-row").hidden = on;
+    $("gain-row").hidden = on;
+    $("auto-using").hidden = !on;
+  };
+
+  // While Auto is on, the camera's values are read again every 2 s, so the text is never stale
+  // (Aaron, 2026-10-08). One request at a time, and none from a hidden page or another tab:
+  // each one waits for a camera frame.
+  const settingsTab = document.querySelector('[data-tab-panel="settings"]');
+  let autoRefreshInFlight = false;
+  const refreshAutoValues = async () => {
+    if (!aeOn() || document.hidden || settingsTab.hidden || autoRefreshInFlight) return;
+    autoRefreshInFlight = true;
+    try {
+      const data = await (await fetch("/controls")).json();
+      if (!aeOn()) return;
+      AE_DEPENDENT.forEach((name) => SHOW[name](data.values[name]));
+    } catch (err) {
+      // The next read tries again.
+    } finally {
+      autoRefreshInFlight = false;
+    }
+  };
+
+  // One press or typed value on a stepper: with an experiment running it asks first. The stepper
+  // has already changed its text. Presses made while the check runs are not lost: only the latest
+  // value is kept and acted on once the check ends, so the camera ends at the last value pressed.
+  // With an experiment running, the stepper goes back to what the camera has until Confirm.
+  const valueGate = (what, back) => {
+    let latest = null, checking = false;
+    return async (value, text, apply) => {
+      latest = { value, text, apply };
+      if (checking) return;
+      checking = true;
+      const run = await runningNow();
+      checking = false;
+      const { text: shown, apply: go } = latest;
+      latest = null;
+      if (run === null) return go();
+      back();
+      ui.confirmPanel({
+        title: `Change ${what} during the experiment?`,
+        body: `<p>${runningText(run)} Photos from the next one on use ${shown}. Its plant areas may change with it.</p>`,
+        ok: "Change", onOk: go });
+    };
+  };
+  const exposureGate = valueGate("exposure", () => showExposure(cameraHas.exposure));
+  const gainGate = valueGate("gain", () => showGain(cameraHas.gain));
+  ui.bindStepper(exposureStepper, (ms) => {
+    const us = msToUs(Number(ms));
+    exposureGate(us, `exposure ${exposureText(us)}`, () => { showExposure(us); sendExposure(us); });
+  }, { stops: exposureStops });
+  ui.bindStepper(gainStepper, (gain) => {
+    const g = Number(gain);
+    gainGate(g, `gain ${g}x`, () => { showGain(g); sendGain(g); });
+  }, { stops: gainStops });
+
+  const setAe = async (on) => {
+    showAuto(on);
+    const r = await postControl("AeEnable", on).catch(() => null);
+    if (!r || !r.ok) {
+      ui.toast("Auto exposure could not be changed");
+      showAuto(!on);  // never show a state the camera does not have, even if the reload fails
+      return loadControls().catch(() => {});
+    }
+    if (on) return;
+    // Auto off: keep the values the camera was just using, sent as the manual values, so the
+    // page, the camera and the values restored after a photo agree.
+    try {
+      const values = await r.json();
+      AE_DEPENDENT.forEach((name) => {
+        const v = values[name];
+        if (v === null || v === undefined) return;
+        SHOW[name](v);
+        postControl(name, v);
+      });
+    } catch (err) {
+      loadControls().catch(() => {});
+    }
+  };
+  ae.addEventListener("click", async () => {
+    if (aeChecking) return;
+    const on = !aeOn();
+    aeChecking = true;
+    const run = await runningNow();
+    aeChecking = false;
+    if (run === null) return setAe(on);
+    ui.confirmPanel({
+      title: `Turn Auto exposure ${on ? "on" : "off"} during the experiment?`,
+      body: `<p>${runningText(run)} Photos from the next one on are taken with Auto exposure ${on ? "on" : "off"}.${on ? "" : " The rig can no longer tell photos taken with the lights off, and marks each one Lights not checked."}</p>`,
+      ok: `Turn ${on ? "on" : "off"}`, onOk: () => setAe(on) });
+  });
+
+  async function loadControls() {
+    const { available, values } = await (await fetch("/controls")).json();
+    ui.setSwitch(awb, Boolean(values.AwbEnable));
+    ui.setDisabled(awb, !available.AwbEnable);
+    if (available.ExposureTime) {
+      const [min, max] = available.ExposureTime;
+      exposureField.dataset.min = usToMs(min);
+      exposureField.dataset.max = usToMs(max);
+      exposureStops.splice(0, Infinity, ...EXPOSURE_STOPS_US.filter((us) => us >= min && us <= max).map(usToMs));
+    }
+    if (available.AnalogueGain) {
+      const [min, max] = available.AnalogueGain;
+      gainField.dataset.min = min;
+      gainField.dataset.max = max;
+      gainStops.splice(0, Infinity, ...GAIN_STOPS.filter((g) => g >= min && g <= max));
+    }
+    showExposure(values.ExposureTime);
+    showGain(values.AnalogueGain);
+    // No AeEnable in the camera's controls: no Auto exposure row, the steppers stay.
+    const hasAuto = "AeEnable" in available;
+    ae.hidden = !hasAuto;
+    ui.setDisabled(ae, !hasAuto);
+    showAuto(hasAuto && Boolean(values.AeEnable));
+  }
+  loadControls().catch(() => {
+    ui.setDisabled(awb, true);
+    ui.setDisabled(ae, true);
+    ui.setDisabled(exposureStepper, true);
+    ui.setDisabled(gainStepper, true);
+    $("exposure-row").hidden = $("gain-row").hidden = false;
+  });
+  setInterval(refreshAutoValues, 2000);
+  refresh();
+});
+</script>
+{%- endif %}
+{% endblock %}
+
+{% block action_bar %}
+{%- if not failed %}{{ ui.button("Save photo quality", "primary", id="pq-save", disabled=true) }}{% endif %}
 {% endblock %}

@@ -85,6 +85,23 @@ def test_api_about_reports_the_software_and_the_rig(monkeypatch):
     assert isinstance(body["ai_accelerator"], bool)
 
 
+def test_api_about_reports_the_release_version():
+    """Version number and commit together (#427): git's own name for this commit from the release
+    tags, "v0.1.0" on a release, "v0.1.0-5-g1a2b3c4" five commits after it."""
+    import subprocess
+    from pathlib import Path
+
+    import npec_rig
+
+    release = subprocess.run(["git", "-C", str(Path(npec_rig.__file__).parent), "describe", "--tags",
+                              "--always", "--match", "v*"], capture_output=True, text=True,
+                             check=True).stdout.strip()
+
+    body = TestClient(app).get("/api/about").json()
+
+    assert body["version"]["release"] == release
+
+
 def test_about_page_shows_each_section_and_its_values(isolated_calibration_dir):
     import subprocess
     from pathlib import Path
@@ -108,6 +125,7 @@ def test_about_page_shows_each_section_and_its_values(isolated_calibration_dir):
     for title in ("Software", "Rig", "Running", "Focus", "Calibration and validation"):
         assert f">{title}</h3>" in page.text
     assert commit in page.text
+    assert client.get("/api/about").json()["version"]["release"] in page.text
     assert "Locked" in page.text and "6.30" in page.text
     assert 'datetime="2027-01-01T00:00:00+00:00"' in page.text  # calibration made
     assert 'datetime="2027-01-01T02:00:00+00:00"' in page.text  # validation completed
@@ -151,3 +169,48 @@ def test_about_page_says_validated_once(isolated_calibration_dir):
     page = client.get("/about").text
 
     assert page.count("Validated") == 1  # the chip; the date is in "Validation finished"
+
+
+def test_api_about_reports_days_of_disk_space_left(tmp_path):
+    """#307: days left at the rate files were written in the data folder (a temporary folder in
+    tests, where rig.db is)."""
+    (tmp_path / "rig").mkdir()
+    (tmp_path / "rig" / "photo.jpg").write_bytes(b"x" * 1000)
+    disk = TestClient(app).get("/api/about").json()["disk"]
+    assert disk["days_left"] > 0
+    assert disk["level"] in ("ok", "yellow", "red")
+
+
+def test_about_page_shows_days_of_disk_space_left(tmp_path):
+    (tmp_path / "rig").mkdir()
+    (tmp_path / "rig" / "photo.jpg").write_bytes(b"x" * 1000)
+    page = TestClient(app).get("/about").text
+    row = page[page.index("Disk space left"):][:600]
+    assert "days at the last day" in row
+    assert "Enough" in row
+
+
+def _disk_left_row(disk: dict) -> dict:
+    """The "Disk space left" row about.sections() lays out for this disk reading, every other
+    fact as the rig reads it. The route cannot be given a nearly full disk, so the reading is
+    built by hand."""
+    from npec_rig import about
+
+    f = {**about.facts(), "disk": {"total_bytes": 100_000_000_000, **disk}}
+    rows = [row for card in about.sections(f) for row in card["rows"]]
+    return next(row for row in rows if row["label"] == "Disk space left")
+
+
+def test_about_shows_gb_free_when_free_space_sets_the_warning():
+    # #506: nothing written in the last day, 1.2 GB free.
+    row = _disk_left_row({"free_bytes": 1_200_000_000, "bytes_per_day": 0.0, "days_left": None,
+                          "level": "red", "level_reason": "bytes"})
+    assert row["value"] == "About 1.2 GB free"
+    assert row["status"] == ("fail", "Very low")
+
+
+def test_about_still_says_no_files_written_when_nothing_was_written_and_space_is_plenty():
+    row = _disk_left_row({"free_bytes": 50_000_000_000, "bytes_per_day": 0.0, "days_left": None,
+                          "level": "ok", "level_reason": "bytes"})
+    assert row["value"] == "No files written in the last day"
+    assert row["status"] == ("ok", "Enough")

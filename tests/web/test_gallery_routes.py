@@ -43,12 +43,15 @@ def test_gallery_thumb_and_screen_are_reduced_copies_made_once() -> None:
     import io
 
     client = TestClient(app)
-    path = client.post("/capture").json()["path"]
+    record = client.post("/capture").json()
+    path = record["path"]
     thumb = client.get(f"/gallery/image/thumb/{path}")
     screen = client.get(f"/gallery/image/screen/{path}")
     assert thumb.status_code == screen.status_code == 200
     assert thumb.headers["content-type"] == "image/jpeg"
-    original = client.get(client.get("/api/captures", params={"limit": 1}).json()[0]["url"]).content
+    # This photo's own original, not the newest in the gallery: the photo folder is shared by
+    # every test in the worker process, so an earlier test may have left a later-dated photo.
+    original = client.get(record["url"]).content
     full_width = Image.open(io.BytesIO(original)).width
     assert Image.open(io.BytesIO(thumb.content)).width == min(480, full_width)
     assert Image.open(io.BytesIO(screen.content)).width == min(1600, full_width)
@@ -457,6 +460,35 @@ def test_each_photo_in_the_list_carries_its_exclusion_and_its_info_each_areas_fl
     assert [t["floor_mm2"] for t in info["trays"]] == [100]
 
 
+def test_a_photo_with_auto_exposure_off_is_listed_with_a_lights_warning_and_no_exclusion(monkeypatch) -> None:
+    """#507: AeState 0 (libcamera: idle) means auto exposure was off. The photo is not excluded
+    (Aaron, 2026-11-26) but the list says in words the lights were not checked; a photo from a
+    converged camera (AeState 2, the synthetic default) carries no warning."""
+    from npec_rig import tray_readings
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    class Idle(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            draw_tray(frame, 115, 554, 3165, 4214)  # one_tray_plant_scene's tray
+            return frame, {**metadata, "ExposureTime": 5_404, "AnalogueGain": 1.0, "AeState": 0}
+
+    one_tray_plant_scene(monkeypatch)
+    client = TestClient(app)
+    CameraManager.set_instance(CameraManager(Idle(width=4000, height=4400)))
+    idle_path = client.post("/capture").json()["path"]
+    tray_readings.read_photo(idle_path)
+    CameraManager.set_instance(CameraManager(SyntheticBackend(width=4000, height=4400)))
+    lit_path = client.post("/capture").json()["path"]
+
+    listed = {i["path"]: i for i in client.get("/api/captures").json()}
+    assert listed[idle_path]["lights"] == {
+        "checked": False, "reason": "Lights not checked: auto exposure was off"}
+    assert listed[idle_path]["trays"]["exclusion"] is None
+    assert listed[lit_path]["lights"] == {"checked": True, "reason": None}
+
+
 def test_a_reading_saved_before_trays_were_found_in_the_photo_keeps_its_trays_outline(monkeypatch) -> None:
     """Review of #334: a photo read before #331 (tray 5 placed from its tag, with an area) has no
     stored outline. Its tray is shown as the old placement drew it, the tray's outside size
@@ -544,13 +576,44 @@ def test_tray_readings_give_each_tray_and_cell_its_area_by_both_methods_named_in
 
     tray = client.get(f"/api/captures/trays/{path}").json()["trays"][0]
     assert (tray["method"], tray["area_mm2"]) == ("fixed green cutoff", pytest.approx(1500, rel=0.01))
-    assert (tray["grown_method"], tray["grown_area_mm2"]) == ("grow from leaf cores, core 0.07", pytest.approx(1500, rel=0.02))
+    # 3%: JPEG blends the leaf's sharp edge into the blue tray, about 2 px all round, and grow from
+    # leaf cores keeps the blend at the cutoff the tray's soil gives (#373).
+    assert (tray["grown_method"], tray["grown_area_mm2"]) == ("grow from leaf cores, core 0.07", pytest.approx(1500, rel=0.03))
     # The leaf lies across cells: both methods give it to the same one and mark it over others.
     planted = [c for c in tray["cells"] if c["area_mm2"] is not None]
     assert planted
     assert [c["cell"] for c in planted] == [c["cell"] for c in tray["cells"] if c["grown_area_mm2"] is not None]
-    assert [c["grown_area_mm2"] for c in planted] == pytest.approx([c["area_mm2"] for c in planted], rel=0.02)
+    assert [c["grown_area_mm2"] for c in planted] == pytest.approx([c["area_mm2"] for c in planted], rel=0.03)
     assert [c["grown_status"] for c in planted] == [c["status"] for c in planted]
+
+
+def test_tray_readings_flag_a_cell_where_grown_and_fixed_areas_disagree_and_warn_on_the_tray(monkeypatch) -> None:
+    """#484: a cell with grown 600 and fixed 54 mm2 is flagged, one with grown 180 and fixed 120 is
+    not; the tray's warnings carry one line with the count and the flagged grown area."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Flags")["id"])
+    path = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW"}, areas={3: 900.0})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    saved = database.tray_readings(capture_id)
+
+    def cell(name, fixed, grown):
+        return {"cell": name, "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4, "plant_px": 1,
+                "area_mm2": fixed, "plant_centre_px": None, "over_other_cells": False, "segmenter": "green threshold, 0.1",
+                "cell_rule": "rule", "grown_plant_px": 1, "grown_area_mm2": grown, "grown_plant_centre_px": None,
+                "grown_over_other_cells": False}
+
+    [tray] = saved["trays"]
+    tray["cells"] = [cell("B1", 54.0, 600.0), cell("B2", 120.0, 180.0)]
+    database.record_tray_readings(capture_id, read_at=saved["read_at"], status="read", trays=[tray])
+
+    [tray] = TestClient(app).get(f"/api/captures/trays/{path}").json()["trays"]
+    assert [(c["cell"], c["flagged"]) for c in tray["cells"]] == [("B1", True), ("B2", False)]
+    assert ("1 cell where grown and fixed areas disagree (600 mm²). "
+            "Usually an empty pot. Check the cell.") in tray["warnings"]
 
 
 def test_tray_readings_list_the_area_methods_the_photo_has_each_named_in_words(monkeypatch) -> None:
@@ -622,3 +685,23 @@ def test_an_hour_asks_only_for_its_own_photos() -> None:
     assert later.status_code == 200
     assert path not in [p["path"] for p in later.json()]
     assert client.get("/api/captures", params={"after": "yesterday"}).status_code == 422
+
+
+def test_a_photo_whose_row_was_added_after_it_was_taken_is_marked_in_the_list() -> None:
+    client = TestClient(app)
+    normal = client.post("/capture").json()
+    # A second photo with no row yet: a copy of the first under another time, its row added by hand.
+    folder = captures.photos_root() / normal["date"]
+    stem = "235959_999999"
+    for suffix in (".jpg", ".json"):
+        (folder / f"{stem}{suffix}").write_bytes((folder / normal["filename"]).with_suffix(suffix).read_bytes())
+    late_path = f"{normal['path'].rsplit('/', 1)[0]}/{stem}"
+    database.record_capture(
+        taken_at=f"{normal['date']}T23:59:59+00:00", path=late_path, purpose="capture", calibration=None,
+        validation=None, lens_position=None, focus_locked_at=None, exposure_us=None, analogue_gain=None,
+        flags=[], added_later=True)
+
+    items = {item["path"]: item for item in client.get("/api/captures").json()}
+
+    assert items[late_path]["added_later"] == "Added after it was taken"
+    assert items[normal["path"]]["added_later"] is None

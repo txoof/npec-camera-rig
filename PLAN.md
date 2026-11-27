@@ -23,7 +23,7 @@ repeatable by someone who didn't build it.
    moment it's needed rather than rely on someone remembering a procedure.
 
 Three previous attempts collapsed into camera metrology and never produced a working application.
-This plan is built to prevent that. Wrap-up: **the week of 14 December 2026**, write-up submitted mid-January 2027 (see *Rounds*).
+This plan is built to prevent that. Wrap-up: **Round 5, 4 to 24 December 2026**, write-up submitted mid-January 2027 (see *Rounds*).
 
 ---
 
@@ -201,8 +201,8 @@ can never drift out of sync with the readings it summarises.
    deletion is a purge of a whole experiment (*Purging an experiment*, below).
 3. **Store the segmentation masks** (PNG alongside each capture — they compress to almost nothing).
    Area is a function of mask × scale field, so if a calibration later turns out to be wrong, every
-   historical area can be **recomputed without re-running inference**. There's a **Reprocess**
-   action in the UI for exactly this. This is the difference between a bad calibration costing an
+   historical area can be **recomputed without re-running inference**. Reprocess does this, as a
+   development-only API, not a researcher action (Aaron, 2026-11-26). This is the difference between a bad calibration costing an
    afternoon and costing the experiment.
 4. **Append-only readings**, so a crash mid-write can't corrupt history. A purge removes an
    experiment's readings all at once, never one by one.
@@ -393,7 +393,7 @@ band, and exports say so (*Per-slot area uncertainty*).
 | 2 | 23 Oct to 5 Nov | Draft, decided at the round 1 review: a page in the app showing trays, tags and green area on the latest still, plus scheduled capture (M3 scheduler, experiment records, disk headroom); a run of several days, the potato experiment from 22 October: plant trays, and pot trays as the still scene (method in `docs/metrology-log.md` section 16), measuring area jumps between consecutive photos of a tray and tag detection over time. Failure cases noted if seen, not expected (Aaron): moss or algae, shadows, leaves over tray edges |
 | 3 | 6 to 19 Nov | Draft: per-slot bands on plant area, the M5 printed-target test |
 | 4 | 20 Nov to 3 Dec | Draft: a trained plant segmentation model only if round 3 shows green thresholding is the largest error, and adopted only if it beats green thresholding on the round 3 test by a margin Aaron sets before the comparison is run; otherwise M6 alerts |
-| Wrap-up | 4 Dec to the week of 14 Dec | Hardening, runbook, write-up, the baseline (below) |
+| 5 (wrap-up) | 4 to 24 Dec | The milestone acceptance gates come first (M4 #72, M5 #78, M6 alerts #79), then hardening, runbook, write-up, the baseline (below). Decided 2026-11-23 |
 
 Submission of the write-up: mid-January 2027.
 
@@ -667,9 +667,29 @@ scrub the timelapse · download `captures.csv` and open it in Excel · disk head
 tape-measure tolerance, rotations correct · remove one, return it rotated 180° in a new region →
 dwell table reflects the move · smear a tag with soil → degrades gracefully, doesn't crash or lie.
 
+**Status, 2026-11-27: met, with limits.** The acceptance test was run on the development rig on 2026-11-27
+(`docs/metrology-log.md`, section 54), with the changes made since this was written: 6 table locations in place of
+12 regions (#332), a layout of 12 trays at 0 and 180 degrees chosen by hand, black pieces covering the tag in place
+of soil, and the checks read from the rig's own readings. All 12 tags were read in the planned location and corner
+in 4 photos; two swapped trays showed as moved in the Table locations panel after over an hour; a covered tag was
+never read as another number and was reported as not seen. Not shown: random positions, rotations other than 0 and
+180, real dirt, and a patch smaller than 1.5% of the tag (about one of its squares), which already hides it.
+
 ---
 
 ### M5 — Canopy area (~2 weeks)
+
+**Status, 2026-11-26: not met.** The acceptance test below was run on production on 2026-11-26
+(`docs/metrology-log.md`, section 51). With the green threshold 0 of 12 squares were inside their
+band in every run, with Grow from leaf cores 3, 4 and 3 of 12; the rule needs 11 of 12 in every
+run. The rule is unchanged. The bands cover flat targets at tray-top height and leave out
+segmentation error, which was +2% to +11% on flat squares with Grow from leaf cores. Aaron's
+assessment (2026-11-26): the equipment and methods do not support definite readings, and the fixes
+tried for the over-read work only for the setup they were tuned on. The rig therefore reports an
+area as an estimate, with the measured error of flat squares, and not as a definite reading for
+plants. Not shown: living plants, plant height, soil, other backgrounds. The test is rerun only
+when it can be done in different slots from these runs (the chamber was in use at the time of
+writing). M5 and issue #78 stay open.
 
 - **`Segmenter` interface defined first**, two implementations behind it:
   1. **`ExGSegmenter`** — classical excess-green threshold. No ML, runs anywhere, ships now,
@@ -694,8 +714,9 @@ dwell table reflects the move · smear a tag with soil → degrades gracefully, 
 through the canopy-area pipeline, run 2 or 3 times → report each error *and* whether the slot's
 validation band contains the truth. A run passes if at least 11 of 12 readings fall inside their
 band, and no slot falls outside in 2 runs (Aaron, 2026-10-09) · when the real model lands, run the identical suite
-against the ExG baseline · download `measurements.csv` and plot a growth curve in Excel · change
-the calibration, hit **Reprocess**, confirm historical areas update without re-inference.
+against the ExG baseline · download `measurements.csv` and plot a growth curve in Excel. The
+Reprocess step was dropped from this test: Reprocess is a development-only tool for testing new
+area methods, not part of the system researchers use (Aaron, 2026-11-26, #78).
 
 ---
 

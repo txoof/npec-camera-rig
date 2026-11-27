@@ -115,7 +115,7 @@ anyone using its numbers can see it.
 
 Each tray area comes with a scale error, such as "±2.1, North 2", in the Gallery's tray table
 under **Scale error at tray top (±%)** and in the export's `tray-readings.csv` (columns
-`scale_error_at_tray_top_pct` and `band_slot`). Read it this way:
+`scale_error_pct` and `validation_slot`). Read it this way:
 
 - **It belongs to the tray position, not the tray.** A tray takes the number of the validation
   slot nearest its centre. The same tray photographed later on South 5 gets South 5's.
@@ -203,6 +203,65 @@ The trays are shuffled over those places, so the empty spots move as well.
 - **Limits.** Which way round a tray lies is read only for 4 x 5 and 2 x 2 trays, and for a 4 x 5
   tray only when its blue outline is found in the photo. The first round is whatever layout the
   trays were placed in.
+
+## Photo quality and camera settings
+
+All of these are on *Setup / Rig settings*. Set them before an experiment starts and leave them for its
+whole run: a change shifts the recorded plant areas from the next photo on, so the page warns and
+asks for confirmation while an experiment is running.
+
+- **Photo quality.** Use *Recommended* (JPEG quality 85, full colour). *Smaller files* (75, full
+  colour) reads plant areas about 0.6% low instead of 0.4%; *Most detail* (95, full colour) takes
+  about twice the disk space for almost no gain. *Override* allows any setting; half colour, the old
+  default, reads plant areas about 1.4% low (metrology log 26.1). The page estimates the size of
+  each photo, the disk used per day and the days of free disk left, from sizes measured on the
+  64 MP camera scaled to the pixels of the photos this camera takes.
+- **Auto white balance.** It changes the colours recorded, and may change area values. Leave it as
+  it is unless there is a reason to change it.
+- **Auto exposure, Exposure and Gain.** They are in the *Camera* card of *Setup / Rig settings*,
+  not on the Focus page. With Auto exposure on, the camera chooses exposure and gain and the page
+  shows the values it is using. Turn it off to set Exposure and Gain yourself. Keep Auto exposure on
+  unless you need fixed settings (see the next section).
+
+## When the rig cannot tell the lights are off
+
+The rig leaves out photos taken with the lights off or while the light is changing. It can tell only
+while Auto exposure is on, because it reads how the camera's automatic exposure reacts to the light.
+With Auto exposure off, every photo is taken the same way, lit or dark, so dark photos are counted
+like the others. The Gallery marks each such photo "Lights not checked: auto exposure was off".
+Keep Auto exposure on during an experiment unless you need fixed settings.
+
+## Reprocessing areas (developers and scripts)
+
+Reprocess works out the plant areas of every photo of an experiment again, for example after a
+calibration changed or after a fix to the area code. It is not on the Experiments page: it is
+started through the API by a developer or a script, because it replaces the saved readings and
+keeps no copy of the old ones.
+
+1. **Export the experiment first.** A Reprocess cannot be undone: it replaces the saved readings
+   and keeps no copy. An export holds the readings as they are now, so take one whenever the old
+   numbers might be wanted again. Copying the database by hand is not a step here; it is emergency
+   recovery (`docs/database.md`, *Emergency recovery*).
+2. **Count first.** `POST /api/experiments/<id>/reprocess` with `{"dry_run": true}` returns the number
+   of photos and, when an earlier Reprocess has finished on this rig, an estimated time. It changes nothing.
+3. **Start.** The same call with `{"confirm": <id>}`, the experiment's ID again. Without it nothing starts.
+4. **Watch.** `GET /api/experiments/<id>/reprocess` gives the state, photos done of total, and the
+   photos left as they were with the reason for each. It reads `rig.db`, so it is the same after a restart.
+5. **Stop.** `POST /api/experiments/<id>/reprocess/stop` ends it after the photo it is on. The photos
+   done keep their new readings.
+
+Each photo is redone whole or not at all. A photo that cannot be redone completely (its file and
+masks are gone, a saved reading was made another way) keeps its saved reading and is listed with
+the reason. If the app stops under a Reprocess, the run is marked "interrupted at N of M" when the
+app starts again; it is not resumed, and a new one can be started. A run whose last save failed (rig.db was locked) is
+marked interrupted the same way at the next progress read, start or Stop, not only when the app starts.
+
+## When Purge says photos have no record
+
+Before Purge, the rig adds a database row for every photo file that lacks one. If some cannot be
+added, the Purge dialog says how many, and Purge still goes ahead if you confirm it: those photos are
+deleted with the folder, and they were never in an export. To keep them, copy them off the rig first:
+`docs/recovering-photos.md` says what the files are and how.
 
 ## Why it is done this way
 

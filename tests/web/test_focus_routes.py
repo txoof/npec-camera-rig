@@ -375,3 +375,35 @@ def test_health_reports_an_attached_camera_that_will_not_open(tmp_path) -> None:
     finally:
         backend.close()
         health._reset_for_tests()
+
+
+def test_health_reports_disk_headroom_from_the_data_folder(tmp_path) -> None:
+    """#307: the status line's data carries the disk's days left, from files in the data folder
+    (the folder holding rig.db, a temporary folder in tests)."""
+    (tmp_path / "rig").mkdir()
+    (tmp_path / "rig" / "photo.jpg").write_bytes(b"x" * 1000)
+    disk = TestClient(app).get("/camera/health").json()["disk"]
+    assert disk["bytes_per_day"] >= 1000
+    assert disk["days_left"] > 0
+    assert disk["level"] in ("ok", "yellow", "red")
+
+
+@pytest.mark.parametrize("page", ["/setup/focus", "/setup/calibration"])
+def test_focus_controls_have_no_camera_settings_window(page: str) -> None:
+    # Auto white balance moved to the Setup page's Rig settings tab (#473): the Focus page and
+    # calibration Step 2 no longer open a Camera settings window.
+    response = TestClient(app).get(page)
+    assert response.status_code == 200
+    assert "camera-settings-btn" not in response.text
+    assert "Camera settings" not in response.text
+
+
+@pytest.mark.parametrize("page", ["/setup/focus", "/setup/calibration"])
+def test_focus_controls_have_no_exposure_controls(page: str) -> None:
+    # Auto exposure, Exposure and Gain moved to the Setup page's Rig settings tab (#531): the
+    # Focus page and calibration Step 2 no longer carry them.
+    response = TestClient(app).get(page)
+    assert response.status_code == 200
+    assert "auto-exposure" not in response.text
+    assert "exposure-row" not in response.text
+    assert "gain-row" not in response.text

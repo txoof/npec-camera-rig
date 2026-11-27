@@ -1,10 +1,11 @@
 """Routes for the Experiments page: set up, start, stop, purge, export and reprocess an experiment."""
 
+import sqlite3
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictInt
 
 from npec_rig import captures, database, dwell, exports, scheduler, tray_readings
 from npec_rig.routes.shared import templates
@@ -66,10 +67,14 @@ def api_experiments() -> list[dict]:
     """Every experiment, newest first, with its state, periods, newest export and Reprocess progress."""
     experiments = database.list_experiments()
     for experiment in experiments:
-        experiment["reprocess"] = tray_readings.reprocess_progress(experiment["id"])
+        # Without the failed photos, which can be many: GET .../reprocess has them.
+        experiment["reprocess"] = tray_readings.reprocess_progress(experiment["id"], failures=False)
         newest = database.exports_for(experiment["id"])[:1]
         experiment["export"] = newest[0] if newest else None
-        experiment["complete_export"] = database.complete_export(experiment["id"])
+        # The same check Purge itself makes (exports.purge_status, #482): this never says
+        # "complete" when Purge would in fact refuse it, or the reverse.
+        status = exports.purge_status(experiment["id"])
+        experiment["complete_export"] = status["export"] if status["blocked"] is None else None
         experiment["purge_confirmation"] = captures.purge_confirmation(experiment)
         # Trays too long in one table location (#332): only a running experiment's trays can
         # still be moved.
@@ -119,23 +124,83 @@ class PurgeRequest(BaseModel):
 
 @router.post("/api/experiments/{experiment_id}/purge")
 def api_purge_experiment(experiment_id: int, request: PurgeRequest) -> dict:
-    """Delete a stopped experiment's photos, rows and export zips; its record stays."""
+    """Delete a stopped experiment's photos, rows and export zips; its record stays. Unless
+    `override_no_export`, refused with 409 and a reason (#482): `part0_unsent`, `photos_added`
+    (with a `count`) or `reprocessed`, each with a plain `message`, from `exports.purge_status`,
+    the same check the Experiments and Data pages' "can Purge happen" reading uses."""
+    if not request.override_no_export:
+        # Photos saved while rig.db was locked get their rows first, so the check below sees them
+        # and asks for a new export instead of Purge deleting them unexported (#489).
+        captures.adopt_quietly(experiment_id)
+        status = _experiment_action(exports.purge_status, experiment_id)
+        if status["blocked"] is not None:
+            raise HTTPException(409, status["blocked"])
     return _experiment_action(
         captures.purge_experiment,
         experiment_id,
         confirm=request.confirm,
-        override_no_export=request.override_no_export,
+        override_no_export=True,
     )
 
 
-@router.post("/api/experiments/{experiment_id}/reprocess")
-def api_reprocess_experiment(experiment_id: int) -> dict:
-    """Read every photo of the experiment again in the background and work out its plant areas
-    afresh (#75). 409 while a Reprocess is running."""
+@router.post("/api/experiments/{experiment_id}/purge-check")
+def api_purge_check(experiment_id: int) -> dict:
+    """Before the Purge dialog: add a row for each photo of the experiment that lacks one, and
+    say how many photos are still without one, so Purge would delete them unexported (#489). Only
+    photos whose info file cannot be read stay without a row. 503 while rig.db is locked."""
     _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
+    try:
+        return {"photos_without_row": captures.adopt_all_unrecorded_photos(experiment_id)}
+    except (sqlite3.Error, RuntimeError, OSError) as exc:
+        raise HTTPException(503, f"rig.db is busy, try again: {exc}") from exc
+
+
+class ReprocessRequest(BaseModel):
+    """`confirm`: the experiment's ID again, required to start; `dry_run`: only count (also `?dry_run=true`)."""
+
+    confirm: StrictInt | None = None  # the number, not `true`
+    dry_run: bool = False
+
+
+@router.post("/api/experiments/{experiment_id}/reprocess")
+def api_reprocess_experiment(experiment_id: int, request: ReprocessRequest | None = None, dry_run: bool = False) -> dict:
+    """Read every photo of the experiment again in the background and work out its plant areas
+    afresh (#75), each photo whole or not at all (#483). For developers and scripts: the
+    Experiments page has no button for it.
+
+    TAKE A COPY OF rig.db FIRST (`cp /var/lib/npec-rig/rig.db <somewhere>`, or an export): Reprocess
+    replaces the saved readings of every photo it can redo and keeps no copy of the old ones.
+
+    `{"dry_run": true}` (or `?dry_run=true`) only returns the photo count and an estimated time and
+    changes nothing. A real start needs the body `{"confirm": <the experiment's ID>}`: without it
+    nothing starts (400). 409 while a Reprocess is running or a time lapse video is being made.
+    Progress and failed photos: GET, which reads rig.db and so survives a restart;
+    `.../reprocess/stop` ends it after the photo it is on."""
+    request = request or ReprocessRequest()
+    experiment = _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
+    if experiment["state"] == "set up":
+        raise HTTPException(409, "this experiment has never started: it has no photos to Reprocess")
+    if experiment["state"] == "purged":
+        raise HTTPException(409, "this experiment was purged: its photos were deleted")
+    if request.dry_run or dry_run:
+        return tray_readings.reprocess_plan(experiment_id)
+    if request.confirm != experiment_id:
+        raise HTTPException(400, f'nothing started: send {{"confirm": {experiment_id}}} to Reprocess experiment {experiment_id}, '
+                                 "after a copy of rig.db (or send dry_run to count the photos only)")
     try:
         return tray_readings.start_reprocess(experiment_id)
     except tray_readings.ReprocessRunning as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/api/experiments/{experiment_id}/reprocess/stop")
+def api_reprocess_stop(experiment_id: int) -> dict:
+    """End the running Reprocess of the experiment after the photo it is reading; the photos done
+    keep their new readings, the others are not read. 409 when none is running."""
+    _experiment_action(database.get_experiment, experiment_id)
+    try:
+        return tray_readings.stop_reprocess(experiment_id)
+    except tray_readings.NoReprocessRunning as exc:
         raise HTTPException(409, str(exc)) from exc
 
 
@@ -154,7 +219,8 @@ class ExportChoice(BaseModel):
 @router.post("/api/experiments/{experiment_id}/export")
 def api_export_experiment(experiment_id: int, choice: ExportChoice | None = None) -> dict:
     """Start building an export, of photos up to now if the experiment is running; it is
-    prepared in the background. With no choice sent, it holds everything."""
+    prepared in the background. With no choice sent, it holds everything. 409 while a time lapse
+    video is being made."""
     choice = choice or ExportChoice()
     if not (choice.data or choice.photos):
         raise HTTPException(422, "tick the data, the photos or both")
@@ -173,13 +239,20 @@ def api_export(export_id: int) -> dict:
     return _experiment_action(exports.export_with_parts, export_id)
 
 
+@router.post("/api/exports/{export_id}/stop")
+def api_stop_export(export_id: int) -> dict:
+    """Stop building an export's data file (#437): it ends within one photo, marked stopped, and
+    no part-built file is left."""
+    return _experiment_action(exports.stop_export, export_id)
+
+
 @router.get("/api/exports/{export_id}/parts/{n}")
 def api_export_part(export_id: int, n: int) -> Response:
-    """One part of an export, zipped while it downloads, with its exact size so the browser shows
-    progress (#368)."""
+    """One part of an export with its exact size, so the browser shows progress (#368): part 0
+    from the file built when the export was made (#437), a photo part zipped while it downloads."""
     filename, length, body = _experiment_action(exports.part_download, export_id, n)
-    return StreamingResponse(body, media_type="application/zip", headers={
-        "Content-Disposition": f'attachment; filename="{filename}"', "Content-Length": str(length)})
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"', "Content-Length": str(length)}
+    return StreamingResponse(body, media_type="application/zip", headers=headers)
 
 
 @router.get("/api/exports/{export_id}/download")

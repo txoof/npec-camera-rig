@@ -1,0 +1,6 @@
+photos without ae_state, by experiment: [(0, 1, '2026-10-28T10:38:53.647787+00:00', '2026-10-28T10:38:53.647787+00:00')]
+first photo with ae_state: ('2026-11-09T10:54:55.131953+00:00',)
+state vs limit: [(('converged', 'E<200000'), 1399), (('searching', 'E<200000'), 4), (('searching', 'E>=200000'), 637)]
+not searching, E bands: {'<10k': 1386, '10k-30k': 13}
+largest E not searching: (21346.576869249344,)
+smallest E searching: (19866.799416661263,)

@@ -5,11 +5,21 @@ same convention as test_tags.py/test_calibration.py.
 from __future__ import annotations
 
 import json
+import shutil
+import sqlite3
+import threading
+import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from typing import TypeVar
 
 import numpy as np
+import pytest
 
 from npec_rig.tags import TagDetection
+
+_Read = TypeVar("_Read")
 
 
 def square_detection(tag_id: int, cx: float, cy: float, side_px: float) -> TagDetection:
@@ -161,6 +171,11 @@ def stored_validation(
 # The benchmark plant's mint leaf colour, measured in the potato run still of 23 October 2026
 # 08:35:53 UTC (tests/test_segmentation.py).
 MINT_LEAF_RGB = (156, 228, 188)
+# The table round the tray, below grow from leaf cores' lower cutoff: the tray finder's outline takes
+# in a pixel of it, and JPEG ringing at the drawn tray's sharp corners leaves leaf-core pixels there
+# (121, 145, 109) that would grow along a table of greenness 0 (#373).
+TABLE_RGB = (110, 90, 90)  # greenness (180 - 200) / 290 = -0.069
+DARK_SOIL_RGB = (100, 70, 65)  # greenness (140 - 165) / 235 = -0.106: well below the floor, as production's soil (#373)
 # Tray plastic as the blue finder sees it (#331): OpenCV hue 110, saturation 204, value 200, inside
 # the sampled tray plastic (metrology log 20).
 TRAY_BLUE_RGB = (40, 90, 200)
@@ -176,9 +191,10 @@ def one_tray_plant_scene(monkeypatch) -> None:
 
     Tray 5's 40 mm tag (400 px) lies in cell A1 at the south-west of a blue tray drawn at x 115 to
     3165, y 554 to 4214 (305 x 366 mm) in a 4000 x 4400 photo, so the tray finder's outline is the
-    drawn tray (#331). The photo is grey with two 500 x 300 px rectangles
+    drawn tray (#331). The photo is the table colour (TABLE_RGB) with two 500 x 300 px rectangles
     of mint leaf colour, 50 x 30 mm = 1500 mm2 each: one inside the tray (x 1400 to 1900, y 2200 to
-    2500), one outside it (x 3400 to 3900). Saves the calibration as the fixture's, so photos taken
+    2500), one outside it (x 3400 to 3900); a patch of soil (x 1800 to 2800, y 3000 to 3600,
+greenness -0.106), so grow from leaf cores finds a soil level, as on a real tray. Saves the calibration as the fixture's, so photos taken
     after this are read with it.
     """
     import json
@@ -192,8 +208,9 @@ def one_tray_plant_scene(monkeypatch) -> None:
     class Scene(SyntheticBackend):
         def capture_full_res(self):
             frame, metadata = super().capture_full_res()
-            frame[:] = 128
+            frame[:] = TABLE_RGB
             draw_tray(frame, 115, 554, 3165, 4214)
+            frame[3000:3600, 1800:2800] = DARK_SOIL_RGB  # soil showing in the tray (#373)
             frame[2200:2500, 1400:1900] = MINT_LEAF_RGB
             frame[2200:2500, 3400:3900] = MINT_LEAF_RGB
             return frame, metadata
@@ -235,8 +252,8 @@ TABLE_CENTRES = {"NW": (150, 150), "NM": (450, 150), "NE": (750, 150), "SW": (15
                  "SE": (750, 450)}
 
 
-def table_calibration() -> None:
-    """Save calibration TABLE_STEM: 1 px/mm, its four corner tags at the corners above."""
+def table_calibration(px_per_mm: float = 1.0) -> None:
+    """Save calibration TABLE_STEM: `px_per_mm` (1 by default), its four corner tags at the corners above."""
     from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
     from npec_rig.calibration_store import save_calibration
     from npec_rig.tripwire import CornerBaseline
@@ -245,7 +262,7 @@ def table_calibration() -> None:
     save_calibration(
         CalibrationArtifact(
             created_at="2027-01-01T00:00:00+00:00", frame_stem=TABLE_STEM,
-            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": 1.0, "residual_std_pct": 0.0}),
+            scale_field=scale_field_from_dict({"coeffs": [1.0, 0.0, 0.0], "mean_px_per_mm": px_per_mm, "residual_std_pct": 0.0}),
             corner_baseline=CornerBaseline(corners_by_id={
                 i: ((x - 5, y - 5), (x + 5, y - 5), (x + 5, y + 5), (x - 5, y + 5)) for i, (x, y) in corners.items()
             }),
@@ -323,3 +340,199 @@ def banded_validation(session_id: str, bands: dict[str, tuple[tuple[float, float
     validation_store.refresh_results(session)
     validation_store.save_session(session)
     return session
+
+
+def export_built(client, experiment_id: int, choice: dict | None = None, timeout_s: float = 60) -> dict:
+    """Export through the page's route and wait, as the page does, until its data file is built
+    in the background (#437): the export with its parts."""
+    import time
+
+    started = client.post(f"/api/experiments/{experiment_id}/export", json=choice)
+    assert started.status_code == 200, started.text
+    export_id = started.json()["id"]
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        export = client.get(f"/api/exports/{export_id}").json()
+        if export["finished_at"]:
+            return export
+        time.sleep(0.02)
+    raise AssertionError(f"export {export_id} not built in {timeout_s} s")
+
+
+# --- Time lapse frames (#64) -----------------------------------------------------------------
+def turned_tray_photo(experiment_id: int, taken, tray_id: int = 4, calibration: str | None = None,
+                      others: tuple[int, ...] = ()) -> None:
+    """A 1000 x 1000 photo of tray 4 lying turned 180 degrees, at 2 px/mm: its 610 x 732 px outline
+    at x 100 to 710, y 100 to 832, its 4 x 5 cells read, a red patch on cell A1, a blue one on D5
+    (time lapse frames, #64). `taken` is a datetime. `others`: more tray IDs read in the same photo,
+    each with the same outline and cells, as one photo holds many trays (#503)."""
+    from PIL import Image
+
+    from npec_rig import captures, database
+
+    def cell(name: str, holds: str, x: float, y: float) -> dict:
+        return {"cell": name, "holds": holds, "centre_px": [x, y],
+                "corners_px": [[x - 60, y - 60], [x + 60, y - 60], [x + 60, y + 60], [x - 60, y + 60]],
+                "plant_px": 100, "area_mm2": 100.0, "over_other_cells": False}
+
+    def in_photo(ux: float, uy: float) -> tuple[float, float]:  # upright frame pixels to the photo
+        return 710 - ux, 832 - uy
+
+    cells = []
+    for i, col in enumerate("ABCD"):
+        for j in range(5):
+            x, y = in_photo((i + 0.5) * 152.5, 732 - (j + 0.5) * 146.4)
+            cells.append(cell(f"{col}{j + 1}", "tag" if (col, j) == ("A", 0) else "plant", x, y))
+    image = Image.new("RGB", (1000, 1000), (128, 128, 128))
+    a1, d5 = in_photo(76.25, 658.8), in_photo(533.75, 73.2)
+    image.paste((255, 0, 0), (int(a1[0]) - 20, int(a1[1]) - 20, int(a1[0]) + 20, int(a1[1]) + 20))
+    image.paste((0, 0, 255), (int(d5[0]) - 20, int(d5[1]) - 20, int(d5[0]) + 20, int(d5[1]) + 20))
+    day, stem = f"{taken:%Y-%m-%d}", f"{taken:%H%M%S}_{taken:%f}"
+    (captures.photos_root() / day).mkdir(parents=True, exist_ok=True)
+    image.save(captures.photos_root() / day / f"{stem}.jpg", quality=95)
+    capture_id = database.record_capture(
+        taken_at=taken.isoformat(), path=f"rig/{day}/{stem}", purpose="capture", experiment_id=experiment_id,
+        calibration=calibration, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+    database.record_tray_readings(capture_id, read_at=taken.isoformat(), status="read", trays=[{
+        "tray_id": tid, "slot": None, "a1_corner": "NE", "placement": "placed", "centre_px": [405, 466],
+        "tilt_deg": 180.0, "margin_mm": None, "found": "photo + tag", "warnings": [],
+        "outline_px": [[100, 100], [710, 100], [710, 832], [100, 832]], "area_mm2": 1000.0,
+        "segmenter": "green threshold, 0.1", "cells": cells,
+    } for tid in (tray_id, *others)])
+    database.record_exclusions([{"capture_id": capture_id, "name": None, "norm_e": None, "limit_fraction": None}],
+                               worked_out_at=taken.isoformat())
+
+
+# How long a test's own read of rig.db keeps trying while someone else is writing. 10 s is the
+# rig's real wait (settings.LOCK_WAIT_S): a read that cannot get in for that long is a stuck
+# database, not contention, and the test should say so.
+READ_RETRY_S = 10.0
+
+
+def read_rig_db(read: Callable[[], _Read]) -> _Read:
+    """`read()`, tried again for up to READ_RETRY_S while rig.db answers "database is locked".
+
+    For a read a test makes to see what the rig did, never for the rig's own work.
+
+    rig.db is in rollback-journal mode in these tests -- images.py switches it to WAL and the
+    scheduler never reaches images.py (measured: `PRAGMA journal_mode` reads "delete" in a
+    running scheduler test) -- and in that mode a reader waits for a writer that is committing.
+    A test that shortens settings.LOCK_WAIT_S to hurry the *rig's* writes along gives its own
+    reads that same short wait, because database._connect hands settings.LOCK_WAIT_S to every
+    connection it opens. So a read that lands on the scheduler committing a photo's row raises
+    with no lock held anywhere by anyone: that is what failed on the Arm64 CI runner, in
+    `captures_for_experiment: rig.db was locked, gave up after 0.0 s` (run 45954308830, #561).
+
+    Measured on the controller, one writer holding rig.db for part of every 50 ms against a
+    reader polling every 20 ms: with a 5 ms wait, a 3 ms hold raised nothing, a 6 ms hold raised
+    4.6% of reads, a 10 ms hold 14.7% and a 20 ms hold 33.8%. What a slower machine lengthens is
+    the hold, so no fixed wait is safe at every speed; this waits for the gap after the write
+    instead of guessing how long the write takes.
+    """
+    deadline = time.monotonic() + READ_RETRY_S
+    while True:
+        try:
+            return read()
+        except sqlite3.OperationalError as exc:
+            # "database is locked" is SQLITE_BUSY, someone else writing. "database table is
+            # locked" is SQLITE_LOCKED, a mistake in the code, and is left to raise.
+            if "database is locked" not in str(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.005)
+
+
+@contextmanager
+def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, readers_too: bool = False) -> Iterator[None]:
+    """Another connection holds rig.db's write lock for `seconds`, or until `until` is set, as
+    Reprocess or a purge does (#439). With `readers_too`, reads wait as well (the lock at a commit)."""
+    from npec_rig import database
+    from npec_rig.settings import db_path
+
+    # The file exists and is migrated before the lock is taken. Retried: it runs with whatever
+    # short wait the caller has patched in, and the rig may be writing (#561).
+    read_rig_db(database.list_experiments)
+    taken = threading.Event()
+    failed: list[BaseException] = []
+
+    def hold() -> None:
+        conn = sqlite3.connect(db_path(), isolation_level=None)
+        held = False
+        try:
+            if readers_too:
+                # rig.db is in WAL mode (images.py), where nothing blocks a reader: the rollback
+                # journal does. The switch fails (the mode stays "wal") while another connection is open.
+                mode = conn.execute("PRAGMA journal_mode=DELETE").fetchone()[0]
+                if mode != "delete":
+                    raise RuntimeError(f"rig.db stayed in journal mode {mode!r}: another connection is open")
+            conn.execute("BEGIN EXCLUSIVE" if readers_too else "BEGIN IMMEDIATE")
+            held = True
+            taken.set()
+            if until is None:
+                time.sleep(seconds)
+            else:
+                until.wait(seconds)
+        except BaseException as exc:
+            failed.append(exc)
+            taken.set()
+        finally:
+            try:
+                if held:
+                    conn.execute("COMMIT")
+            finally:
+                try:
+                    if readers_too:
+                        for _ in range(50):  # another connection may still be closing
+                            back = conn.execute("PRAGMA journal_mode=WAL").fetchone()[0]  # always back, whatever happened
+                            if back == "wal":
+                                break
+                            time.sleep(0.1)
+                        if back != "wal":
+                            failed.append(RuntimeError(f"rig.db stayed in journal mode {back!r} after the lock"))
+                finally:
+                    conn.close()
+
+    thread = threading.Thread(target=hold)
+    thread.start()
+    if not taken.wait(5):
+        raise RuntimeError("the rig.db lock was not taken within 5 s")
+    if failed:
+        thread.join()
+        raise failed[0]
+    try:
+        yield
+    finally:
+        thread.join()  # the holder ends when `until` is set or after `seconds`, so this always returns
+        if failed:
+            raise failed[0]
+
+
+# --- Time lapse videos as other jobs see them (#503) ----------------------------------------------
+# Every real video needs ffmpeg on PATH; without it the test is skipped, not failed.
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
+
+
+def video_held(experiment_id: int, monkeypatch: pytest.MonkeyPatch, tmp_path) -> tuple[str, Path]:
+    """Start a real time lapse video of the experiment, its child held before its first frame
+    until the file returned is created (timelapse.TEST_HOLD_ENV): its id and that file."""
+    from datetime import datetime, timedelta, timezone
+
+    from npec_rig import timelapse
+
+    release = tmp_path / "release-video"
+    monkeypatch.setenv(timelapse.TEST_HOLD_ENV, str(release))
+    now = datetime.now(timezone.utc)
+    video = timelapse.start({"experiment_id": experiment_id, "tray_id": 4, "start": (now - timedelta(hours=1)).isoformat(),
+                             "end": now.isoformat(), "per_hour": 1, "method": "fixed"})
+    return video["id"], release
+
+
+def video_done(timeout_s: float = 60) -> None:
+    """Wait until no time lapse video is being made (timelapse.being_made)."""
+    from npec_rig import timelapse
+
+    deadline = time.monotonic() + timeout_s
+    while timelapse.being_made() is not None:
+        assert time.monotonic() < deadline, "the video was not done in time"
+        time.sleep(0.05)

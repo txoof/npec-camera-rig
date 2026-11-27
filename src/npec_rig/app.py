@@ -1,7 +1,6 @@
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -18,13 +17,14 @@ from npec_rig.calibration_store import (
 )
 from npec_rig.camera import CameraFaultError, CameraManager
 from npec_rig.captures import experiments_root, photos_root, record_app_start, record_app_stop
-from npec_rig import database, images, tags
+from npec_rig import exports, images, tags, timelapse
 from npec_rig.photo_tags import CaptureNotFoundError, CaptureRefError, FrameMissingError
 from npec_rig.validation import RoundNotFoundError, ValidationRefusedError
 from npec_rig.scheduler import Scheduler
+from npec_rig import tray_readings
 from npec_rig.tray_readings import TrayReader
 from npec_rig.validation_store import SessionNotFoundError
-from npec_rig.routes import about, calibration, experiments, focus, gallery, photo_quality, randomize, shell, validation
+from npec_rig.routes import about, calibration, data, experiments, focus, gallery, photo_quality, randomize, shell, validation
 
 STATIC_DIR = Path(__file__).parent / "static"
 # The printable sheets themselves (reference/calibration-sheets/), not app code -- served so the
@@ -44,7 +44,15 @@ async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # The gap since the last tick is measured at start, before any photo (captures.py).
     record_app_start()
     # An export cut off by the previous stop can never finish (exports.py).
-    database.fail_unfinished_exports(now=datetime.now(timezone.utc).isoformat())
+    exports.fail_unfinished_exports()
+    # A Reprocess cut off by the previous stop is marked interrupted, never resumed (#483).
+    tray_readings.mark_interrupted_reprocesses()
+    # Videos are kept only until downloaded; one cut off by the stop can never finish (#64). A
+    # failure here costs only disk space, never the app's start (#503).
+    try:
+        timelapse.clear()
+    except Exception:  # noqa: BLE001 -- logged; the camera and the photos come first
+        logger.exception("Time lapse videos cut off by the last stop could not be removed")
     photo_scheduler = Scheduler()
     photo_scheduler.start()
     # Reads each photo for its trays after it is saved (#222).
@@ -156,3 +164,4 @@ app.include_router(validation.router)
 app.include_router(randomize.router)
 app.include_router(photo_quality.router)
 app.include_router(about.router)
+app.include_router(data.router)

@@ -1,13 +1,12 @@
 {# Shared by setup_focus.html and the calibration wizard's Step 2: one copy of the live and
-   magnified views, the focus and exposure controls, the Camera settings panel, the About page and
-   their JS. Laid out as mockup 7 (#136): everything fits 1024x600 without scrolling.
+   magnified views, the focus controls, the About page and their
+   JS. Laid out as mockup 7 (#136): everything fits 1024x600 without scrolling.
 
    Context variables, set only by the Focus and Square page, which adds its Square mode around
    this partial: about_title (default "Step 2: Lock focus"), about_more_todo, about_more_controls,
    about_end_with_next (default true: the last step is "Press Next").
 
-   The page places the About button for "about-focus" in its head and binds it (ui.bindAbout),
-   and places the Camera settings button (id camera-settings-btn), which initFocusControls binds. #}
+   The page places the About button for "about-focus" in its head and binds it (ui.bindAbout). #}
 {% import "_ui.html" as ui %}
 <div class="focus-cols" id="focus-cols">
   <div class="focus-col">
@@ -31,14 +30,6 @@
       <span class="lens-error" id="lens-error"></span>
       {{ ui.button("Reset camera", id="camera-reset-btn") }}
     </div>
-    {#- While Auto exposure is on, the camera sets exposure and gain: their steppers are hidden
-        and the values it is using are shown beside the button instead. -#}
-    <div class="focus-row">
-      {{ ui.button("Auto exposure", id="auto-exposure", icon_name="ok", attrs={"aria-pressed": "false"}) }}
-      <span class="auto-values" id="auto-values" hidden></span>
-    </div>
-    <div class="focus-row" id="exposure-row">{{ ui.stepper("exposure", "Exposure", "", "ms", 0.1, 1000, 1, 3, tight=true) }}</div>
-    <div class="focus-row" id="gain-row">{{ ui.stepper("gain", "Gain", "", "x", 1, 16, 1, 2, tight=true) }}</div>
   </div>
   <div class="focus-col focus-crop-col">
     <div class="live-view">
@@ -55,7 +46,7 @@
 {% set focus_todo = [
   "Tap the [Live view] on the area you want sharp. The [Magnified view] shows that area.",
   "Press [Autofocus], or set the lens yourself with [Coarse] and [Fine] while watching the magnified view.",
-  "Check the image is neither too dark nor washed out. Turn off [Auto exposure] if needed, then change [Exposure] first and [Gain] only if needed.",
+  "Check the image is neither too dark nor washed out. Exposure and gain are on the Setup page, under Rig settings.",
   "When the magnified view is as sharp as it gets, press [Lock focus].",
 ] %}
 {% set focus_controls = [
@@ -68,10 +59,8 @@
   ("Fine", "Added to Coarse, 0 to 0.99 dpt. Minus and plus move 0.05, and stop at 0 and 0.99: for the next whole dioptre, use Coarse. Use it for the last bit of sharpness."),
   ("Focus peaking", "Marks sharp edges in the magnified view in magenta. Denser marks mean sharper focus. Use it with the sharpness number, not instead of it."),
   ("Sharpness trace", "The line under the live view: the sharpness number over the last 18 seconds, highest at the top. Move the lens until the line peaks."),
-  ("Exposure", "How long the sensor collects light for one photo. Each press is one third of a camera stop, about 1.26 times the light, shown as a shutter speed such as 1/125 s. Tap the value to type any time in milliseconds: 1 ms is 1/1000 s, so 4 ms is 1/250 s."),
-  ("Gain", "Brightens the image in the sensor, like a camera's ISO. 1 is the sensor's own sensitivity and 2 is twice as bright. More gain means more noise, so prefer a longer exposure. Each press is one third of a stop (1, 1.25, 1.6, 2 and so on); tap the value to type any multiplier."),
-  ("Auto exposure", "Lets the camera choose exposure and gain. While it is on, the Exposure and Gain controls are hidden and the values the camera is using are shown beside the button, read every 2 seconds. Turn it off to keep those values and set them yourself."),
-  ("Camera settings", "Opens the settings changed less often: Auto white balance, which lets the camera correct the color of the light."),
+  ("Auto exposure, Exposure and Gain", "Auto exposure, Exposure and Gain are on the Setup page, under Rig settings."),
+  ("White balance", "Auto white balance is on the Setup page, under Rig settings."),
 ] %}
 {#- The Focus and Square page adds its Square mode's steps and controls (about_more_todo,
     about_more_controls) and sets about_end_with_next to false; the wizard ends with Next. -#}
@@ -180,209 +169,14 @@
       });
     }
 
-    // --- Exposure and gain: steppers in 1/3 stops, with Auto ---
-    const AE_DEPENDENT_CONTROL_NAMES = ["ExposureTime", "AnalogueGain"];
-    const exposureStepper = $("exposure");
-    const gainStepper = $("gain");
-    const exposureField = $("exposure-value");
-    const gainField = $("gain-value");
-    const autoBtn = $("auto-exposure");
-
-    // DSLR 1/3-stop series, as the camera shows them (Aaron, 2026-10-08). Each step sends the
-    // labelled value exactly (1/125 is 8000 us); the camera then reports the nearest value its
-    // sensor can make (for example 7998 us).
-    const EXPOSURE_STOP_LABELS = [
-      "1/6400", "1/5000", "1/4000", "1/3200", "1/2500", "1/2000", "1/1600", "1/1250", "1/1000",
-      "1/800", "1/640", "1/500", "1/400", "1/320", "1/250", "1/200", "1/160", "1/125", "1/100",
-      "1/80", "1/60", "1/50", "1/40", "1/30", "1/25", "1/20", "1/15", "1/13", "1/10", "1/8",
-      "1/6", "1/5", "1/4", "0.3", "0.4", "0.5", "0.6", "0.8", "1",
-    ];
-    const EXPOSURE_STOPS_US = EXPOSURE_STOP_LABELS.map((label) => {
-      const [num, den] = label.includes("/") ? label.split("/").map(Number) : [Number(label), 1];
-      return Math.round((num / den) * 1e6);
-    });
-    const GAIN_STOPS = [
-      1, 1.25, 1.6, 2, 2.5, 3.2, 4, 5, 6.4, 8, 10, 12.5, 16, 20, 25, 32, 40, 50, 64,
-    ];
-    // The steppers' stops, in the fields' units (ms and x), cut to the camera's range in
-    // loadControls(). Filled in place: the steppers hold these same arrays.
-    const exposureStops = [];
-    const gainStops = [];
-    const usToMs = (us) => Number((us / 1000).toFixed(3));
-    const msToUs = (ms) => Math.round(ms * 1000);
-
-    // A value read back from the camera within this share of a step is shown with that step's
-    // label: the sensor rounds to its own line time (8000 us comes back as 7998).
-    const STOP_LABEL_TOLERANCE = 0.02;
-
-    function nearestStopIndex(stops, value) {
-      // Nearest on a ratio scale, since the stops are equal ratios apart.
-      if (!(value > 0)) return 0;
-      let best = 0;
-      stops.forEach((stop, i) => {
-        if (Math.abs(Math.log(stop / value)) < Math.abs(Math.log(stops[best] / value))) best = i;
-      });
-      return best;
-    }
-
-    // What Auto exposure is using, beside its button: text only, never a button redrawn.
-    const autoValues = $("auto-values");
-    const shownValues = { exposure: "", gain: "" };
-    function paintAutoValues() {
-      autoValues.textContent = [shownValues.exposure, shownValues.gain].filter(Boolean).join(", gain ");
-    }
-
-    function showExposure(us) {
-      if (us === null || us === undefined) return;
-      const stop = nearestStopIndex(EXPOSURE_STOPS_US, us);
-      const onStop = Math.abs(us / EXPOSURE_STOPS_US[stop] - 1) <= STOP_LABEL_TOLERANCE;
-      // The shutter speed when the value is on a stop, else milliseconds; the keypad takes ms.
-      shownValues.exposure = onStop ? `${EXPOSURE_STOP_LABELS[stop]} s` : `${usToMs(us)} ms`;
-      ui.showField(exposureField, String(usToMs(us)), shownValues.exposure, "");
-      paintAutoValues();
-    }
-
-    function showGain(gain) {
-      if (gain === null || gain === undefined) return;
-      const value = String(Number(Number(gain).toFixed(2)));
-      shownValues.gain = `${value}x`;
-      ui.showField(gainField, value);
-      paintAutoValues();
-    }
-
-    const SHOW = { ExposureTime: showExposure, AnalogueGain: showGain };
-
-    async function postControl(name, value) {
-      return fetch(`/controls/${name}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value }),
-      });
-    }
-
-    // Sends the latest value only: a value that arrives while one is in flight replaces any
-    // waiting one and is sent when that finishes, so the last value is never dropped, also after
-    // a failed request. A refused or failed value reloads the controls, so they never show a
-    // setting the camera is not using.
-    function latestOnlySender(name) {
-      let sending = false;
-      let waiting = null;
-      async function send(value) {
-        if (sending) { waiting = value; return; }
-        sending = true;
-        let refused = false;
-        try {
-          const response = await postControl(name, value);
-          if (!response.ok) {
-            refused = true;
-          } else {
-            // The camera ignores exposure and gain while auto exposure is on (another tab may
-            // have turned it on): show the controls as the camera has them.
-            const values = await response.json();
-            refused = AE_DEPENDENT_CONTROL_NAMES.includes(name) && values.AeEnable === true;
-          }
-        } catch (err) {
-          refused = true;
-        } finally {
-          sending = false;
-        }
-        if (waiting !== null) {
-          const next = waiting;
-          waiting = null;
-          send(next);
-        } else if (refused) {
-          loadControls().catch(() => {});
-        }
-      }
-      return send;
-    }
-    const sendExposure = latestOnlySender("ExposureTime");
-    const sendGain = latestOnlySender("AnalogueGain");
-
-    function showAuto(on) {
-      autoBtn.setAttribute("aria-pressed", String(on));
-      $("exposure-row").hidden = on;
-      $("gain-row").hidden = on;
-      autoValues.hidden = !on;
-    }
-    const autoOn = () => autoBtn.getAttribute("aria-pressed") === "true";
-
-    // While Auto is on, re-read what the camera is really using, so the greyed-out values are
-    // never stale (Aaron, 2026-10-08). One request at a time, and none from a hidden tab or step:
-    // each one waits for a camera frame. Only the two values are redrawn, never a button.
-    const AUTO_REFRESH_MS = 2000;
-    let autoRefreshInFlight = false;
-    async function refreshAutoValues() {
-      if (!autoOn() || document.hidden || !isActiveStep(step) || autoRefreshInFlight) return;
-      autoRefreshInFlight = true;
-      try {
-        const data = await (await fetch("/controls")).json();
-        if (!autoOn()) return;
-        AE_DEPENDENT_CONTROL_NAMES.forEach((name) => SHOW[name](data.values[name]));
-      } catch (err) {
-        // The next refresh tries again.
-      } finally {
-        autoRefreshInFlight = false;
-      }
-    }
-
-    // --- Camera settings panel: every on/off setting /controls reports that is not on the page ---
-    const CONTROL_LABELS = { AwbEnable: "Auto white balance" };
-    const CONTROL_HELP = { AwbEnable: "Lets the camera correct the color of the light." };
-    const ON_PAGE = ["LensPosition", "ExposureTime", "AnalogueGain", "AeEnable"];
-    let lastControls = { available: {}, values: {} };
-
-    function openCameraSettings() {
-      const names = Object.keys(lastControls.available).filter((name) =>
-        !ON_PAGE.includes(name) && typeof lastControls.available[name][0] === "boolean");
-      const p = ui.infoPanel({
-        title: "Camera settings",
-        sub: "Settings changed less often. Exposure, Gain and Auto exposure are under the live view.",
-        body: `<div class="stack" style="max-width: 560px;">${names.map((name) => {
-          const on = Boolean(lastControls.values[name]);
-          return `<button type="button" class="switch hit" role="switch" data-control="${ui.esc(name)}" aria-checked="${on}">
-            <span class="track"></span><span class="txt"><strong>${ui.esc(CONTROL_LABELS[name] || name)} <span class="state">${on ? "On" : "Off"}</span></strong>
-            ${CONTROL_HELP[name] ? `<span>${ui.esc(CONTROL_HELP[name])}</span>` : ""}</span></button>`;
-        }).join("") || '<p class="lead">This camera reports no other settings.</p>'}</div>`,
-      });
-      p.querySelectorAll("[data-control]").forEach((sw) => ui.bindSwitch(sw, async (on) => {
-        const name = sw.dataset.control;
-        const r = await postControl(name, on).catch(() => null);
-        if (r && r.ok) {
-          lastControls.values = await r.json();
-        } else {
-          ui.toast(`${CONTROL_LABELS[name] || name} could not be changed`);
-          ui.setSwitch(sw, !on);
-        }
-      }));
-    }
-
     async function loadControls() {
       const data = await (await fetch("/controls")).json();
-      lastControls = data;
       const { available, values } = data;
       if (available.LensPosition) {
         [LENS_MIN, LENS_MAX] = available.LensPosition;
         coarseField.dataset.min = LENS_MIN;
         coarseField.dataset.max = LENS_MAX;
       }
-      if (available.ExposureTime) {
-        const [min, max] = available.ExposureTime;
-        exposureField.dataset.min = usToMs(min);
-        exposureField.dataset.max = usToMs(max);
-        exposureStops.splice(0, Infinity, ...EXPOSURE_STOPS_US.filter((us) => us >= min && us <= max).map(usToMs));
-      }
-      if (available.AnalogueGain) {
-        const [min, max] = available.AnalogueGain;
-        gainField.dataset.min = min;
-        gainField.dataset.max = max;
-        gainStops.splice(0, Infinity, ...GAIN_STOPS.filter((g) => g >= min && g <= max));
-      }
-      showExposure(values.ExposureTime);
-      showGain(values.AnalogueGain);
-      showAuto(Boolean(values.AeEnable));
-      autoBtn.hidden = !("AeEnable" in available);
-      if (autoBtn.hidden) showAuto(false);
     }
 
     // --- ROI selection: tap the live view to place the focus area ---
@@ -516,16 +310,6 @@
         }
       });
 
-      ui.bindStepper(exposureStepper, (ms) => {
-        const us = msToUs(Number(ms));
-        showExposure(us);
-        sendExposure(us);
-      }, { stops: exposureStops });
-      ui.bindStepper(gainStepper, (gain) => {
-        showGain(gain);
-        sendGain(Number(gain));
-      }, { stops: gainStops });
-
       // A whole number from minus, plus or the keypad keeps Fine; a typed "6.8" sets both.
       ui.bindStepper(coarseStepper, (v) => {
         const n = Number(v);
@@ -536,34 +320,6 @@
         applyLensPosition(Math.floor(Number(coarseField.dataset.value)) + Number(v));
         moveLens();
       });
-
-      autoBtn.addEventListener("click", () => {
-        const on = !autoOn();
-        showAuto(on);
-        const posted = postControl("AeEnable", on);
-        if (on) {
-          // Refused or failed: show the controls as the camera has them.
-          posted
-            .then((response) => { if (!response.ok) return loadControls(); })
-            .catch(() => loadControls().catch(() => {}));
-        } else {
-          // Auto off: keep the values the camera was just using, sent as the manual values, so
-          // the page, the camera and the values restored after a photo agree.
-          posted
-            .then((response) => (response.ok ? response.json() : null))
-            .then((values) => {
-              if (!values) return loadControls();
-              AE_DEPENDENT_CONTROL_NAMES.forEach((name) => {
-                const v = values[name];
-                if (v === null || v === undefined) return;
-                SHOW[name](v);
-                postControl(name, v);
-              });
-            })
-            .catch(() => loadControls().catch(() => {}));
-        }
-      });
-      setInterval(refreshAutoValues, AUTO_REFRESH_MS);
 
       // Load the real control ranges (including LensPosition's) before applying any current
       // value, so a value near the edge of a since-changed range is not clamped by a stale one.
@@ -666,10 +422,6 @@
         refreshFocusStatus();
       });
       refreshFocusStatus();
-
-      // --- Camera settings, opened from the page head. The page binds its own About button. ---
-      const settingsBtn = $("camera-settings-btn");
-      if (settingsBtn) settingsBtn.addEventListener("click", openCameraSettings);
     });
 
     return { updateLiveResources, refreshFocusStatus };

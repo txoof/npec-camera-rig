@@ -1,0 +1,1537 @@
+
+=== 2026-11-27T08:57:05Z preflight ===
+Running experiment: #4 'Dario  13 Emergence', a photo every 5 min, 238 photos since the last start, next at 09:01:13Z
+Newest photo: 08:56:30Z (09:56 chamber), 0.6 min ago. Lights: ON.
+Calibration 20261113T080210445944, validation 20261113T080345991857, lens 5.75, focus locked True
+Trays read in it: [8, 9, 11, 12, 25, 29, 33, 36, 49, 50, 51, 55]   NOTE: experiment 4's trays were [8, 9, 11, 12, 25, 51]; the layouts name them as X8 ... X51
+App version: bfb5de2 Cut the unit suite from 83 s to 47 s in parallel and 254 s to 151 s serially, no test removed (#547) (#563) | disk: 76G 33% free of 117G | service: active
+Issues holding the hardware label: none
+READY
+
+=== 2026-11-27T08:57:10Z look --photos 3 ===
+Experiment #4 'Dario  13 Emergence'. Layout 1 (automatic: before the swap note). Looking at the newest 3 photos.
+
+08:56:30Z (09:56 chamber)  12 trays read  [2026-11-27T085630_592807]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,381 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (458 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+08:56:15Z (09:56 chamber)  12 trays read  [2026-11-27T085615_804193]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,373 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (453 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+08:51:15Z (09:51 chamber)  6 trays read  [2026-11-27T085115_807618]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 3 cells where grown and fixed areas disagree (2,155 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (481 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  => DIFFERS: tray 55 (A, N1) not read; tray 29 (B, N2) not read; tray 49 (C, N3) not read; tray 36 (D, N6) not read; tray 50 (E, S3) not read; tray 33 (F, S6) not read
+
+SUMMARY: 2 of 3 photos match layout 1 exactly (CHECK PASSES if every photo since the last move is among them).
+
+=== 2026-11-27T08:57:35Z look --photos 5 ===
+Experiment #4 'Dario  13 Emergence'. Layout 1 (automatic: before the swap note). Looking at the newest 5 photos.
+
+08:57:16Z (09:57 chamber)  not read for trays yet (wait a minute and run again)
+
+08:57:11Z (09:57 chamber)  not read for trays yet (wait a minute and run again)
+
+08:56:30Z (09:56 chamber)  12 trays read  [2026-11-27T085630_592807]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,381 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (458 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+08:56:15Z (09:56 chamber)  12 trays read  [2026-11-27T085615_804193]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,373 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (453 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+08:51:15Z (09:51 chamber)  6 trays read  [2026-11-27T085115_807618]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 3 cells where grown and fixed areas disagree (2,155 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (481 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  => DIFFERS: tray 55 (A, N1) not read; tray 29 (B, N2) not read; tray 49 (C, N3) not read; tray 36 (D, N6) not read; tray 50 (E, S3) not read; tray 33 (F, S6) not read
+
+SUMMARY: 2 of 5 photos match layout 1 exactly (CHECK PASSES if every photo since the last move is among them).
+
+=== 2026-11-27T08:58:04Z look --photos 5 ===
+Experiment #4 'Dario  13 Emergence'. Layout 1 (automatic: before the swap note). Looking at the newest 5 photos.
+
+08:57:16Z (09:57 chamber)  12 trays read  [2026-11-27T085716_656053]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,361 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (451 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+08:57:11Z (09:57 chamber)  12 trays read  [2026-11-27T085711_665399]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,363 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (449 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+08:56:30Z (09:56 chamber)  12 trays read  [2026-11-27T085630_592807]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,381 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (458 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+08:56:15Z (09:56 chamber)  12 trays read  [2026-11-27T085615_804193]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,373 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (453 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+08:51:15Z (09:51 chamber)  6 trays read  [2026-11-27T085115_807618]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 3 cells where grown and fixed areas disagree (2,155 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (481 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  => DIFFERS: tray 55 (A, N1) not read; tray 29 (B, N2) not read; tray 49 (C, N3) not read; tray 36 (D, N6) not read; tray 50 (E, S3) not read; tray 33 (F, S6) not read
+
+SUMMARY: 4 of 5 photos match layout 1 exactly (CHECK PASSES if every photo since the last move is among them).
+2026-11-27T09:01:39Z NOTE swap done by Aaron, 3 hand-taken photos after
+
+=== 2026-11-27T09:03:41Z look --photos 6 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 6 photos.
+
+09:03:14Z (10:03 chamber)  12 trays read  [2026-11-27T090314_901769]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,363 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (455 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 2 photos missed)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:02:43Z (10:02 chamber)  12 trays read  [2026-11-27T090243_134112]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,368 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (484 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 1 photos missed)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:01:27Z (10:01 chamber)  12 trays read  [2026-11-27T090127_661314]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,359 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (475 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+09:01:23Z (10:01 chamber)  12 trays read  [2026-11-27T090123_154369]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,361 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (470 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+09:01:18Z (10:01 chamber)  12 trays read  [2026-11-27T090118_294914]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,364 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (467 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+09:01:18Z (10:01 chamber)  12 trays read  [2026-11-27T090118_293174]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,355 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (470 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  MOVED since the previous photo: tray 33 SE to SM
+  MOVED since the previous photo: tray 50 SM to SE
+  => PASS: all 12 trays as planned
+
+SUMMARY: 4 of 6 photos match layout 2 exactly (CHECK PASSES if every photo since the last move is among them).
+
+=== 2026-11-27T09:03:48Z look --photos 7 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 7 photos.
+
+09:03:14Z (10:03 chamber)  12 trays read  [2026-11-27T090314_901769]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,363 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (455 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 2 photos missed)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:02:43Z (10:02 chamber)  12 trays read  [2026-11-27T090243_134112]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,368 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (484 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 1 photos missed)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:01:27Z (10:01 chamber)  12 trays read  [2026-11-27T090127_661314]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,359 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (475 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+09:01:23Z (10:01 chamber)  12 trays read  [2026-11-27T090123_154369]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,361 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (470 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+09:01:18Z (10:01 chamber)  12 trays read  [2026-11-27T090118_294914]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,364 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (467 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => PASS: all 12 trays as planned
+
+09:01:18Z (10:01 chamber)  12 trays read  [2026-11-27T090118_293174]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,355 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (470 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  MOVED since the previous photo: tray 33 SE to SM
+  MOVED since the previous photo: tray 50 SM to SE
+  => PASS: all 12 trays as planned
+
+08:57:16Z (09:57 chamber)  12 trays read  [2026-11-27T085716_656053]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,361 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (451 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SE  A1 SW (rot 0)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SM  A1 NE (rot 180)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  => DIFFERS: tray 33 in SE, planned S3 = SM; tray 33 turned 0, planned 180; tray 50 in SM, planned S6 = SE; tray 50 turned 180, planned 0
+
+SUMMARY: 4 of 7 photos match layout 2 exactly (CHECK PASSES if every photo since the last move is among them).
+2026-11-27T09:04:13Z NOTE level 0 (clear plastic, no marker) on tag 49 from about 09:02: tag not read in photos 09:02:43 and 09:03:14, glare per Aaron; plastic ruled out as cover, matte paper to be used
+2026-11-27T09:07:09Z NOTE plastic off tag 49, then preparing 10 percent piece (Aaron)
+
+=== 2026-11-27T09:07:35Z look --photos 6 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 6 photos.
+
+09:06:48Z (10:06 chamber)  12 trays read  [2026-11-27T090648_508123]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,366 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:06:44Z (10:06 chamber)  12 trays read  [2026-11-27T090644_035297]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,356 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (473 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:06:15Z (10:06 chamber)  12 trays read  [2026-11-27T090615_802117]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,369 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (470 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 3 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:03:14Z (10:03 chamber)  12 trays read  [2026-11-27T090314_901769]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,363 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (455 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 2 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:02:43Z (10:02 chamber)  12 trays read  [2026-11-27T090243_134112]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,368 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (484 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 1 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:01:27Z (10:01 chamber)  12 trays read  [2026-11-27T090127_661314]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,359 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (475 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+SUMMARY: 3 of 6 photos match layout 2 exactly (CHECK PASSES if every photo since the last move is among them).
+2026-11-27T09:08:16Z NOTE 10 percent piece on tag 49, 3 captures (Aaron), preparing 25 percent
+
+=== 2026-11-27T09:09:18Z look --photos 5 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 5 photos.
+
+09:08:49Z (10:08 chamber)  not read for trays yet (wait a minute and run again)
+
+09:08:44Z (10:08 chamber)  12 trays read  [2026-11-27T090844_809468]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,360 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (482 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 4 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:08:39Z (10:08 chamber)  not read for trays yet (wait a minute and run again)
+
+09:07:44Z (10:07 chamber)  12 trays read  [2026-11-27T090744_032232]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,370 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 3 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:07:39Z (10:07 chamber)  12 trays read  [2026-11-27T090739_512978]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,374 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (474 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 2 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+SUMMARY: 0 of 5 photos match layout 2 exactly (none match).
+2026-11-27T09:09:31Z NOTE 25 percent piece on tag 49 captured about 10:08 local (Aaron), preparing 50 percent
+
+=== 2026-11-27T09:09:57Z look --photos 9 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 9 photos.
+
+09:08:49Z (10:08 chamber)  12 trays read  [2026-11-27T090849_551263]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,362 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 2 cells where grown and fixed areas disagree (584 mm² in total). Usually an empt
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 6 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:08:44Z (10:08 chamber)  12 trays read  [2026-11-27T090844_809468]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,360 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (482 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 5 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:08:39Z (10:08 chamber)  12 trays read  [2026-11-27T090839_931911]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,359 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 4 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:07:44Z (10:07 chamber)  12 trays read  [2026-11-27T090744_032232]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,370 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 3 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:07:39Z (10:07 chamber)  12 trays read  [2026-11-27T090739_512978]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,374 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (474 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 2 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:07:35Z (10:07 chamber)  12 trays read  [2026-11-27T090735_442587]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,375 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (474 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 1 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:06:48Z (10:06 chamber)  12 trays read  [2026-11-27T090648_508123]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,366 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:06:44Z (10:06 chamber)  12 trays read  [2026-11-27T090644_035297]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,356 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (473 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:06:15Z (10:06 chamber)  12 trays read  [2026-11-27T090615_802117]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,369 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (470 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 3 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+SUMMARY: 2 of 9 photos match layout 2 exactly (CHECK PASSES if every photo since the last move is among them).
+2026-11-27T09:11:10Z NOTE 50 percent piece on tag 49 captured 3x, done 10:11 local (Aaron), preparing 100 percent
+
+=== 2026-11-27T09:12:12Z look --photos 5 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 5 photos.
+
+09:11:15Z (10:11 chamber)  12 trays read  [2026-11-27T091115_875194]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,363 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (484 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 11 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:58Z (10:10 chamber)  12 trays read  [2026-11-27T091058_096309]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,373 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (481 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 10 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:53Z (10:10 chamber)  not read for trays yet (wait a minute and run again)
+
+09:10:49Z (10:10 chamber)  not read for trays yet (wait a minute and run again)
+
+09:10:09Z (10:10 chamber)  12 trays read  [2026-11-27T091009_614178]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,354 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 9 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+SUMMARY: 0 of 5 photos match layout 2 exactly (none match).
+2026-11-27T09:12:41Z NOTE 10 percent piece repeated on tag 49 at a different location on the tag, completed 10:12 local (Aaron)
+
+=== 2026-11-27T09:13:49Z look --photos 8 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 8 photos.
+
+09:12:25Z (10:12 chamber)  12 trays read  [2026-11-27T091225_872207]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,361 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 16 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:12:21Z (10:12 chamber)  12 trays read  [2026-11-27T091221_731444]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,366 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (471 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 15 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:12:17Z (10:12 chamber)  12 trays read  [2026-11-27T091217_412376]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,375 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (478 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 14 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:11:15Z (10:11 chamber)  12 trays read  [2026-11-27T091115_875194]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,363 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (484 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 13 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:58Z (10:10 chamber)  12 trays read  [2026-11-27T091058_096309]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,373 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (481 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 12 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:53Z (10:10 chamber)  12 trays read  [2026-11-27T091053_731844]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,375 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (487 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 11 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:49Z (10:10 chamber)  12 trays read  [2026-11-27T091049_010511]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,368 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (471 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 10 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:09Z (10:10 chamber)  12 trays read  [2026-11-27T091009_614178]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,354 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 9 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+SUMMARY: 0 of 8 photos match layout 2 exactly (none match).
+2026-11-27T09:13:57Z NOTE Aaron: 10 percent repeat done 10:13 local, 100 percent done 10:11 local, all covers removed, dwell test proceeding
+
+=== 2026-11-27T09:13:59Z look --photos 12 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 12 photos.
+
+09:12:25Z (10:12 chamber)  12 trays read  [2026-11-27T091225_872207]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,361 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 16 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:12:21Z (10:12 chamber)  12 trays read  [2026-11-27T091221_731444]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,366 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (471 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 15 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:12:17Z (10:12 chamber)  12 trays read  [2026-11-27T091217_412376]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,375 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (478 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 14 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:11:15Z (10:11 chamber)  12 trays read  [2026-11-27T091115_875194]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,363 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (484 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 13 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:58Z (10:10 chamber)  12 trays read  [2026-11-27T091058_096309]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,373 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (481 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 12 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:53Z (10:10 chamber)  12 trays read  [2026-11-27T091053_731844]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,375 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (487 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 11 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:49Z (10:10 chamber)  12 trays read  [2026-11-27T091049_010511]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,368 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (471 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 10 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:09Z (10:10 chamber)  12 trays read  [2026-11-27T091009_614178]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,354 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (477 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 9 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:05Z (10:10 chamber)  12 trays read  [2026-11-27T091005_481655]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,356 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (478 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 8 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:10:00Z (10:10 chamber)  12 trays read  [2026-11-27T091000_591306]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,359 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (475 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 7 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:08:49Z (10:08 chamber)  12 trays read  [2026-11-27T090849_551263]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,362 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 2 cells where grown and fixed areas disagree (584 mm² in total). Usually an empt
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 6 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+09:08:44Z (10:08 chamber)  12 trays read  [2026-11-27T090844_809468]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,360 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (482 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 5 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+SUMMARY: 0 of 12 photos match layout 2 exactly (none match).
+2026-11-27T09:15:32Z NOTE Aaron: first 10 percent piece may have been larger than 10 percent; will retry a smaller one after the dwell test
+2026-11-27T10:02:10Z NOTE Cover pieces measured by Aaron (X x Y mm): 10% piece 13.99x10.65 mm = 149 mm2 = 9.3% of a 40x40 mm tag; 25% piece 21.29x20.8 mm = 443 mm2 = 27.7% of a 40x40 mm tag; 50% piece 31.92x29.64 mm = 946 mm2 = 59.1% of a 40x40 mm tag; 100% piece 40.45x39.36 mm = 1592 mm2 = 99.5% of a 40x40 mm tag
+
+=== 2026-11-27T10:02:11Z look --photos 6 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 6 photos.
+
+10:01:15Z (11:01 chamber)  12 trays read  [2026-11-27T100115_802514]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,412 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (504 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:56:15Z (10:56 chamber)  12 trays read  [2026-11-27T095615_818585]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,403 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (503 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:51:15Z (10:51 chamber)  12 trays read  [2026-11-27T095115_807505]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,405 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (497 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:46:15Z (10:46 chamber)  12 trays read  [2026-11-27T094615_807347]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,389 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (501 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:41:15Z (10:41 chamber)  12 trays read  [2026-11-27T094115_806836]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,395 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (489 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+09:36:15Z (10:36 chamber)  12 trays read  [2026-11-27T093615_815644]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,397 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (499 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     49  in NM  A1 NE (rot 180)  photo + tag
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  FOCUS tray 49: READ correctly
+  => PASS: all 12 trays as planned
+
+SUMMARY: 6 of 6 photos match layout 2 exactly (CHECK PASSES if every photo since the last move is among them).
+2026-11-27T10:05:34Z NOTE Aaron: first 10 percent patch (13.99x10.65 mm) was in the centre of the tag; second 10 percent run just inside the black edge. Neither read.
+2026-11-27T10:18:32Z NOTE Small cover pieces measured by Aaron (X x Y mm): 1.6% piece 4.83x4.85 mm = 23.4 mm2 = 1.46% of a 40x40 mm tag; 3.1% piece 6.71x7.34 mm = 49.3 mm2 = 3.08% of a 40x40 mm tag; 6.3% piece 9.65x9.44 mm = 91.1 mm2 = 5.69% of a 40x40 mm tag. Aaron: test ended; will capture 3 per small piece and give end times.
+
+=== 2026-11-27T10:18:33Z dwell ===
+Experiment #4 'Dario  13 Emergence': Table locations panel
+  Too long in one table location
+  Swap noted at 09:01:39Z (10:01 chamber); the move shows from about 10:10:39Z (11:10 chamber) (1 hour in the new location, plus a few photos).
+  tray  29: now NW (0.1 days); moves: no moves
+  tray  33: now SM (0.1 days); moves: SE to SM, 27 Nov 09:01
+  tray  36: now NE (0.1 days); moves: no moves
+  tray  49: now NM (0.1 days); moves: no moves
+  tray  50: now SW (4.1 days); moves: SM to SE, 27 Nov 09:01
+  tray  55: now NW (0.1 days); moves: no moves
+  tray 50: planned SM to SE: NOT YET (wait until the time above, then run again)
+  tray 33: planned SE to SM: PASS, the table follows it
+CHECK 2 NOT YET PASSED
+
+=== 2026-11-27T10:18:54Z dwell ===
+Experiment #4 'Dario  13 Emergence': Table locations panel
+  Too long in one table location
+  Swap noted at 09:01:39Z (10:01 chamber); the move shows from about 10:10:39Z (11:10 chamber) (1 hour in the new location, plus a few photos).
+  tray   8: now NM (4.1 days); moves: SM to NM, 16 Nov 10:25
+  tray   9: now SE (4.1 days); moves: NE to SE, 16 Nov 10:25
+  tray  11: now SM (4.1 days); moves: SE to SM, 16 Nov 10:25
+  tray  12: now NE (4.1 days); moves: NM to NE, 16 Nov 10:30
+  tray  25: now SW (4.1 days); moves: no moves
+  tray  29: now NW (0.1 days); moves: no moves
+  tray  33: now SM (0.1 days); moves: SE to SM, 27 Nov 09:01
+  tray  36: now NE (0.1 days); moves: no moves
+  tray  49: now NM (0.1 days); moves: no moves
+  tray  50: now SE (0.1 days); moves: SM to SE, 27 Nov 09:01
+  tray  51: now SW (4.1 days); moves: no moves
+  tray  55: now NW (0.1 days); moves: no moves
+  tray 50: planned SM to SE: PASS, the table follows it
+  tray 33: planned SE to SM: PASS, the table follows it
+  NOTE: other trays also show moves: [8, 9, 11, 12]. Check whether a tray was bumped.
+CHECK 2 passes for A and F; see the NOTE above
+2026-11-27T10:19:22Z NOTE small piece (4.83x4.85 mm, 1.46 percent) on tag 49, captures ended 11:19 local = 10:19 UTC (Aaron)
+
+=== 2026-11-27T10:20:42Z look --photos 6 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 6 photos.
+
+10:19:56Z (11:19 chamber)  12 trays read  [2026-11-27T101956_083508]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,404 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 2 cells where grown and fixed areas disagree (618 mm² in total). Usually an empt
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 4 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:19:51Z (11:19 chamber)  not read for trays yet (wait a minute and run again)
+
+10:19:47Z (11:19 chamber)  12 trays read  [2026-11-27T101947_629382]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,414 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (522 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 3 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:19:08Z (11:19 chamber)  12 trays read  [2026-11-27T101908_527375]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,412 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (514 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 2 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:19:03Z (11:19 chamber)  not read for trays yet (wait a minute and run again)
+
+10:18:59Z (11:18 chamber)  12 trays read  [2026-11-27T101859_389232]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,426 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (524 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 1 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+SUMMARY: 0 of 6 photos match layout 2 exactly (none match).
+2026-11-27T10:20:49Z NOTE medium piece (6.71x7.34 mm, 3.08 percent) on tag 49, captures 11:19-11:20 local = 10:19-10:20 UTC (Aaron). Photos 10:18:59-10:19:08 = small piece burst, 10:19:47-10:19:56 = medium piece burst
+2026-11-27T10:21:10Z NOTE large piece (9.65x9.44 mm, 5.69 percent) on tag 49, captures 11:20-11:21 local = 10:20-10:21 UTC (Aaron)
+
+=== 2026-11-27T10:22:25Z look --photos 9 --focus 49 ===
+Experiment #4 'Dario  13 Emergence'. Layout 2 (automatic: after the swap note). Looking at the newest 9 photos.
+
+10:21:16Z (11:21 chamber)  12 trays read  [2026-11-27T102116_023926]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,432 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (518 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 9 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:20:52Z (11:20 chamber)  12 trays read  [2026-11-27T102052_745443]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,435 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (534 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 8 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:20:48Z (11:20 chamber)  12 trays read  [2026-11-27T102048_155935]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,422 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 2 cells where grown and fixed areas disagree (626 mm² in total). Usually an empt
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 7 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:20:44Z (11:20 chamber)  12 trays read  [2026-11-27T102044_135675]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,424 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (529 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 6 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:19:56Z (11:19 chamber)  12 trays read  [2026-11-27T101956_083508]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,404 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 2 cells where grown and fixed areas disagree (618 mm² in total). Usually an empt
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 5 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:19:51Z (11:19 chamber)  12 trays read  [2026-11-27T101951_867656]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,404 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (526 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 4 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:19:47Z (11:19 chamber)  12 trays read  [2026-11-27T101947_629382]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,414 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (522 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 3 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:19:08Z (11:19 chamber)  12 trays read  [2026-11-27T101908_527375]
+  tray      8  in NM  A1 SW (rot 0)  photo + tag  WARN: 4 cells where grown and fixed areas disagree (2,412 mm² in total). Usually an em
+  tray      9  in SE  A1 SW (rot 0)  photo + tag  WARN: 1 cell where grown and fixed areas disagree (514 mm²). Usually an empty pot. Che
+  tray     11  in SM  A1 SW (rot 0)  photo + tag
+  tray     12  in NE  A1 SW (rot 0)  photo + tag
+  tray     25  in SW  A1 SW (rot 0)  photo + tag
+  tray     29  in NW  A1 NE (rot 180)  photo + tag
+  tray     33  in SM  A1 NE (rot 180)  photo + tag
+  tray     36  in NE  A1 SW (rot 0)  photo + tag  WARN: partly outside the photo
+  tray     50  in SE  A1 SW (rot 0)  photo + tag
+  tray     51  in SW  A1 SW (rot 0)  photo + tag
+  tray     55  in NW  A1 SW (rot 0)  photo + tag
+  tray NO TAG  in NM  A1 None (rot ?)  photo, no tag  WARN: no tag
+  NOT SEEN in this photo: tray 49 (last seen NM, 2 photos missed)
+  FOCUS tray 49: degraded as expected (outlined with no tag and reported not seen)
+  => DIFFERS: tray 49 (C, N3) not read; a tray outline with no tag
+
+10:19:03Z (11:19 chamber)  not read for trays yet (wait a minute and run again)
+
+SUMMARY: 0 of 9 photos match layout 2 exactly (none match).
+2026-11-27T10:22:31Z NOTE Aaron: large piece burst 10:20-10:21 UTC; test ended; removing spares and putting experiment 4 trays back from about 10:22 UTC
+2026-11-27T10:28:12Z NOTE Aaron: everything returned, spares removed, experiment 4 trays back
+
+=== 2026-11-27T10:28:12Z restore --exp 4 ===
+Comparing experiment 4 now against the snapshot of 2026-11-27T08:36:15Z
+Experiment #4 state: running
+Newest photo of experiment 4: 10:26:15Z (11:26 chamber), 1.9 min ago
+  tray 8: NM A1 SW -> NM A1 SW, centre moved 393 px (81 mm)
+  tray 9: SE A1 SW -> SE A1 SW, centre moved 276 px (57 mm)
+  tray 11: SM A1 SW -> SM A1 SW, centre moved 288 px (59 mm)
+  tray 12: NE A1 SW -> NE A1 SW, centre moved 191 px (39 mm)
+  tray 25: SW A1 SW -> NW A1 SW, centre moved 195 px (40 mm)   <-- DIFFERS
+  tray 51: SW A1 SW -> NW A1 SW, centre moved 111 px (23 mm)   <-- DIFFERS
+NOT RESTORED: tray 25; tray 51
+2026-11-27T10:39:03Z NOTE Aaron accepts restore result: trays 25 and 51 lie in NW (row boundary), were SW before; trays 8, 9, 11, 12 4 to 8 cm east of before, same location
+
+=== 2026-11-27T11:42:54Z restore --exp 4 ===
+Comparing experiment 4 now against the snapshot of 2026-11-27T08:36:15Z
+Experiment #4 state: running
+Newest photo of experiment 4: 11:41:15Z (12:41 chamber), 1.7 min ago
+  tray 8: NM A1 SW -> NM A1 SW, centre moved 392 px (81 mm)
+  tray 9: SE A1 SW -> SE A1 SW, centre moved 274 px (57 mm)
+  tray 11: SM A1 SW -> SM A1 SW, centre moved 288 px (59 mm)
+  tray 12: NE A1 SW -> NE A1 SW, centre moved 191 px (39 mm)
+  tray 25: SW A1 SW -> NW A1 SW, centre moved 195 px (40 mm)   <-- DIFFERS
+  tray 51: SW A1 SW -> NW A1 SW, centre moved 109 px (23 mm)   <-- DIFFERS
+NOT RESTORED: tray 25; tray 51
+
+=== 2026-11-27T11:44:32Z dwell --exp 4 ===
+Experiment #4 'Dario  13 Emergence': Table locations panel
+  Too long in one table location
+  Swap noted at 09:01:39Z (10:01 chamber); the move shows from about 10:10:39Z (11:10 chamber) (1 hour in the new location, plus a few photos).
+  tray   8: now NM (4.1 days); moves: SM to NM, 16 Nov 10:25
+  tray   9: now SE (4.1 days); moves: NE to SE, 16 Nov 10:25
+  tray  11: now SM (4.1 days); moves: SE to SM, 16 Nov 10:25
+  tray  12: now NE (4.1 days); moves: NM to NE, 16 Nov 10:30
+  tray  25: now NW (0.1 days); moves: SW to NW, 27 Nov 10:26
+  tray  29: now NW (0.1 days); moves: no moves
+  tray  33: now SM (0.1 days); moves: SE to SM, 27 Nov 09:01
+  tray  36: now NE (0.1 days); moves: no moves
+  tray  49: now NM (0.1 days); moves: no moves
+  tray  50: now SE (0.1 days); moves: SM to SE, 27 Nov 09:01
+  tray  51: now NW (0.1 days); moves: SW to NW, 27 Nov 10:26
+  tray  55: now NW (0.1 days); moves: no moves
+  tray 50: planned SM to SE: PASS, the table follows it
+  tray 33: planned SE to SM: PASS, the table follows it
+  NOTE: other trays also show moves: [8, 9, 11, 12, 25, 51]. Check whether a tray was bumped.
+CHECK 2 passes for A and F; see the NOTE above

@@ -1,6 +1,6 @@
 # Blue finder fixtures (#331)
 
-Quarter-size copies (1/4 linear, `cv2.INTER_AREA`, JPEG quality 90) of six stills, for the tray
+Quarter-size copies (1/4 linear, `cv2.INTER_AREA`, JPEG quality 90) of seven stills, for the tray
 finder's tests. Full-size px = 4 x fixture px. Made by the fixtures agent of #331 on 2026-10-29
 from copies of the rigs' photos (script kept outside the repo; it only resizes and reads rig.db).
 
@@ -17,6 +17,7 @@ from running a tray finder.
 | `edge-tags` | production `44a9e96e`, 2026-10-15 12:03:50 (held-out 09) | 20 mm edge tags beside the trays, 30 mm tags in pots, a leaf sheet, a yellow card, empty trays | count 12 |
 | `dev-2x2-untagged` | development `8cb40de9`, 2026-10-29 12:00:05 (#328 tuning still, layout L1) | 9 untagged 2x2 trays, N1 partly outside the frame | 9 centres from by-eye corners |
 | `dark` | production `df206967`, 2026-10-29 05:16:53 (held-out 23) | lights off | count 0 |
+| `off-grid-tray` | production `0d21bcf9` (d6-daylight), 2026-11-27 13:20:50 | 11 4x5 trays, ten touching in two rows of five and the eleventh to their left shifted down half a tray, so it lies off the block's grid | count 11 after the re-cut; ten centres from production `tray_reading`, tray 27's marked by eye (metrology log 55) |
 | `a1-tags-sheet-on-tray` | production `df206967`, 2026-10-28 11:59:53 (held-out 22) | 12 trays of soil, 40 mm tags in cell A1, sheets on 3 trays | 12 centres from production `tray_reading` |
 
 `expected.json`, per fixture: `full_size`, `factor` (4), `calibration` (the photo's) and
@@ -30,3 +31,8 @@ from running a tray finder.
 Limits: the counts are one person's inspection of quarter-size pictures; tag placement is good to
 about 10 mm (metrology log 15.5l); by-eye corners have the precision written in `truth`. No 1x1
 or black tray is in any fixture.
+
+`method`: present only on `off-grid-tray`, set to `recut`. The blue finder is not expected to get
+that still right on its own -- its whole point is that the grid cut splits a tray -- so the tests
+that score the finder alone skip any fixture carrying this key, and a test of
+`tray_placement.recut_short_blocks` uses it instead (#577).

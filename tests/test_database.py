@@ -1,10 +1,16 @@
+import contextlib
+import json
 import sqlite3
+import time
 
 import pytest
+from fastapi.testclient import TestClient
 
-from npec_rig import captures, database
+from npec_rig import captures, database, health, settings
+from npec_rig.app import app
+from npec_rig.camera import CameraManager
 from npec_rig.settings import db_path, save_setting
-from tests.helpers import stored_validation
+from tests.helpers import lock_held, stored_validation, table_calibration
 
 pytestmark = pytest.mark.unit
 
@@ -37,6 +43,17 @@ def test_migrating_twice_changes_nothing() -> None:
         conn.commit()
         assert database.migrate(conn) == database.SCHEMA_VERSION
         assert conn.execute("SELECT COUNT(*) FROM capture").fetchone()[0] == 1
+
+
+def test_export_part_file_table_migrates_cleanly_and_twice_is_a_no_op() -> None:
+    """#482: the stored list of each photo part's files, frozen when an export is built, migrates
+    in with the rest and a second migration leaves it as it was."""
+    with sqlite3.connect(db_path()) as conn:
+        assert database.migrate(conn) == database.SCHEMA_VERSION
+        columns = [row[1] for row in conn.execute("PRAGMA table_info(export_part_file)")]
+        assert columns == ["id", "export_id", "part", "capture_id", "name", "bytes"]
+        assert database.migrate(conn) == database.SCHEMA_VERSION
+        assert conn.execute("SELECT COUNT(*) FROM export_part_file").fetchone()[0] == 0
 
 
 def test_the_rigs_own_tables_are_left_alone() -> None:
@@ -185,6 +202,22 @@ def test_a_photos_tray_readings_are_saved_and_read_back() -> None:
     assert [(t["tray_id"], t["slot"]) for t in readings["trays"]] == [(1, "N1"), (3, "N2")]
     assert readings["trays"][0]["centre_px"] == [4000.0, 3000.0]
     assert readings["trays"][0]["area_mm2"] is None
+
+
+def test_a_trays_blue_coverage_is_saved_and_read_back() -> None:
+    capture_id = _photo("2026-11-25T07:00:00+00:00")
+    database.record_tray_readings(
+        capture_id, read_at="t", status="read", trays=[{**_tray(1), "grown_blue_coverage": 0.934}]
+    )
+    [tray] = database.tray_readings(capture_id)["trays"]
+    assert tray["grown_blue_coverage"] == pytest.approx(0.934)
+
+
+def test_a_trays_blue_coverage_is_none_when_not_given() -> None:
+    capture_id = _photo("2026-11-25T07:00:10+00:00")
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[_tray(1)])
+    [tray] = database.tray_readings(capture_id)["trays"]
+    assert tray["grown_blue_coverage"] is None
 
 
 def _experiment() -> int:
@@ -498,10 +531,139 @@ def test_version_25_keeps_tray_and_cell_readings_from_version_24_with_no_grown_a
     assert (tray["area_mm2"], tray["plant_px"]) == (1234.5, 678)
     assert {k: tray[k] for k in tray if k.startswith("grown_")} == {
         "grown_method": None, "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None,
-        "grown_soil_level": None, "grown_lower_cutoff": None,
+        "grown_soil_level": None, "grown_lower_cutoff": None, "grown_blue_coverage": None,
     }
     [cell] = tray["cells"]
     assert (cell["area_mm2"], cell["plant_px"]) == (9.5, 90)
     assert {k: cell[k] for k in cell if k.startswith("grown_")} == {
         "grown_area_mm2": None, "grown_plant_px": None, "grown_plant_centre_px": None, "grown_over_other_cells": None,
     }
+
+
+# --- Waiting for another writer (#439) ---
+
+
+def _capture_row() -> None:
+    database.record_capture(
+        taken_at="2026-11-17T14:07:59+00:00", path="rig/2026-11-17/140759_023117", purpose="capture",
+        calibration=None, validation=None, lens_position=None, focus_locked_at=None, exposure_us=None,
+        analogue_gain=None, flags=[],
+    )
+
+
+WRITERS = {
+    "photo": _capture_row,
+    "setting": lambda: save_setting("LastTick", {"wall": "2026-11-17T14:07:59+00:00"}),
+    "camera event": lambda: health.record_camera_event(health.EVENT_FAULT, detail="test"),
+}
+
+
+@pytest.mark.parametrize("write", WRITERS.values(), ids=WRITERS.keys())
+def test_every_writer_waits_the_one_named_wait_for_a_lock(monkeypatch: pytest.MonkeyPatch, write) -> None:
+    """Every connection to rig.db waits settings.LOCK_WAIT_S for another writer, no more: here it
+    is made short and the lock held longer, so each write gives up after about that long."""
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.2)
+    with lock_held(1.0):
+        started = time.monotonic()
+        with contextlib.suppress(sqlite3.OperationalError):
+            write()
+        waited = time.monotonic() - started
+    assert waited < 0.6
+
+
+def _row(taken_at: str, path: str, experiment_id: int, calibration: str) -> None:
+    database.record_capture(
+        taken_at=taken_at, path=path, purpose="capture", experiment_id=experiment_id,
+        calibration=calibration, validation=None, lens_position=None, focus_locked_at=None,
+        exposure_us=None, analogue_gain=None, flags=[],
+    )
+
+
+def _photo_saved_while_locked(monkeypatch: pytest.MonkeyPatch, *, calibrated: bool = False) -> tuple[dict, dict]:
+    """A running experiment's photo saved to disk while rig.db stayed locked, after a photo
+    measured with calibration "cal-a". With `calibrated`, calibration TABLE_STEM is the active one
+    when the photo is taken: the calibration was replaced since the photo before."""
+    monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(db_path().parent / "experiments"))
+    client = TestClient(app)  # no lifespan: no scheduler takes photos of its own
+    experiment = client.post("/api/experiments", json={"interval_s": 60}).json()
+    experiment = client.post(f"/api/experiments/{experiment['id']}/start").json()
+    _row("2026-11-17T14:06:59+00:00", "experiments/x/stills/2026-11-17/140659_000000", experiment["id"], "cal-a")
+    if calibrated:
+        table_calibration()
+    # Done once on a new rig.db, before the lock: the camera's settings table, the JPEG setting.
+    CameraManager.instance()
+    settings.photo_quality_in_use()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(1.0):
+        _array, record = captures.take_photo("capture")
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert record["capture_id"] is None  # the photo is on disk, its row is not
+    return experiment, record
+
+
+def test_a_photo_saved_while_rig_db_was_locked_is_added_with_the_calibration_it_was_taken_under(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#488: the photo before it was measured with "cal-a"; the calibration was replaced in
+    between. The row names the calibration in the photo's own info file, and says it was added
+    later."""
+    experiment, record = _photo_saved_while_locked(monkeypatch, calibrated=True)
+
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 1
+    row = database.captures_by_path([record["path"]])[record["path"]]
+    assert row["taken_at"] == record["timestamp"]
+    assert row["experiment_id"] == experiment["id"]
+    assert row["calibration"] == "20270101T000000000000"
+    assert row["added_later"] == 1
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 0
+
+
+def _info_file_from_before_488(record: dict, session: str | None) -> None:
+    """Rewrite the info file of `record` as photos had it before #488: no calibration, and the
+    validation session it names as given."""
+    path = captures.experiments_root().parent / f"{record['path']}.json"
+    saved = json.loads(path.read_text())
+    del saved["calibration"]
+    saved["validation"] = {**saved["validation"], "session": session}
+    path.write_text(json.dumps(saved))
+
+
+def test_a_photo_with_an_older_info_file_gets_the_calibration_of_its_recorded_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#488: before it, an info file named only the validation session. The session names the
+    calibration it checked, whatever the photos around the added one were measured with."""
+    experiment, record = _photo_saved_while_locked(monkeypatch, calibrated=True)
+    stored_validation("20270101T010000000000", "20260909T090909000000")
+    _info_file_from_before_488(record, "20270101T010000000000")
+
+    captures.adopt_unrecorded_photos(experiment, {record["date"]})
+
+    assert database.captures_by_path([record["path"]])[record["path"]]["calibration"] == "20260909T090909000000"
+
+
+def test_a_photo_with_an_older_info_file_and_no_validation_has_no_calibration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    experiment, record = _photo_saved_while_locked(monkeypatch, calibrated=True)
+    _info_file_from_before_488(record, None)
+
+    captures.adopt_unrecorded_photos(experiment, {record["date"]})
+
+    assert database.captures_by_path([record["path"]])[record["path"]]["calibration"] is None
+
+
+def test_a_damaged_info_file_with_an_unusual_name_does_not_stop_the_others_being_added(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#481 review: a damaged info file whose name is not the rig's HHMMSS_ffffff (a file copied
+    in by hand) is skipped like any damaged one; the photo beside it still gets its row."""
+    experiment, record = _photo_saved_while_locked(monkeypatch)
+    day = captures.experiments_root() / experiment["folder"] / "stills" / record["date"]
+    (day / "copy.jpg").write_bytes((day / record["filename"]).read_bytes())
+    (day / "copy.json").write_text("")
+
+    adopted = captures.adopt_unrecorded_photos(experiment, {record["date"]})
+
+    assert adopted.added == 1
+    assert record["path"] in database.captures_by_path([record["path"]])

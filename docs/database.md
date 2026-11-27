@@ -220,7 +220,20 @@ experiment is purged, as the record of the schedule.
 | `slot` | integer | 1 for the first photo after the start |
 | `due_at` | text | When the photo was due, UTC (`isoformat()`) |
 | `capture_id` | integer | The photo's `capture` row; NULL when missed |
-| `missed_reason` | text | Why it was not taken; NULL when taken. `the app was not running` when it was due before the app last started, `the previous photo took longer than the interval` when due since, otherwise the camera's error |
+| `missed_reason` | text | Why it was not taken; NULL when taken. `the app was not running` when it was due before the app last started, `the previous photo took longer than the interval` when due since, `rig.db could not be written` when due since while earlier slots were still waiting to be written (the previous photo waited for the lock, #481), `the photo was saved but could not be found to add to the database` (#439), `the photo was saved but its record could not be read` when its JSON record is empty or damaged, as after a power cut, so the photo is left without a row (#481), otherwise the camera's error |
+
+A slot with both `capture_id` and `missed_reason` NULL is one whose photo was saved to disk while
+rig.db could not be written (another writer held it longer than `settings.LOCK_WAIT_S`, #439).
+Before #439 such slots stayed that way; since then the scheduler adds the photo's `capture` row
+from its JSON record, with the calibration the record names, and links the slot. Since #488 the
+record of a scheduled photo names its slot (`schedule`: the schedule's start, the slot number and
+when it was due), and the slot is linked to the photo that names it, however long after its due
+time, and on whichever UTC day, the photo was saved. A record from before #488 names no slot: its
+slot is linked to the experiment's earliest `capture` photo taken within one interval of its due
+time that no other slot holds. Since #481 the photo is always taken first:
+the slots wait in memory while rig.db stays locked, counted as recorded so no slot's photo is
+taken twice, and are written after a later photo, or between photos when a full wait for the
+lock fits before the next one, or when the experiment stops.
 
 Photos missed in the running period:
 
@@ -274,6 +287,23 @@ in `sensor_metadata`, with the digital gain and the camera's light estimate (`Lu
 
 ```sql
 SELECT ae_state, count(*) FROM capture WHERE experiment_id = ? GROUP BY 1
+```
+
+### `capture`: whether the row was added after the photo
+
+From version 29 (#488). When rig.db is locked as a photo is taken, the photo and its JSON record
+are saved first and the row is added later (#439). The JSON record holds the `calibration` the
+photo was taken under (the stem of the active calibration, or null), written by
+`captures.take_photo`; the row added later reads it from there. A record from before #488 has
+none: the calibration of the validation session it names is used, or none. The Gallery marks such
+a photo, and the column is in the export's `captures.csv`.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `added_later` | integer | 1 when the row was added after the photo was taken, 0 when it was written as the photo was taken. NULL for photos from before version 29 |
+
+```sql
+SELECT taken_at, path FROM capture WHERE added_later = 1 ORDER BY taken_at
 ```
 
 ### `photo_quality_change`
@@ -443,8 +473,19 @@ From version 25 (#363). Each tray and cell is measured by two methods: the fixed
 (`area_mm2`, `segmenter` "green threshold, 0.1", unchanged) and grow from leaf cores (`grown_*`),
 which starts from leaf cores and grows them into the paler leaf edges, down to a cutoff set above
 the tray's own soil (`segmentation.grow_from_cores`, metrology log 24.8 and 33.1). Its whole-photo
-mask is saved beside the fixed cutoff's, as `<photo>.grown.png` in the masks folder, so Reprocess
-counts both again without the photo; a purge deletes both. The fixed cutoff's floor of 100 mm2
+mask is saved beside the fixed cutoff's, as `<photo>.grown.png` in the masks folder; a purge
+deletes both. Reprocess (#483) does a whole photo or nothing, never a mix of old and new values:
+it counts both masks again, without the photo, only when every tray is the same saved tray (tag and
+outline) and has its grown values, and no saved tray
+is marked "grown area not worked out" or was saved with the cutoff in the leaves (before #373).
+The calibration is not asked, since the masks do not depend on it: a changed calibration is counted again under the new one. Otherwise it grows the whole photo again from the photo; and when neither can be done completely
+the saved reading is not changed and the photo is reported as not reprocessed. A photo's new
+masks and its reading are saved together, under one lock, in this order: the new masks are written
+to `*.staged` files, both old masks are deleted, the reading is saved, the staged files are renamed.
+A failure after the delete leaves a mask missing, so the next Reprocess grows the photo again (or,
+with the photo gone, changes nothing); `*.staged` files older than an hour (`STAGED_MAX_AGE_S`, a decision) left by a kill are removed when the app's
+tray reader or a Reprocess starts. A tray whose cells could not be worked out on a new read says
+"cells not worked out", as one whose grown area could not says "grown area not worked out". The fixed cutoff's floor of 100 mm2
 was measured for that method only and does not apply to this one. All `grown_*` columns are NULL
 for readings saved before version 25, or when the method could not run.
 
@@ -454,8 +495,9 @@ for readings saved before version 25, or when the method could not run.
 | `tray_reading.grown_area_mm2` | real | Its plant area inside the tray outline, at the calibration's scale |
 | `tray_reading.grown_plant_px` | integer | Its plant pixels inside the outline |
 | `tray_reading.grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real | Their centre, full-size photo pixels; NULL when none |
-| `tray_reading.grown_soil_level` | real | The tray's soil greenness, (2G - R - B) / (R + G + B), the cutoff was set from. NULL when the tray showed no soil, or on Reprocess when the saved reading had none for the tray |
-| `tray_reading.grown_lower_cutoff` | real | The greenness the leaf cores were grown down to; NULL as for the soil level on Reprocess |
+| `tray_reading.grown_soil_level` | real | The tray's soil greenness, (2G - R - B) / (R + G + B), the cutoff was set from. NULL when the tray showed no soil |
+| `tray_reading.grown_lower_cutoff` | real | The greenness the leaf cores were grown down to; Never NULL when `grown_area_mm2` is set |
+| `tray_reading.grown_blue_coverage` | real | How much of the tray's countable area (a leaf core's own cell, and any cell holding one, left out; otherwise the whole tray) was blue (#486). NULL for a reading saved before #486, which the soil level's bin alone then decides as hidden or not (`segmentation.soil_hidden`) |
 | `cell_reading.grown_area_mm2`, `grown_plant_px`, `grown_plant_centre_x_px`, `grown_plant_centre_y_px` | real, integer | As `area_mm2`, `plant_px` and their centre, by grow from leaf cores |
 | `cell_reading.grown_over_other_cells` | integer | As `over_other_cells`, by grow from leaf cores |
 
@@ -525,9 +567,114 @@ part was sent to its last byte.
 | Column | Type | Meaning |
 |---|---|---|
 | `export.photo_parts` | integer | How many photo parts the export has (0 with Photos not ticked). NULL for exports stored on the rig before version 23, which are one zip in `file` |
+| `export.finished_at` | text | NULL while part 0 is made, UTC once it is ready (#437). At most one export on the rig has NULL |
+| `export.file`, `export.bytes` | text, integer | Since #437: part 0, built in the background when the export is made, at `experiments/<folder>/exports/<name>_part00.zip`, and its size. Deleted when a newer export of the experiment is ready, then a download of it asks for a new export |
+| `export.error` | text | Why it did not finish: `it was stopped` (Stop tapped), or the app restarted while it was made |
 | `export_part_sent.export_id` | integer | The export |
 | `export_part_sent.part` | integer | The part, 0 to `photo_parts` |
 | `export_part_sent.sent_at` | text | When its last byte was handed to the network, UTC. A part downloaded twice has two rows; a download broken off has none |
+
+### `export_part_file`: the files in each photo part
+
+From version 27 (#482). When an export is built, the files of each photo part are written down
+with their sizes and capture ids. A download or a Purge reads that stored list instead of working
+out again which photos belong to the part, so a photo taken or removed afterwards cannot change
+what a part holds.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `export_id` | integer | The export (`export.id`) |
+| `part` | integer | The photo part, 1 and up. Part 0 is one file, in `export.file` |
+| `capture_id` | integer | The photograph (`capture.id`) |
+| `name` | text | Its name in the zip, under the export's top folder |
+| `bytes` | integer | Its size when the export was built; NULL when the file was already missing then |
+
+### `reprocess_run` and `reprocess_failure`: Reprocess progress and failed photos
+
+From version 26 (#483). Each Reprocess of an experiment (`POST /api/experiments/{id}/reprocess`) is
+a row in `reprocess_run`, updated after every photo; each photo it left as it was is a row in
+`reprocess_failure` with the reason, so both are still there after a restart. A run still `running`
+when the app starts was cut off: it is marked `interrupted` and never resumed. A run whose thread has
+ended without saving its end (its last write met a lock) is marked `interrupted` the same way at the next
+progress read, start or Stop, not only at start-up; until the mark is saved it is shown as interrupted.
+
+| Column | Type | Meaning |
+|---|---|---|
+| `reprocess_run.experiment_id` | integer | The experiment (`experiment.id`) |
+| `reprocess_run.started_at`, `finished_at` | text | UTC; `finished_at` is NULL while running |
+| `reprocess_run.state` | text | `running`, `finished`, `stopped` (a Stop ended it after a photo) or `interrupted` |
+| `reprocess_run.total`, `done`, `failed` | integer | Photos to read, photos read so far (failed ones included), photos left as they were |
+| `reprocess_failure.run_id` | integer | The run |
+| `reprocess_failure.path` | text | The gallery path of the photo |
+| `reprocess_failure.reason` | text | Why its saved reading was kept, for example "the photo is gone and its saved masks cannot be counted again: a saved mask is missing" |
+| `reprocess_failure.failed_at` | text | UTC |
+
+A photo that meets a locked rig.db is tried again, `REPROCESS_LOCK_TRIES` (5) times with a pause of
+`REPROCESS_LOCK_WAIT_S` (5 s), numbers chosen and not measured; after the last try it is listed as
+failed ("rig.db stayed locked after 5 tries"). Reprocess replaces the saved readings of every photo
+it can redo and keeps no copy of the old ones: export the experiment first
+(`docs/operator-guide.md`, *Reprocessing areas*).
+
+## Upgrading
+
+The app migrates `rig.db` the first time it touches the file: every migration in `database.py`
+above the file's own `PRAGMA user_version`, all the missing ones in one transaction, each setting
+its own number, so the file is never left half changed (`database.migrate`). This version migrates
+`rig.db` to version 27. The current number is `database.SCHEMA_VERSION` in
+`src/npec_rig/database.py`; read it there, it moves with every migration.
+
+**There is no migration downwards.** An older app meeting a file a newer app has migrated refuses
+to start, on purpose: it would otherwise write to tables it has an older idea of. It raises
+
+```
+RuntimeError: rig.db is at schema version N, this app knows up to N-1
+```
+
+with the two real numbers in place of N, while starting, so the server exits. Under systemd
+(`deploy/npec-rig.service`: `Restart=always`, `RestartSec=5`, `StartLimitIntervalSec=0`, "never
+give up restarting") it starts again 5 s later and fails the same way, with no cut-off, so the rig
+serves no pages and takes no scheduled photos until it is put right.
+
+**Putting it right means going forward.** Put the newer code back on the rig and restart it: the
+migrated file is the one that code expects, and the rig comes back with everything it had.
+`journalctl -u npec-rig -n 20` shows the error while it is failing. Upgrading needs no copy of the
+database and no other preparation, so none is part of a normal deploy (Aaron, 2026-11-26).
+
+## Emergency recovery
+
+Rare, and only for a rig that genuinely has to run older code again, or whose database is damaged.
+Normal work never comes here: the answer to a migration is to go forward, and the answer to a
+Reprocess that is not wanted is an export taken beforehand. Nobody is asked to copy a database by
+hand as a routine step.
+
+Going back to older code needs a copy of the database **from before the migration**. If none was
+taken, there is no way back, and the rig stays on the newer code. `rig.db` is never deleted, moved
+or emptied to make an older app start: that throws away the rig's whole record.
+
+Taking the copy, when one is wanted: `VACUUM INTO` copies the database while the app runs, where
+`cp` of a live database can copy a torn file. The output file must not exist yet, so put the date
+in its name.
+
+```bash
+python3 - <<'PY'
+import sqlite3
+sqlite3.connect("/var/lib/npec-rig/rig.db", timeout=30).execute(
+    "VACUUM INTO '/var/lib/npec-rig/rig-2026-11-26.db'")
+PY
+```
+
+The copy keeps the schema version, so reading `PRAGMA user_version` from it is the check that it
+worked: it prints the version the rig is on.
+
+Restoring it, with the app stopped (`sudo systemctl stop npec-rig`): put the copy back as
+`/var/lib/npec-rig/rig.db`, deploy the older code, start the app. On production this is Aaron's
+decision, never an agent's.
+
+What a restore costs: rows the newer app wrote after the copy are gone. The photographs stay on
+disk under `/var/lib/npec-rig/rig/`, and so do their masks and the calibrations and validations in
+`/var/lib/npec-rig/calibration`, which are JSON files and not rows. What goes back is the database:
+the focus lock and the camera settings, experiment records, scheduled photos, tray and cell
+readings, exclusions and tray layouts. Readings come back by reprocessing; the rest does not.
 
 ## Planned
 

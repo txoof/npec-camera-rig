@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import io
+import threading
 import time
 import zipfile
 
@@ -8,7 +9,7 @@ import pytest
 
 from npec_rig import captures, database, exports
 from npec_rig.database import ExperimentError
-from tests.helpers import stored_validation
+from tests.helpers import export_built, needs_ffmpeg, stored_validation, video_done, video_held
 
 pytestmark = pytest.mark.unit
 
@@ -17,10 +18,15 @@ _SESSION = "20261009T100000000000"
 
 
 @pytest.fixture(autouse=True)
-def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path):
     monkeypatch.setenv("NPEC_RIG_PHOTOS_DIR", str(tmp_path / "rig"))
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
     monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    yield
+    # No export build outlives its test (#437): it would write into the next test's folders.
+    from npec_rig import exports
+
+    exports.fail_unfinished_exports()
 
 
 def _calibrated_with_validation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,9 +62,7 @@ def _unzipped(experiment_id: int, choice: dict | None = None) -> tuple[dict, dic
     """Export through the page's route, download every part and unzip them into one folder, as
     the README says: the export with its parts, and every file by its name in that folder."""
     client = _client()
-    started = client.post(f"/api/experiments/{experiment_id}/export", json=choice)
-    assert started.status_code == 200, started.text
-    export = started.json()
+    export = export_built(client, experiment_id, choice)
     files: dict[str, bytes] = {}
     for part in export["parts"]:
         with zipfile.ZipFile(io.BytesIO(client.get(f"/api/exports/{export['id']}/parts/{part['n']}").content)) as zf:
@@ -132,6 +136,34 @@ def test_the_parts_hold_everything_and_each_manifest_checks(monkeypatch: pytest.
     assert rows[0]["validation"] == _SESSION
 
 
+def test_a_missing_photo_file_is_named_in_the_readme() -> None:
+    """#482 change 3: a photo's .jpg gone from the rig since it was taken is left out of its photo
+    part (captures.csv still names it), and the README says, by name, that it was not found."""
+    from npec_rig.captures import experiments_root
+
+    experiment = _stopped_experiment_with_photos(2)
+    gone = database.captures_for_experiment(experiment["id"])[-1]
+    stem = experiments_root() / gone["path"].removeprefix("experiments/")
+    stem.with_suffix(".jpg").unlink()
+    export, files = _unzipped(experiment["id"])
+    readme = files["README.txt"].decode()
+    rows = list(csv.DictReader(io.StringIO(files["captures.csv"].decode())))
+    assert f"{stem.name}.jpg" not in " ".join(files)  # left out of the parts
+    assert f"{stem.name}.jpg" in " ".join(r["file"] for r in rows)  # but captures.csv still names it
+    assert stem.name in readme, "README does not say the photo is missing"
+    assert len(export["parts"]) >= 1
+
+
+def test_the_readme_counts_the_photos_not_yet_read() -> None:
+    """#482, decided (Aaron, 2026-11-23): the README states how many photos had no tray reading
+    yet when the export was built. Informational only -- it is not read in this test, so both
+    count; it must not block the export or change what is in the parts."""
+    experiment = _stopped_experiment_with_photos(2)
+    _export, files = _unzipped(experiment["id"])
+    readme = files["README.txt"].decode()
+    assert "Photos not yet read: 2" in readme
+
+
 def test_an_export_cut_off_by_a_restart_is_marked_failed() -> None:
     experiment = _stopped_experiment_with_photos(0)
     export = database.create_export(experiment["id"], now="t")
@@ -139,12 +171,32 @@ def test_an_export_cut_off_by_a_restart_is_marked_failed() -> None:
     assert database.get_export(export["id"])["error"].startswith("the app restarted")
 
 
+def test_an_error_reading_the_fixed_photo_list_still_marks_the_export_failed() -> None:
+    """#482 review: the fixed photo list and the photo-part packing are read before the try block
+    that marks a failed build. An error there must still fail the export, not leave it stuck
+    "being prepared" forever and blocking every later export of the experiment."""
+    experiment = _stopped_experiment_with_photos(1)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("disk read failed")
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(exports, "_build_parts", boom)
+        export = exports.start_export(experiment["id"])
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and database.get_export(export["id"])["finished_at"] is None:
+            time.sleep(0.02)
+    failed = database.get_export(export["id"])
+    assert failed["finished_at"] is not None, 'the export was left stuck "being prepared"'
+    assert "disk read failed" in failed["error"]
+    again = exports.start_export(experiment["id"])  # not blocked by the failed one
+    assert again["id"] != export["id"]
+
+
 def test_export_and_download_through_the_page_routes() -> None:
     experiment = _stopped_experiment_with_photos(1)
     client = _client()
-    started = client.post(f"/api/experiments/{experiment['id']}/export")
-    assert started.status_code == 200
-    export = started.json()
+    export = export_built(client, experiment["id"])
     assert export["finished_at"] is not None and export["error"] is None
     listed = {e["id"]: e for e in client.get("/api/experiments").json()}
     assert listed[experiment["id"]]["export"]["id"] == export["id"]
@@ -165,7 +217,7 @@ def test_the_export_name_starts_with_the_experiment_name() -> None:
     assert exports.slugify("x" * 60) == "x" * 40
 
     experiment = _stopped_experiment_with_photos(0)
-    export = _client().post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(_client(), experiment['id'])
     part = _client().get(f"/api/exports/{export['id']}/parts/0")
     assert f'filename="drought_{experiment["folder"]}_export_' in part.headers["content-disposition"]
     assert part.headers["content-disposition"].endswith('_part00.zip"')
@@ -174,7 +226,7 @@ def test_the_export_name_starts_with_the_experiment_name() -> None:
 def test_an_unnamed_experiment_exports_under_its_folder_name() -> None:
     experiment = captures.start_experiment(captures.create_experiment()["id"])
     experiment = captures.stop_experiment(experiment["id"])
-    export = _client().post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(_client(), experiment['id'])
     part = _client().get(f"/api/exports/{export['id']}/parts/0")
     assert f'filename="{experiment["folder"]}_export_' in part.headers["content-disposition"]
 
@@ -245,8 +297,8 @@ def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band()
     rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
     readme = files["README.txt"].decode()
     manifest = files["MANIFEST-part00.sha256"].decode()
-    picked = [(r["taken_at"], r["tray"], r["location"], r["plant_area_mm2"], r["scale_error_at_tray_top_pct"],
-               r["band_slot"], r["no_band_reason"]) for r in rows]
+    picked = [(r["taken_at"], r["tray"], r["location"], r["plant_area_fixed_green_cutoff_mm2"], r["scale_error_pct"],
+               r["validation_slot"], r["no_scale_error_because"]) for r in rows]
     assert picked == [
         ("2026-10-02T00:00:00+00:00", "3", "NW", "1234.5", "2.0", "North 1", ""),
         ("2026-10-02T00:00:00+00:00", "7", "SE", "980.0", "", "South 6", "slot not measured"),
@@ -257,6 +309,85 @@ def test_the_export_holds_each_trays_plant_area_with_its_slots_validation_band()
         f"stills/{second.split('/stills/')[-1]}.jpg"]
     assert "tray-readings.csv" in readme
     assert "  tray-readings.csv\n" in manifest
+
+
+def test_the_export_holds_each_trays_area_by_grow_from_leaf_cores_beside_the_fixed_cutoff() -> None:
+    """#363 part 2: tray-readings.csv carries grow from leaf cores as stored (area, method with its
+    core cutoff, the tray's soil level and lower cutoff) beside the fixed green cutoff's area,
+    which is unchanged; a photo read before grow from leaf cores existed has those columns empty."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Cores")["id"])
+    both = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW"}, areas={3: 900.0})
+    table_photo(experiment["id"], datetime(2026, 10, 2, 0, 1, tzinfo=UTC), {3: "NW"}, areas={3: 910.0})
+    capture_id = database.captures_by_path([both])[both]["id"]
+    [tray] = database.tray_readings(capture_id)["trays"]
+    tray.update({"grown_method": "grow from leaf cores, core 0.07", "grown_area_mm2": 1156.04,
+                 "grown_plant_px": 115600, "grown_plant_centre_px": [10.0, 20.0],
+                 "grown_soil_level": -0.034999999999999578, "grown_lower_cutoff": 0.03500000000000043})
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
+    picked = [(r["plant_area_grow_from_leaf_cores_mm2"], r["plant_area_fixed_green_cutoff_mm2"],
+               r["grow_from_leaf_cores_soil_level"], r["grow_from_leaf_cores_cutoff"]) for r in rows]
+    assert picked == [("1156.0", "900.0", "-0.035", "0.035"), ("", "910.0", "", "")]
+    # Aaron, 2026-11-11 (option 1): the two areas side by side after the location, named as in the
+    # Gallery; no internal method strings.
+    assert list(rows[0])[:6] == ["file", "taken_at", "tray", "location", "plant_area_grow_from_leaf_cores_mm2",
+                                 "plant_area_fixed_green_cutoff_mm2"]
+    assert not {"segmenter", "cores_method"} & set(rows[0])
+
+
+def test_the_export_holds_each_cells_area_and_status_by_grow_from_leaf_cores() -> None:
+    """#363 part 2: cell-readings.csv carries each cell's status and area by grow from leaf cores
+    beside the fixed green cutoff's; no area when it has none, never 0; a photo read before grow
+    from leaf cores existed has those columns empty."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Cores cells")["id"])
+    both = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW"}, areas={3: 900.0})
+    older = table_photo(experiment["id"], datetime(2026, 10, 2, 0, 1, tzinfo=UTC), {3: "NW"}, areas={3: 910.0})
+
+    def cell(name, holds, px, area, grown_px, grown_area, grown_over):
+        return {"cell": name, "holds": holds, "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4, "plant_px": px,
+                "area_mm2": area, "plant_centre_px": None, "over_other_cells": False,
+                "segmenter": "green threshold, 0.1", "cell_rule": "rule", "grown_plant_px": grown_px,
+                "grown_area_mm2": grown_area, "grown_plant_centre_px": None, "grown_over_other_cells": grown_over}
+
+    for path, cells in (
+        (both, [cell("A1", "tag", 0, 0.0, 0, 0.0, False), cell("B1", "plant", 1205, 120.5, 1802, 180.2, False),
+                cell("B2", "plant", 0, 0.0, 0, 0.0, False), cell("C1", "plant", 300, 30.0, 900, 90.0, True)]),
+        (older, [cell("B1", "plant", 1210, 121.0, None, None, None)]),
+    ):
+        capture_id = database.captures_by_path([path])[path]["id"]
+        [tray] = database.tray_readings(capture_id)["trays"]
+        tray["cells"] = cells
+        database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
+    picked = [(r["cell"], r["status_fixed_green_cutoff"], r["plant_area_fixed_green_cutoff_mm2"],
+               r["status_grow_from_leaf_cores"], r["plant_area_grow_from_leaf_cores_mm2"]) for r in rows]
+    assert list(rows[0])[:9] == ["file", "taken_at", "tray", "cell", "location", "plant_area_grow_from_leaf_cores_mm2",
+                                 "plant_area_fixed_green_cutoff_mm2", "status_grow_from_leaf_cores",
+                                 "status_fixed_green_cutoff"]
+    assert not {"segmenter", "cell_rule"} & set(rows[0])
+    assert picked == [
+        ("A1", "tag", "", "tag", ""),
+        ("B1", "plant", "120.5", "plant", "180.2"),
+        ("B2", "missing", "", "missing", ""),
+        ("C1", "plant", "30.0", "leaves over other cells", "90.0"),
+        ("B1", "plant", "121.0", "", ""),
+    ]
 
 
 def test_an_export_with_nothing_ticked_is_refused() -> None:
@@ -351,7 +482,7 @@ def test_the_expected_sizes_are_the_right_order_of_magnitude() -> None:
                                ({"data": False, "photos": True}, "photos_bytes", None)):
         # The size of the download, the zips as they come down: the CSVs in part 0 are compressed
         # about 8 times (export 4 on npec-rig-01, 2026-11-06: 6.2 MB of files, a 756 kB zip).
-        export = client.post(f"/api/experiments/{experiment['id']}/export", json=choice).json()
+        export = export_built(client, experiment['id'], choice)
         numbers = parts if parts is not None else [p["n"] for p in export["parts"] if p["n"] >= 1]
         made = sum(len(client.get(f"/api/exports/{export['id']}/parts/{n}").content) for n in numbers)
         assert made / 3 <= expected[key] <= made * 3, (key, expected[key], made)
@@ -385,7 +516,8 @@ def test_the_export_holds_each_cells_plant_area_or_the_word_for_why_it_has_none(
     rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
     readme = files["README.txt"].decode()
     manifest = files["MANIFEST-part00.sha256"].decode()
-    picked = [(r["tray"], r["location"], r["cell"], r["status"], r["plant_area_mm2"], r["band_slot"]) for r in rows]
+    picked = [(r["tray"], r["location"], r["cell"], r["status_fixed_green_cutoff"], r["plant_area_fixed_green_cutoff_mm2"],
+               r["validation_slot"]) for r in rows]
     assert picked == [
         ("3", "NW", "A1", "tag", "", "North 1"),
         ("3", "NW", "B1", "plant", "120.5", "North 1"),
@@ -393,7 +525,6 @@ def test_the_export_holds_each_cells_plant_area_or_the_word_for_why_it_has_none(
         ("3", "NW", "C1", "leaves over other cells", "30.0", "North 1"),
     ]
     assert {r["file"] for r in rows} == {f"stills/{path.split('/stills/')[-1]}.jpg"}
-    assert {r["cell_rule"] for r in rows} == {"rule"}
     assert "cell-readings.csv" in readme
     assert "  cell-readings.csv\n" in manifest
 
@@ -418,7 +549,7 @@ def test_an_export_lists_its_parts_each_under_the_part_size(monkeypatch: pytest.
     experiment = _stopped_experiment_with_photos(5)
     sizes = _photo_bytes(experiment)
     monkeypatch.setattr(exports, "PART_BYTES", 2 * max(sizes))
-    export = _client().post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": True}).json()
+    export = export_built(_client(), experiment['id'], {"data": True, "photos": True})
     parts = export["parts"]
     assert [p["n"] for p in parts] == list(range(len(parts)))
     assert parts[0]["photos"] == 0
@@ -428,18 +559,32 @@ def test_an_export_lists_its_parts_each_under_the_part_size(monkeypatch: pytest.
     assert all(p["bytes"] <= 2 * max(sizes) * 1.01 + 10_000 for p in photo_parts)
 
 
+def test_the_readme_names_every_part(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 finding 4: the README named a fixed "1 zip files, part00 to part00" for every export
+    with photos (#437/#442's bug). With several parts, it must say how many there really are."""
+    experiment = _stopped_experiment_with_photos(5)
+    sizes = _photo_bytes(experiment)
+    monkeypatch.setattr(exports, "PART_BYTES", 2 * max(sizes))
+    export, files = _unzipped(experiment["id"])
+    assert len(export["parts"]) == 4  # part 0 + 3 photo parts, from the same split as above
+    readme = files["README.txt"].decode()
+    assert "This export comes in 4 zip files, part00 to part03." in readme
+    assert "1 zip files, part00 to part00" not in readme
+
+
 def test_each_part_announces_its_exact_size(monkeypatch: pytest.MonkeyPatch) -> None:
     """B2: the browser shows progress from Content-Length (Aaron tried Chrome and Firefox,
-    2026-11-06), so it must equal what is sent, and the parts list gives the same size."""
+    2026-11-06), so a part's must equal what is sent, and the parts list gives the same size.
+    Part 0 is built before it is downloaded (#437), so it has one too."""
     experiment = _stopped_experiment_with_photos(3)
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
-    export = client.post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(client, experiment['id'])
     for part in export["parts"]:
         got = client.get(f"/api/exports/{export['id']}/parts/{part['n']}")
+        assert got.status_code == 200, part["n"]
         assert int(got.headers["content-length"]) == len(got.content), part["n"]
-        if part["n"] >= 1:
-            assert part["bytes"] == len(got.content)
+        assert part["bytes"] == len(got.content)
 
 
 def test_a_running_experiments_parts_stay_the_same_as_photos_come(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -450,7 +595,7 @@ def test_a_running_experiments_parts_stay_the_same_as_photos_come(monkeypatch: p
         _array, _record = captures.take_photo("capture")
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
-    export = client.post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(client, experiment['id'])
     first = client.get(f"/api/exports/{export['id']}/parts/2").content
     for _ in range(3):
         _array, _record = captures.take_photo("capture")
@@ -464,20 +609,144 @@ def test_a_running_experiments_parts_stay_the_same_as_photos_come(monkeypatch: p
 
 def test_purge_needs_every_photo_part_sent_in_full(monkeypatch: pytest.MonkeyPatch) -> None:
     """B4: an export in parts is complete only when every photo part was sent to its last byte; a
-    download broken off part way does not count."""
+    download broken off part way does not count. Part 0 is also needed (#482): downloaded first,
+    so this test is about the photo parts alone."""
     experiment = _stopped_experiment_with_photos(2)
     monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
     client = _client()
-    export = client.post(f"/api/experiments/{experiment['id']}/export").json()
+    export = export_built(client, experiment['id'])
     assert [p["n"] for p in export["parts"]] == [0, 1, 2]
+    client.get(f"/api/exports/{export['id']}/parts/0")
     client.get(f"/api/exports/{export['id']}/parts/1")
     _name, _length, body = exports.part_download(export["id"], 2)
     next(body)
     body.close()  # broken off after the first piece
     assert database.complete_export(experiment["id"]) is None
-    assert [p["sent"] for p in client.get(f"/api/exports/{export['id']}").json()["parts"]] == [False, True, False]
+    assert [p["sent"] for p in client.get(f"/api/exports/{export['id']}").json()["parts"]] == [True, True, False]
     client.get(f"/api/exports/{export['id']}/parts/2")
     assert database.complete_export(experiment["id"])["id"] == export["id"]
+
+
+def test_a_late_adopted_photos_row_does_not_join_the_frozen_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 (review of #378, finding 1): a photo saved to disk while rig.db stayed locked (#439),
+    whose row is only added after an export was built, must not join that export's parts: the
+    list is fixed once, at build. (Since #489 an export adds the rows missing at its start, so
+    the photo here is saved after the export is built.)"""
+    from npec_rig import settings
+    from npec_rig.camera import CameraManager
+    from tests.helpers import lock_held
+
+    experiment = captures.start_experiment(captures.create_experiment(name="Drought")["id"])
+    _array, _record = captures.take_photo("capture")
+    del _array
+    export = export_built(_client(), experiment["id"])
+    assert len(export["parts"]) == 2  # part 0 + one photo part
+
+    CameraManager.instance()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(30, until=(photo_saved := threading.Event())):  # until the photo is saved, however slow
+        _array, record = captures.take_photo("capture")
+        photo_saved.set()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert record["capture_id"] is None  # the photo is on disk, its row is not yet
+
+    assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 1
+    assert database.captures_by_path([record["path"]])  # the row now exists
+
+    again = exports.export_with_parts(export["id"])
+    assert again["parts"] == export["parts"]
+    _name, _length, body = exports.part_download(export["id"], 1)
+    names = {n.split("/", 1)[1] for n in zipfile.ZipFile(io.BytesIO(b"".join(body))).namelist()}
+    first_photo = database.captures_for_experiment(experiment["id"])[0]["path"].split("/stills/", 1)[-1]
+    assert names == {f"stills/{first_photo}.jpg", f"stills/{first_photo}.json", "MANIFEST-part01.sha256"}
+
+
+def test_captures_csv_says_which_photos_had_their_row_added_after_they_were_taken(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#488: a photo saved while rig.db stayed locked, and given its row afterwards, reads 1 in
+    `added_later`; a photo recorded as it was taken reads 0."""
+    from npec_rig import settings
+    from npec_rig.camera import CameraManager
+    from tests.helpers import lock_held
+
+    experiment = captures.start_experiment(captures.create_experiment(name="Late rows")["id"])
+    _array, normal = captures.take_photo("capture")
+    del _array
+    CameraManager.instance()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(1.0):
+        _array, late = captures.take_photo("capture")
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert captures.adopt_unrecorded_photos(experiment, {late["date"]}).added == 1
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = {r["path"]: r for r in csv.DictReader(io.StringIO(files["captures.csv"].decode()))}
+
+    assert rows[normal["path"]]["added_later"] == "0"
+    assert rows[late["path"]]["added_later"] == "1"
+
+
+def test_a_photo_parts_files_agree_with_captures_csv(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482: the same fixed list is used for captures.csv and the photo parts, so the two never
+    disagree on which photos the export holds."""
+    experiment = _stopped_experiment_with_photos(3)
+    monkeypatch.setattr(exports, "PART_BYTES", max(_photo_bytes(experiment)))
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["captures.csv"].decode())))
+    assert {r["file"] for r in rows} == {name for name in files if name.startswith("stills/") and name.endswith(".jpg")}
+
+
+def test_a_part_download_409s_when_its_photo_is_deleted_after_build(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#482 (review of #378, finding 1): a part's files are the stored list, not recomputed; one
+    missing since the export was built is refused rather than silently sent as a different zip."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    row = database.export_part_files(export["id"], 1)[0]
+    (captures.experiments_root() / database.get_experiment(experiment["id"])["folder"] / row["name"]).unlink()
+
+    with pytest.raises(ExperimentError, match="changed on the rig"):
+        exports.part_download(export["id"], 1)
+
+    assert database.parts_sent(export["id"]) == set()
+
+
+def test_a_part_download_409s_when_its_photo_shrinks_after_build() -> None:
+    """As above, a file still present but a different size than when the export was built."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    row = database.export_part_files(export["id"], 1)[0]
+    path = captures.experiments_root() / database.get_experiment(experiment["id"])["folder"] / row["name"]
+    path.write_bytes(path.read_bytes()[:-1])
+
+    with pytest.raises(ExperimentError, match="changed on the rig"):
+        exports.part_download(export["id"], 1)
+
+    assert database.parts_sent(export["id"]) == set()
+
+
+def test_part_download_records_sent_only_once_the_full_length_was_actually_read() -> None:
+    """#482 (review of #378, finding 6): "sent" is recorded by the bytes actually handed on, not
+    merely once the last chunk was yielded; a file that shrinks while the body is being read gives
+    fewer bytes than the announced length, and must not count as sent."""
+    experiment = _stopped_experiment_with_photos(1)
+    export = export_built(_client(), experiment["id"])
+    _name, length, body = exports.part_download(export["id"], 0)
+    path = exports.zip_path(database.get_export(export["id"]))
+    original = path.read_bytes()
+    path.write_bytes(original[: length // 2])  # shrinks the file the body is mid-read of
+
+    read = b"".join(body)
+
+    assert len(read) < length
+    assert database.parts_sent(export["id"]) == set()
+
+    path.write_bytes(original)
+    _name, length, body = exports.part_download(export["id"], 0)
+    read = b"".join(body)
+    assert len(read) == length
+    assert database.parts_sent(export["id"]) == {0}
 
 
 def test_the_export_says_from_when_a_trays_cell_names_may_be_swapped() -> None:
@@ -504,3 +773,375 @@ def test_the_export_says_from_when_a_trays_cell_names_may_be_swapped() -> None:
     rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
     second = database.captures_by_path([paths[1]])[paths[1]]["taken_at"]
     assert [(r["taken_at"][:10], r["names_unsure_since"]) for r in rows] == [("2026-11-03", ""), ("2026-11-04", second)]
+
+
+def _experiment_with_cells(photos: int) -> dict:
+    """A stopped experiment of `photos` photos, each read with 12 trays of 20 cells (production's
+    experiment 18 has about 210 cells a photo)."""
+    from datetime import UTC, datetime, timedelta
+
+    from tests.helpers import TABLE_CENTRES, table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Many cells")["id"])
+    locations = list(TABLE_CENTRES)
+    trays = {tray_id: locations[tray_id % len(locations)] for tray_id in range(12)}
+    def cells(k: int, tray_id: int) -> list[dict]:
+        # Areas that differ from cell to cell and photo to photo, as plants' do: lines that repeat
+        # exactly would zip to almost nothing.
+        return [{"cell": f"{column}{row}", "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+                 "plant_px": 1205, "area_mm2": round(100 + (k * 7919 + tray_id * 104729 + i * 1299709) % 9973 / 10, 1),
+                 "plant_centre_px": None, "over_other_cells": False, "segmenter": "green threshold, 0.1",
+                 "cell_rule": "rule", "grown_plant_px": 1802,
+                 "grown_area_mm2": round(150 + (k * 6113 + tray_id * 7727 + i * 15485863) % 9967 / 10, 1),
+                 "grown_plant_centre_px": None, "grown_over_other_cells": False}
+                for i, (column, row) in enumerate((c, r) for c in "ABCD" for r in range(1, 6))]
+
+    start = datetime(2026, 10, 2, tzinfo=UTC) - timedelta(days=photos)  # one day per experiment, unique paths, before the export
+    for k in range(photos):
+        path = table_photo(experiment["id"], start + timedelta(minutes=k), trays, areas=dict.fromkeys(trays, 900.0))
+        capture_id = database.captures_by_path([path])[path]["id"]
+        read = database.tray_readings(capture_id)["trays"]
+        for tray in read:
+            tray["cells"] = cells(k, tray["tray_id"])
+        database.record_tray_readings(capture_id, read_at="t", status="read", trays=read)
+    return captures.stop_experiment(experiment["id"])
+
+
+def _data_part_peak_bytes(photos: int) -> int:
+    import tracemalloc
+
+    experiment = _experiment_with_cells(photos)
+    tracemalloc.start()
+    try:
+        export_built(_client(), experiment["id"], {"data": True, "photos": False})
+        return tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+
+
+def test_the_data_parts_memory_does_not_grow_with_the_number_of_photos() -> None:
+    """#430: part 0 of experiment 18 (25,600 read photos) was made whole in memory, reached 13 GB
+    and the app was killed with the camera. Made while it is sent, its peak memory stays about the
+    same however many photos the experiment has (before the fix: 4 times the photos, 4 times the
+    memory, measured in ~/scratch/430-export-memory/before.md)."""
+    # The larger first: memory used once (imports, caches) then counts against it, not for it.
+    many = _data_part_peak_bytes(100)
+    few = _data_part_peak_bytes(25)
+    assert many < 2 * few, (few, many)
+
+
+def test_export_answers_at_once_and_builds_the_data_file_in_the_background() -> None:
+    """#437: on production the data part was built only while the page downloaded it, 38 minutes
+    with the tab open. Export answers at once with the export being built and how far it is; the
+    page may be closed; the file is there to download when it is done."""
+    experiment = _experiment_with_cells(40)
+    client = _client()
+    export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
+    assert export["finished_at"] is None
+    seen = []
+    while not (status := client.get(f"/api/exports/{export['id']}").json())["finished_at"]:
+        seen.append(status["parts"][0]["making"])
+        time.sleep(0.01)
+    during = [s for s in seen if s is not None]
+    assert {s["photos"] for s in during} == {40}
+    assert any(0 < s["photos_done"] < 40 for s in during)
+    assert status["error"] is None
+    assert status["parts"][0]["making"] is None
+    part = client.get(f"/api/exports/{export['id']}/parts/0")
+    assert part.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(part.content)) as zf:
+        rows = zf.read(next(n for n in zf.namelist() if n.endswith("cell-readings.csv"))).decode().splitlines()
+    assert len(rows) == 1 + 40 * 12 * 20
+
+
+def test_export_again_while_the_data_file_is_built_returns_that_build() -> None:
+    """#437: on production a second tap of Export started a second build beside the first, and
+    both went at half speed. While one is built, Export again returns that one; another
+    experiment's export waits for it to finish; until it is done, part 0 is not ready."""
+    experiment = _experiment_with_cells(60)
+    other = _stopped_experiment_with_photos(1)
+    client = _client()
+    first = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
+    again = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+    elsewhere = client.post(f"/api/experiments/{other['id']}/export", json={"data": True, "photos": False})
+    early = client.get(f"/api/exports/{first['id']}/parts/0")
+    assert again.status_code == 200
+    assert again.json()["id"] == first["id"]
+    assert elsewhere.status_code == 409
+    assert "being prepared" in elsewhere.json()["detail"]
+    assert early.status_code == 409
+    assert "being prepared" in early.json()["detail"]
+    assert [e["id"] for e in database.exports_for(experiment["id"])] == [first["id"]]
+
+
+def _experiment_files(experiment: dict) -> set[str]:
+    folder = captures.experiments_root() / experiment["folder"]
+    return {str(p.relative_to(folder)) for p in folder.rglob("*") if p.is_file() and "/stills/" not in f"/{p.relative_to(folder)}"}
+
+
+def test_stop_ends_the_build_and_leaves_no_file() -> None:
+    """#437: Cancel in the browser left production building for half an hour, and only a
+    restart ended it. Stop ends the build, the export says it was stopped, and no part-built file
+    is left on the card."""
+    experiment = _experiment_with_cells(100)
+    before = _experiment_files(experiment)
+    client = _client()
+    export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
+    stopped = client.post(f"/api/exports/{export['id']}/stop")
+    assert stopped.status_code == 200
+    status = client.get(f"/api/exports/{export['id']}").json()
+    assert status["finished_at"] is not None
+    assert status["error"] == "it was stopped"
+    assert _experiment_files(experiment) == before
+    assert client.get(f"/api/exports/{export['id']}/parts/0").status_code == 409
+    # The rig is free for the next export.
+    assert export_built(client, experiment["id"], {"data": True, "photos": False})["error"] is None
+
+
+def test_a_build_cut_off_by_a_restart_shows_as_failed_and_leaves_no_file() -> None:
+    """#437: a restart while the data file is built ends the build. At the next start the export
+    is marked failed, never left as being made, and no part-built file is left."""
+    experiment = _experiment_with_cells(100)
+    before = _experiment_files(experiment)
+    client = _client()
+    export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
+    assert exports.fail_unfinished_exports() == 1
+    status = client.get(f"/api/exports/{export['id']}").json()
+    assert status["finished_at"] is not None
+    assert status["error"].startswith("the app restarted")
+    assert _experiment_files(experiment) == before
+
+
+def _flag_experiment(trays_cells: dict[int, list[tuple]], *, tray_areas: dict[int, tuple] | None = None) -> dict:
+    """An experiment with one photo whose trays hold cells given as (name, fixed mm2, grown mm2);
+    `tray_areas` gives a tray's own (fixed, grown) area, for a tray with no cells."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Flags")["id"])
+    ids = {i: "NW" for i in trays_cells}
+    path = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), ids, areas={i: 900.0 for i in ids})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    stored = database.tray_readings(capture_id)["trays"]
+    for tray in stored:
+        tray["cells"] = [
+            {"cell": name, "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+             "plant_px": 1, "area_mm2": fixed, "plant_centre_px": None, "over_other_cells": False,
+             "segmenter": "green threshold, 0.1", "cell_rule": "rule", "grown_plant_px": None if grown is None else 1,
+             "grown_area_mm2": grown, "grown_plant_centre_px": None, "grown_over_other_cells": False}
+            for name, fixed, grown in trays_cells[tray["tray_id"]]]
+        if tray_areas and tray["tray_id"] in tray_areas:
+            tray["area_mm2"], tray["grown_area_mm2"] = tray_areas[tray["tray_id"]]
+            tray["grown_plant_px"] = 1
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=stored)
+    captures.stop_experiment(experiment["id"])
+    return experiment
+
+
+def test_the_export_marks_a_cell_where_grown_and_fixed_areas_disagree() -> None:
+    """#484: cell-readings.csv names the flag in words for a flagged cell and leaves it empty for
+    an ordinary cell and for a cell with no grown area."""
+    experiment = _flag_experiment({3: [("B1", 54.0, 600.0), ("B2", 120.0, 180.0), ("B3", 0.0, None)]})
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
+    assert [(r["cell"], r["grown_fixed_disagree"]) for r in rows] == [
+        ("B1", "grown and fixed areas disagree, check the cell"), ("B2", ""), ("B3", "")]
+
+
+def test_the_export_counts_flagged_cells_per_tray() -> None:
+    """#484: tray-readings.csv gives each tray's count of flagged cells and their grown area."""
+    experiment = _flag_experiment({
+        3: [("B1", 54.0, 600.0), ("B2", 120.0, 180.0), ("B3", 10.0, 300.0)],
+        4: [("B1", 120.0, 180.0)],
+    })
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
+    assert {r["tray"]: (r["cells_flagged"], r["cells_flagged_grown_area_mm2"]) for r in rows} == {
+        "3": ("2", "900.0"), "4": ("0", "0.0")}
+
+
+def test_a_tray_without_cells_flagged_as_a_whole_counts_as_one_flagged_cell() -> None:
+    """#484: a 1 x 1 tray flagged on its whole area has count 1 and its grown area as the sum."""
+    experiment = _flag_experiment({3: []}, tray_areas={3: (40.0, 700.0)})
+    _export, files = _unzipped(experiment["id"])
+    [row] = csv.DictReader(io.StringIO(files["tray-readings.csv"].decode()))
+    assert (row["cells_flagged"], row["cells_flagged_grown_area_mm2"]) == ("1", "700.0")
+
+
+def test_tray_readings_csv_gives_each_trays_warnings_as_the_gallery_shows_them() -> None:
+    """#485: tray-readings.csv has a warnings column with the Gallery's words for each tray, empty
+    for a tray with none."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Warned")["id"])
+    path = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW", 4: "NE"},
+                       areas={3: 900.0, 4: 900.0})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    stored = database.tray_readings(capture_id)["trays"]
+    for tray in stored:
+        tray.update({"grown_method": "grow from leaf cores, core 0.07", "grown_area_mm2": 1000.0,
+                     "grown_plant_px": 100000, "grown_plant_centre_px": [10.0, 20.0],
+                     "grown_blue_coverage": 0.8 if tray["tray_id"] == 3 else 0.0,
+                     "grown_soil_level": 0.045 if tray["tray_id"] == 3 else -0.03,
+                     "grown_lower_cutoff": -0.045 if tray["tray_id"] == 3 else 0.04})
+        # The reading saved the warning when the photo was read; loading keeps what was saved.
+        if tray["tray_id"] == 3:
+            tray["warnings"] = ["mats covering soil; area measured with a less precise fallback"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=stored)
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = {r["tray"]: r for r in csv.DictReader(io.StringIO(files["tray-readings.csv"].decode()))}
+    assert rows["3"]["warnings"] == "mats covering soil; area measured with a less precise fallback"
+    assert rows["4"]["warnings"] == ""
+
+
+def test_cell_readings_csv_gives_each_cell_its_trays_warnings() -> None:
+    """#516: cell-readings.csv has a tray_warnings column. Every cell row of a tray whose soil is
+    hidden under mats carries the tray's warning words; the cells of a tray with none are empty."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Cell warned")["id"])
+    path = table_photo(experiment["id"], datetime(2026, 10, 2, tzinfo=UTC), {3: "NW", 4: "NE"},
+                       areas={3: 900.0, 4: 900.0})
+    capture_id = database.captures_by_path([path])[path]["id"]
+    stored = database.tray_readings(capture_id)["trays"]
+    for tray in stored:
+        tray["cells"] = [
+            {"cell": name, "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+             "plant_px": 1, "area_mm2": 100.0, "plant_centre_px": None, "over_other_cells": False,
+             "segmenter": "green threshold, 0.1", "cell_rule": "rule", "grown_plant_px": 1,
+             "grown_area_mm2": 100.0, "grown_plant_centre_px": None, "grown_over_other_cells": False}
+            for name in ("B1", "B2")]
+        # The reading saved the warning when the photo was read; loading keeps what was saved.
+        if tray["tray_id"] == 3:
+            tray["warnings"] = ["mats covering soil; area measured with a less precise fallback"]
+    database.record_tray_readings(capture_id, read_at="t", status="read", trays=stored)
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
+    assert [(r["tray"], r["cell"], r["tray_warnings"]) for r in rows] == [
+        ("3", "B1", "mats covering soil; area measured with a less precise fallback"),
+        ("3", "B2", "mats covering soil; area measured with a less precise fallback"),
+        ("4", "B1", ""),
+        ("4", "B2", "")]
+
+
+def test_cell_readings_csv_gives_the_same_warnings_as_tray_readings_csv_for_each_photo() -> None:
+    """#516: a cell's tray_warnings is the tray's warnings in tray-readings.csv for the same photo:
+    "names may be swapped since" in place of "tag turned on tray", joined by " | "."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Cell swapped")["id"])
+    paths = [table_photo(experiment["id"], datetime(2026, 11, day, tzinfo=UTC), {3: "NW"}, areas={3: 100.0})
+             for day in (3, 4)]
+    saved = (["tag turned on tray"], ["tag turned on tray", "soil looks unusually green; plant area unaffected"])
+    for path, warnings in zip(paths, saved, strict=True):
+        capture_id = database.captures_by_path([path])[path]["id"]
+        [tray] = database.tray_readings(capture_id)["trays"]
+        tray["warnings"] = warnings
+        tray["cells"] = [
+            {"cell": "B1", "holds": "plant", "centre_px": [0.0, 0.0], "corners_px": [[0, 0]] * 4,
+             "plant_px": 1, "area_mm2": 100.0, "plant_centre_px": None, "over_other_cells": False,
+             "segmenter": "green threshold, 0.1", "cell_rule": "rule", "grown_plant_px": 1,
+             "grown_area_mm2": 100.0, "grown_plant_centre_px": None, "grown_over_other_cells": False}]
+        database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["cell-readings.csv"].decode())))
+    tray_rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
+    expected = ["names may be swapped since 2026-11-03 00:00 UTC",
+                "soil looks unusually green; plant area unaffected | names may be swapped since 2026-11-03 00:00 UTC"]
+    assert [r["tray_warnings"] for r in rows] == expected
+    assert [r["warnings"] for r in tray_rows] == expected
+
+
+def test_tray_readings_csv_replaces_the_turned_tag_warning_by_the_time_names_may_be_swapped() -> None:
+    """#485: a tray whose tag turned in an earlier photo shows, in each photo from then on, the
+    Gallery's "names may be swapped since" words in place of "tag turned on tray", joined to its
+    other warnings by " | "."""
+    from datetime import UTC, datetime
+
+    from tests.helpers import table_calibration, table_photo
+
+    table_calibration()
+    experiment = captures.start_experiment(captures.create_experiment(name="Swapped")["id"])
+    paths = [table_photo(experiment["id"], datetime(2026, 11, day, tzinfo=UTC), {3: "NW"}, areas={3: 100.0})
+             for day in (3, 4)]
+    saved = (["tag turned on tray"], ["tag turned on tray", "soil looks unusually green; plant area unaffected"])
+    for path, warnings in zip(paths, saved, strict=True):
+        capture_id = database.captures_by_path([path])[path]["id"]
+        [tray] = database.tray_readings(capture_id)["trays"]
+        tray["warnings"] = warnings
+        database.record_tray_readings(capture_id, read_at="t", status="read", trays=[tray])
+    captures.stop_experiment(experiment["id"])
+
+    _export, files = _unzipped(experiment["id"])
+    rows = list(csv.DictReader(io.StringIO(files["tray-readings.csv"].decode())))
+    assert [r["warnings"] for r in rows] == [
+        "names may be swapped since 2026-11-03 00:00 UTC",
+        "soil looks unusually green; plant area unaffected | names may be swapped since 2026-11-03 00:00 UTC"]
+
+
+# --- One job that reads every photo at a time: an export waits for a time lapse video (#503) ----
+
+@needs_ffmpeg
+def test_an_export_is_refused_while_a_video_is_being_made_and_starts_once_it_is_done(monkeypatch, tmp_path) -> None:
+    from npec_rig import timelapse
+
+    experiment = _stopped_experiment_with_photos(1)
+    client = _client()
+    video_id, release = video_held(experiment["id"], monkeypatch, tmp_path)
+    try:
+        assert timelapse.being_made() == video_id
+        refused = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+        assert refused.status_code == 409
+        assert "A time lapse video is being made" in refused.json()["detail"]
+        assert database.exports_for(experiment["id"]) == []  # nothing was started
+    finally:
+        release.touch()
+    video_done()
+
+    started = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
+    assert started.status_code == 200
+    assert [e["id"] for e in database.exports_for(experiment["id"])] == [started.json()["id"]]
+
+
+def test_a_photo_saved_while_rig_db_was_locked_is_in_the_export_started_after_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#489: Export listed only photos with a row, so a photo whose row could not be written was
+    left out of the export, and Purge deleted it after that."""
+    from npec_rig import settings
+    from npec_rig.camera import CameraManager
+    from tests.helpers import lock_held
+
+    experiment = captures.start_experiment(captures.create_experiment(name="Late row")["id"])
+    _array, first = captures.take_photo("capture")
+    del _array
+    CameraManager.instance()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(30, until=(photo_saved := threading.Event())):  # until the photo is saved, however slow
+        _array, late = captures.take_photo("capture")
+        photo_saved.set()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert late["capture_id"] is None  # on disk, and without a row
+
+    _export, files = _unzipped(experiment["id"])
+
+    rows = list(csv.DictReader(io.StringIO(files["captures.csv"].decode())))
+    assert sorted(r["path"] for r in rows) == sorted([first["path"], late["path"]])

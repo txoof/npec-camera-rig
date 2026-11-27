@@ -1,0 +1,16 @@
+n,file,why,rig,capture_id,day_utc,trays_shown
+1,labels-01.png,Check,production,2037,2026-10-22,5 2
+2,labels-02.png,Check,production,8158,2026-10-26,2 4
+3,labels-03.png,Check,production,15722,2026-10-31,1 5
+4,labels-04.png,Check,production,25203,2026-11-07,3 5
+5,labels-05.png,Check,production,32284,2026-11-12,3 1
+6,labels-06.png,Check,production,38044,2026-11-16,6 5
+7,labels-07.png,Check,production,43915,2026-11-20,6 5
+8,labels-08.png,Check,production,291,2026-10-18,
+9,labels-09.png,Check,development,21670,2026-11-13,none none
+10,labels-10.png,Check,development,22294,2026-11-15,none none
+11,labels-11.png,Check,development,22942,2026-11-17,11 12
+12,labels-12.png,Check,development,23686,2026-11-20,12 8
+13,labels-13.png,The photo with the most plant pixels,production,37084,2026-11-15,6 5
+14,labels-14.png,Blue mats: the most plant pixels from 6 to 16 November after it,production,36964,2026-11-15,6 5
+15,labels-15.png,"Tray 8, the synthetic plant: labelled ignore (Aaron, 2026-11-20)",production,2517,2026-10-22,8 7

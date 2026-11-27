@@ -8,7 +8,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
-from npec_rig import images, photo_tags, tray_readings
+from npec_rig import exclusions, images, photo_tags, tray_readings
 from npec_rig.camera import array_to_jpeg
 from npec_rig.captures import PHOTO_KEY, capture_hours, list_recent_captures, photo_file
 from npec_rig.routes.shared import derived_response, templates
@@ -50,6 +50,9 @@ def api_captures(
     # Each photo's saved tray readings (#222) with its light mark and floors (#288), None until
     # it has been read. Like the records (captures._with_database_rows), a database that cannot
     # be read leaves the photos listed.
+    for item in items:
+        item["lights"] = _lights(item.get("record"))
+        item["added_later"] = _added_later(item.get("record"))
     try:
         for item in items:
             record = item.get("record")
@@ -59,6 +62,26 @@ def api_captures(
         for item in items:
             item["trays"] = None
     return items
+
+
+ADDED_LATER = "Added after it was taken"
+
+
+def _added_later(record: dict | None) -> str | None:
+    """The mark for a photo whose database row was added after the photo was taken (#488), saved
+    while rig.db could not be written; None for any other photo."""
+    return ADDED_LATER if record is not None and record.get("added_later") else None
+
+
+LIGHTS_NOT_CHECKED = "Lights not checked: auto exposure was off"
+
+
+def _lights(record: dict | None) -> dict:
+    """Whether the camera was checking the light for this photo (#507): with auto exposure off the
+    rig cannot tell a lights-off photo, so its areas stay counted and the page says so. A photo
+    with no record or no recorded state has no warning."""
+    checked = record is None or exclusions.lights_checked(record)
+    return {"checked": checked, "reason": None if checked else LIGHTS_NOT_CHECKED}
 
 
 # What a card's one tray line shows (#377); Info fetches the full reading, cells included, from
@@ -250,7 +273,8 @@ _TRAY_COLOUR = (255, 220, 0)  # yellow, apart from the tags and the blue trays
 
 # Each warning in a few words on the image, where the trays sit close together; Info has them in
 # full.
-_SHORT_WARNINGS = {"partly outside the photo": "PARTLY OUTSIDE", "two tags in one tray outline": "TWO TAGS"}
+_SHORT_WARNINGS = {"partly outside the photo": "PARTLY OUTSIDE", "two tags in one tray outline": "TWO TAGS",
+                   "fewer tags than trays": "FEWER TAGS"}
 
 
 def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list[str], bool]]:

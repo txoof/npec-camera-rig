@@ -1,0 +1,13 @@
+#!/bin/bash
+# Fill in HDD_ROOT once the SD card copy (issue #511, Part 1) is on the external drive,
+# then `source` this file before running the app or any script in this folder.
+
+HDD_ROOT="/path/to/hdd/copy"   # e.g. /mnt/<external-drive-label>/ac-testing-copy
+
+export NPEC_RIG_SYNTHETIC_CAMERA=1
+export NPEC_RIG_DB_PATH="$HDD_ROOT/rig.db"
+export NPEC_RIG_PHOTOS_DIR="$HDD_ROOT/rig"
+export NPEC_RIG_EXPERIMENTS_DIR="$HDD_ROOT/experiments"
+export NPEC_RIG_MASKS_DIR="$HDD_ROOT/masks"
+export NPEC_RIG_CALIBRATION_DIR="$HDD_ROOT/calibration"
+export NPEC_RIG_DERIVED_DIR="$HDD_ROOT/derived"

@@ -1,0 +1,44 @@
+== 1. photos of experiment 18 and grow from leaf cores
+photos 37357
+tray_read status [('no trays found', 11735), ('read', 25621), ('read failed', 1)]
+read photos with every tray carrying grown 25528
+read photos with a tray lacking grown: 93
+   (2845, '2026-10-22T23:28:53.677970+00:00', 'read', 12, 12, 0, 'lights off')
+   (3297, '2026-10-23T07:00:53.684701+00:00', 'read', 11, 11, 0, 'lights off')
+   (3407, '2026-10-23T08:50:53.600624+00:00', 'read', 11, 1, 1, 'visit')
+   (3408, '2026-10-23T08:51:53.591403+00:00', 'read', 12, 1, 1, 'visit')
+   (3409, '2026-10-23T08:52:53.689713+00:00', 'read', 11, 2, 2, 'visit')
+   (3410, '2026-10-23T08:53:55.547802+00:00', 'read', 12, 1, 1, 'light changing')
+   (3733, '2026-10-23T14:15:53.634155+00:00', 'read', 12, 1, 1, None)
+   (4286, '2026-10-23T23:28:53.708229+00:00', 'read', 12, 12, 0, 'lights off')
+   (4738, '2026-10-24T07:00:53.701828+00:00', 'read', 10, 10, 0, 'lights off')
+   (5726, '2026-10-24T23:28:53.681715+00:00', 'read', 12, 12, 0, 'lights off')
+   (6238, '2026-10-25T08:00:53.690650+00:00', 'read', 10, 10, 0, 'lights off')
+   (7226, '2026-10-26T00:28:53.703433+00:00', 'read', 12, 12, 0, 'lights off')
+   (7662, '2026-10-26T07:44:53.708218+00:00', 'read', 11, 11, 0, 'lights off')
+   (7665, '2026-10-26T07:47:53.696901+00:00', 'read', 1, 1, 0, 'lights off')
+   (7678, '2026-10-26T08:00:53.713390+00:00', 'read', 11, 11, 0, 'lights off')
+   (7835, '2026-10-26T10:37:53.602617+00:00', 'read', 11, 1, 1, 'light changing')
+   (7836, '2026-10-26T10:38:53.605911+00:00', 'read', 12, 1, 1, 'light changing')
+   (7838, '2026-10-26T10:40:53.610374+00:00', 'read', 11, 1, 1, 'light changing')
+   (7916, '2026-10-26T11:58:53.605500+00:00', 'read', 12, 1, 1, 'light changing')
+   (7917, '2026-10-26T11:59:53.618294+00:00', 'read', 11, 1, 1, 'light changing')
+   (9087, '2026-10-27T07:29:53.670488+00:00', 'read', 11, 11, 0, 'lights off')
+   (9118, '2026-10-27T08:00:53.700752+00:00', 'read', 11, 11, 0, 'lights off')
+   (9227, '2026-10-27T09:49:53.601582+00:00', 'read', 12, 1, 1, 'light changing')
+   (9229, '2026-10-27T09:51:53.621795+00:00', 'read', 11, 1, 1, None)
+   (9230, '2026-10-27T09:52:53.600964+00:00', 'read', 12, 1, 1, None)
+   (9236, '2026-10-27T09:58:53.619254+00:00', 'read', 11, 1, 1, 'visit')
+   (9451, '2026-10-27T13:33:53.621827+00:00', 'read', 12, 1, 1, 'light changing')
+   (10108, '2026-10-28T00:28:53.701946+00:00', 'read', 12, 12, 0, 'lights off')
+   (10560, '2026-10-28T08:00:53.695357+00:00', 'read', 11, 11, 0, 'lights off')
+   (10703, '2026-10-28T10:21:53.643860+00:00', 'read', 11, 1, 1, 'light changing')
+read photos with no tray rows 0
+== 2. fixed green cutoff tray areas, backup vs now (photos taken before the backup)
+photos 22652 tray rows 264439 with area 264131 | photos whose fixed cutoff areas differ by > 0.01 mm2 or whose rows differ: 0 | largest difference 0.0
+tray rows per photo, backup vs now (photos with a different count): 0
+== 3. cells
+photos before 6 Nov with cells: backup 0 now 14681 of read photos before 6 Nov 14711
+cells with grown area / all plant cells now [(5409110, 5409338)]
+== new photos since the backup that are not read
+[(37400, '2026-11-15T23:16:54.359229+00:00', 'read failed')]
