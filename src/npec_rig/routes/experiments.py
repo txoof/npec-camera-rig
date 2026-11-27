@@ -151,7 +151,7 @@ def api_purge_check(experiment_id: int) -> dict:
     _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
     try:
         return {"photos_without_row": captures.adopt_all_unrecorded_photos(experiment_id)}
-    except (sqlite3.Error, RuntimeError) as exc:
+    except (sqlite3.Error, RuntimeError, OSError) as exc:
         raise HTTPException(503, f"rig.db is busy, try again: {exc}") from exc
 
 

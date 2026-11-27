@@ -266,7 +266,10 @@ def take_photo(purpose: str, extra: dict | None = None) -> tuple[np.ndarray, dic
     )
     record = _save_photo(array, sidecar, owner)
     started = time.monotonic()
-    record["capture_id"] = _record_in_database(record)
+    try:
+        record["capture_id"] = _record_in_database(record)
+    finally:
+        _saving.discard(record["path"])
     # How long the photo's rig.db writes took after the camera's work, waits for a lock
     # included: the scheduler tells slots lost to the database from slots lost to a slow camera
     # by it (#481).
@@ -323,12 +326,17 @@ class Adopted(NamedTuple):
     slots: dict[tuple[str, int], str]
 
 
-def adopt_unrecorded_photos(experiment: dict, days: set[str] | None = None) -> Adopted:
+def adopt_unrecorded_photos(
+    experiment: dict, days: set[str] | None = None, *, want_slots: bool = True
+) -> Adopted:
     """Add a `capture` row for each of `experiment`'s photos saved in the `days` folders
     (YYYY-MM-DD), or in every day folder when `days` is None, without one: saved while rig.db
     could not be written (#439). Each row is marked
     as added later and gets the calibration its info file names (#488). An older info file has
     none: the calibration of its recorded validation is used, or none.
+
+    With `want_slots` False the info files of photos that have a row are not read at all, which
+    is far cheaper over an experiment's whole folder; `Adopted.slots` is then empty (#489).
 
     A photo whose info file cannot be read (empty or damaged, as after a power cut) is left
     without a row and logged; the others are still added (#481). A rig.db error is raised, to be
@@ -351,6 +359,10 @@ def adopt_unrecorded_photos(experiment: dict, days: set[str] | None = None) -> A
     unreadable = []
     slots = {}
     for path, sidecar in found:
+        if path in _saving:  # being saved by `take_photo`, which adds its own row
+            continue
+        if path in known and not want_slots:
+            continue
         try:
             record = json.loads(sidecar.read_text())
             slot = _slot_of(record)
@@ -359,6 +371,12 @@ def adopt_unrecorded_photos(experiment: dict, days: set[str] | None = None) -> A
             if path in known:
                 continue
             _record_capture(record, path, calibration=_calibration_of(record), added_later=True)
+        except sqlite3.IntegrityError:
+            # Another adoption, or the photo's own row, came first: it has its row. Any other
+            # integrity error is a real one.
+            if not database.captures_by_path([path]):
+                raise
+            continue
         # Only the file's contents: empty or damaged (ValueError covers JSON and text decoding),
         # or missing what a row needs. A database error, a refusal from `database._connect`
         # (RuntimeError) or a failed read (OSError) is raised, to be tried again later.
@@ -377,6 +395,10 @@ def adopt_unrecorded_photos(experiment: dict, days: set[str] | None = None) -> A
 
 _ADOPT_BATCH = 500
 
+# Photos between their files being saved and their row being added (`take_photo`): adoption leaves
+# them alone, or it would add the row first and the photo's own would fail (#489).
+_saving: set[str] = set()
+
 
 def adopt_all_unrecorded_photos(experiment_id: int | None = None) -> int:
     """Add the missing rows of every photo of every experiment that is not purged, or of
@@ -388,7 +410,7 @@ def adopt_all_unrecorded_photos(experiment_id: int | None = None) -> int:
             continue
         if experiment_id is not None and experiment["id"] != experiment_id:
             continue
-        still_missing += len(adopt_unrecorded_photos(experiment).unreadable)
+        still_missing += len(adopt_unrecorded_photos(experiment, want_slots=False).unreadable)
     return still_missing
 
 
@@ -501,8 +523,14 @@ def _save_photo(image: np.ndarray, metadata: dict, experiment: dict | None = Non
     quality = metadata.get("photo_quality") or photo_quality_in_use()
     jpeg_tmp.write_bytes(array_to_jpeg(image, description, **quality))
     json_tmp.write_text(json.dumps(record, indent=2, default=str))
-    json_tmp.replace(json_path)
-    jpeg_tmp.replace(jpeg_path)
+    # Until `take_photo` has added the row (it discards the path), adoption skips this photo.
+    _saving.add(f"{path_prefix}/{stem}")
+    try:
+        json_tmp.replace(json_path)
+        jpeg_tmp.replace(jpeg_path)
+    except BaseException:
+        _saving.discard(f"{path_prefix}/{stem}")
+        raise
 
     return {
         "date": timestamp.strftime("%Y-%m-%d"),

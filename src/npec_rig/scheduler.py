@@ -128,6 +128,11 @@ class Scheduler:
         # Photos saved while rig.db was locked may still need their rows; also true at start, for
         # slots left so by an earlier run (#439).
         self._settle_due = True
+        # Work done once after a start, never before the first photo (#489): the rows of photos
+        # saved before it without one, in every experiment; and the slots those photos' info files
+        # name, which the schedule has not recorded.
+        self._adopt_all_due = True
+        self._recover_slots_due = True
 
     def start(self) -> None:
         self._stop.clear()
@@ -142,12 +147,6 @@ class Scheduler:
             self._thread.join(timeout_s)
 
     def _run(self) -> None:
-        # Photos saved while rig.db was locked, before this start, still have no row (#489).
-        captures.adopt_quietly()
-        try:
-            self._record_slots_of_photos_on_disk()
-        except Exception:
-            logger.exception("Could not record the slots of the photos already on disk; going on")
         wait_s = 0.0
         while not self._stop.wait(wait_s):
             try:
@@ -159,28 +158,28 @@ class Scheduler:
         if self._unwritten:
             self._catch_up(None)
 
-    def _record_slots_of_photos_on_disk(self) -> None:
+    def _recover_slots(self, experiment: dict, sched: dict) -> None:
         """Slots whose photo was saved before this start but never written to rig.db (the app
-        stopped while rig.db was locked, #489): their info files name them. They are recorded
-        for the photos to be linked, and the slots between them, lost to the lock, say so.
-        Without this the gap is counted "the app was not running", though the photos exist."""
-        experiment = database.running_experiment()
-        sched = _running_schedule(experiment)
-        if sched is None:
-            return
-        last_slot = database.schedule_progress(experiment["id"], sched["since"])["last_slot"]
+        stopped while rig.db was locked, #489): their info files name them. They are queued to be
+        written like any slot, after the photo, for the photos to be linked, and the slots
+        between them, lost to the lock, say so. Without this the gap is counted "the app was not
+        running", though the photos exist. The slot of a photo of the current interval is
+        counted too, so that slot's photo is not taken twice."""
+        last_slot = max(
+            database.schedule_progress(experiment["id"], sched["since"])["last_slot"],
+            self._last_unwritten_slot(experiment["id"], sched["since"]),
+        )
         named = captures.scheduled_slots_on_disk(
             experiment, sched["since"], from_day=_due_at(sched, last_slot).date().isoformat()
         )
         named = {slot: due for slot, due in named.items() if slot > last_slot}
         if not named:
             return
-        slots = [
+        self._unwritten.append((experiment["id"], sched["since"], [
             (slot, named[slot], None, None) if slot in named
             else (slot, _due_at(sched, slot).isoformat(), None, MISSED_DB_LOCKED)
             for slot in range(last_slot + 1, max(named) + 1)
-        ]
-        database.record_scheduled_photos(experiment["id"], sched["since"], slots)
+        ]))
         self._settle_due = True  # the photos are linked to these slots next
 
     def _tick(self) -> float:
@@ -196,8 +195,16 @@ class Scheduler:
             # Stopped with slots not yet written: write them now, no photo is waiting (#481).
             if self._unwritten:
                 self._catch_up(None)
+            elif self._adopt_all_due:
+                self._adopt_everything()  # no schedule to keep: nothing waits for it (#489)
             return CHECK_S
         since = sched["since"]
+        if self._recover_slots_due:
+            try:
+                self._recover_slots(experiment, sched)
+                self._recover_slots_due = False
+            except Exception:
+                logger.exception("Could not read the slots of the photos already on disk; trying again")
         last_slot = max(
             database.schedule_progress(experiment["id"], since)["last_slot"],
             self._last_unwritten_slot(experiment["id"], since),
@@ -272,11 +279,19 @@ class Scheduler:
                 database.record_scheduled_photos(*self._unwritten[0])
                 self._unwritten.pop(0)
             if experiment is not None:
+                self._adopt_everything()
                 self._settle_unlinked(experiment)
                 self._settle_due = False
         except Exception:
             self._settle_due = True
             logger.exception("Could not write to rig.db after the photo; trying again later")
+
+    def _adopt_everything(self) -> None:
+        """Once after a start: add the rows of photos in every experiment that lack one (#489).
+        Raises while rig.db is locked, and is tried again at the next catch-up."""
+        if self._adopt_all_due:
+            captures.adopt_all_unrecorded_photos()
+            self._adopt_all_due = False
 
     @staticmethod
     def _settle_unlinked(experiment: dict) -> None:
