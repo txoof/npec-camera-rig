@@ -18,12 +18,19 @@ if not jpg.exists() or not cal.exists():
     print(json.dumps({"path": rec["path"], "skip": "missing"})); raise SystemExit
 sf = scale_field_from_dict(json.loads(cal.read_text())["scale_field"])
 
+cache = root / "tagcache" / (rec["path"].replace("/", "_") + ".json")
 if rec.get("tags"):
-    tags = [TagDetection(t["tag_id"], tuple(map(tuple, t["corners"])), tuple(t["centre"]))
-            for t in json.loads(rec["tags"])]
+    raw = json.loads(rec["tags"])
+elif cache.exists():
+    raw = json.loads(cache.read_text())
 else:
     with Image.open(jpg) as im:
-        tags = detect_tags(np.asarray(im.convert("RGB")))
+        found = detect_tags(np.asarray(im.convert("RGB")))
+    raw = [{"tag_id": t.tag_id, "corners": [list(c) for c in t.corners], "centre": list(t.centre)}
+           for t in found]
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text(json.dumps(raw))
+tags = [TagDetection(t["tag_id"], tuple(map(tuple, t["corners"])), tuple(t["centre"])) for t in raw]
 with Image.open(jpg) as im:
     w = im.size[0]
     im.draft("RGB", (im.size[0] // FACTOR, im.size[1] // FACTOR))
@@ -61,5 +68,7 @@ out = {"path": rec["path"], "experiment": rec.get("experiment"),
        "max_nudge_mm": round(max([p.moved_mm for p in c_placed], default=0.0), 1),
        "mean_ring_C": round(float(np.mean([p.ring for p in c_placed])), 3) if c_placed else None,
        "leftover_share": round(left["leftover_share"], 3),
-       "overlapping_pairs": left["overlapping_pairs"]}
+       "overlapping_pairs": left["overlapping_pairs"],
+       "from_tags": left.get("from_tags"), "from_blue": left.get("from_blue"),
+       "rings": left.get("rings"), "tray_rings": left.get("tray_rings")}
 print(json.dumps(out))

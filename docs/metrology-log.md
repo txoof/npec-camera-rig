@@ -12960,4 +12960,103 @@ weak spot of any method that fits to the blue. The stills are chosen by eye for 
 random, and the methods are being compared on stills that will also have been looked at while
 choosing them.
 
-*Result.* To be added when the run is done.
+### 56.6 Result (2026-11-27)
+
+*Stills actually used.* 59, read only: 12 from production `d6-daylight`, 12 from development
+`npec-rig-01`, and 35 from the `ac-testing` disk image on the T7 backup, spread over 14 experiment
+groups and 2026-10-09 to 2026-11-27. Two more were copied and could not be scored: their tag
+search was never stored and their photo is of a scene with no trays. The off-grid layout of
+section 55 is in the production set (four photos of it, the same layout). The set does **not**
+hold a tray turned sideways, two trays offset at once, or a tray offset along its row, so the
+result says nothing about those.
+
+*How the methods compare, by the scoring of 56.3.*
+
+| Set | Stills | A trays | C trays (from tags + from blue) | A's trays matched by C | C's trays matched by A |
+|---|---|---|---|---|---|
+| Development | 12 | 72 | 73 (47 + 26) | **72 (100%)** | 72 (99%) |
+| Production | 12 | 89 | 108 (80 + 28) | 80 (90%) | 80 (74%) |
+| Old production (T7) | 35 | 372 | 425 (376 + 49) | 299 (80%) | 299 (70%) |
+
+- **C never comes up empty where A finds trays** (0 of 59 stills), the failure B has by
+  construction. Where no tag is read, C falls back to the blue and returns what A returns.
+- **C finds fewer trays than A on exactly 4 stills**, and they are the four of the off-grid
+  layout: 11 against A's 12. That is the fault of section 55, corrected. On that still C's rim
+  coverage is 0.82 to 0.98 per tray, the leftover blue is 0.18 of a tray, and C agrees with A on
+  10 of A's 12 outlines, differing on exactly the two A splits wrongly.
+- **C finds more trays than A on 21 stills.** This is its main fault and it has one cause: C
+  places a tray for every tray tag it sees, including tags that are not on a tray.
+- 20 stills have two C trays overlapping, which the leftover check reports.
+
+*Rim coverage, 606 placed trays.* The share of a tray's 9 mm rim band that is blue.
+
+| Trays | Count | Min | 1st decile | Median | 9th decile | Max |
+|---|---|---|---|---|---|---|
+| Placed from a tag | 503 | 0.08 | 0.48 | 0.76 | 0.95 | 0.99 |
+| Found in the leftover blue | 103 | 0.00 | 0.06 | 0.39 | 0.78 | 0.95 |
+
+*A floor on rim coverage, chosen from the spread above and not before it.* Dropping a tag-placed
+tray whose rim band is less than a given share blue:
+
+| Floor | Tag trays dropped | Stills where C > A | Stills where C < A | Stills where C = A |
+|---|---|---|---|---|
+| none | 0 | 21 | 4 | 34 |
+| 0.30 | 16 | 18 | 4 | 37 |
+| **0.40** | **28** | **16** | **4** | **39** |
+| 0.45 | 35 | 15 | 6 | 38 |
+| 0.50 | 61 | 12 | 19 | 28 |
+| 0.60 | 115 | 8 | 22 | 29 |
+
+0.40 is the knee: it removes the most trays that are not there before it starts removing trays
+that are. At 0.45 genuine trays begin to go (C < A rises from 4 to 6) and by 0.50 the method is
+losing 19 stills' worth. **The floor is a decision read off this table, not a measurement.**
+
+*Time per still, measured on `ac-testing` (aarch64, 4 cores, 4 GB, the same class as production,
+idle, nothing else running).*
+
+| Step | Seconds |
+|---|---|
+| Decoding the photo at quarter size | 0.6 to 1.1 |
+| A, the app's finder | 0.11 to 0.88 |
+| C | 0.17 to 1.98 |
+
+Against a budget of one photo per 60 s shared with every other task (Aaron, 2026-11-27), C costs
+about 1 to 2 s. **Measured idle: not measured with the camera, scheduler and web server running,
+which is the figure that counts.** Two things made that possible and are worth recording: the rim
+band is scored only in the tray's own neighbourhood rather than across the whole frame, and the
+nudge searches coarsely then finely. Before those, C took 6 to 9 s per still on a much faster
+machine and gave the same answer.
+
+*Against the conditions set in 56.4.*
+
+| Condition | Met |
+|---|---|
+| 1. Finds the off-grid tray of photo 319 | **Yes**, within 1 mm of the known centre of section 55 |
+| 2. At least as good as A on the tidy stills | **No.** 100% on development, but C places trays that are not there on 21 stills, 16 after the 0.40 floor |
+| 3. Places no tray where there is none | **No**, for the same reason |
+| 4. Flags itself when it is wrong rather than being quietly wrong | **Partly.** Overlaps are reported on 20 stills; a tray placed on a tag that is not on a tray is not |
+| 5. Within the time budget | **Yes** idle, 1 to 2 s against 60 s; not yet measured under load |
+
+**C is not adopted yet.** It does what it was built for and it never loses a tray, but it invents
+trays from tags that are not on trays, and conditions 2 and 3 were written to stop exactly that.
+
+*Two faults found while building the methods, recorded so they are not met again.* A tray tag lies
+in one corner cell of its tray, but which corner depends on how the tray was laid down, and the
+two readings put the tray's centre about 350 mm apart. The app settles it with the slot layout;
+these methods had none and first took one reading always, which put 5 of 11 trays off the table on
+the production still. Letting the blue settle it -- the corner whose outline covers more blue --
+took the mean rim coverage on that still from 0.25 to 0.93 and the leftover blue from 1.04 trays
+to 0.18.
+
+**Covered trays are beyond both methods.** On a production still of about ten trays under clear
+propagator lids, the blue is hidden, no tray tag is read, and some trays run out of frame. A finds
+4 outlines, one of them turned about 45 degrees to the table, and C returns the same 4 because it
+has no tag to anchor on. The rig reports those 4 as trays with only "no tag" against them. On a
+still like this the honest answer is that the trays are covered and not measured, and an outline
+turned about 45 degrees to the table and to every other tray is not a tray. Neither check exists
+(Aaron, 2026-11-27).
+
+*Where the raw data is.* Scripts in `experiments/577-tray-from-tags/`; the per-still numbers in
+`cmp.jsonl` of each set, not in the repository because the photos are not either. Sheets drawn for
+inspection were put on the controller's scratch viewer, which is not kept.
+

@@ -99,9 +99,18 @@ def _ring_mask(shape, corners, band_px):
 
 
 def _ring_score(rim, corners, band_px):
-    ring = _ring_mask(rim.shape, corners, band_px)
+    """How much of a tray's rim band is blue. Only the tray's own neighbourhood is touched: a mask
+    the size of the whole photo, built once per offset, made the nudge search hundreds of times
+    slower than it needs to be (#577)."""
+    pts = np.asarray(corners, float)
+    pad = int(band_px) + 3
+    x0 = max(0, int(pts[:, 0].min()) - pad); y0 = max(0, int(pts[:, 1].min()) - pad)
+    x1 = min(rim.shape[1], int(pts[:, 0].max()) + pad); y1 = min(rim.shape[0], int(pts[:, 1].max()) + pad)
+    if x1 <= x0 or y1 <= y0:
+        return 0.0
+    ring = _ring_mask((y1 - y0, x1 - x0), pts - (x0, y0), band_px)
     n = int(ring.sum())
-    return 0.0 if n == 0 else float((rim & ring.astype(bool)).sum()) / n
+    return 0.0 if n == 0 else float((rim[y0:y1, x0:x1] & ring.astype(bool)).sum()) / n
 
 
 def nudge_onto_blue(placed, rim, scale_field, factor):
@@ -113,14 +122,20 @@ def nudge_onto_blue(placed, rim, scale_field, factor):
     reach = NUDGE_MM * ppm_small
     small = np.asarray(placed.corners, float) / factor
     best, best_d = None, (0.0, 0.0)
-    offsets = np.arange(-reach, reach + step / 2, step)
-    for dy in offsets:
-        for dx in offsets:
-            if math.hypot(dx, dy) > reach:
-                continue
-            s = _ring_score(rim, small + (dx, dy), band)
-            if best is None or s > best:
-                best, best_d = s, (dx, dy)
+    # Coarse pass over the whole reach, then a fine pass around the best offset: the same answer
+    # as the full grid on every still tried, at a fraction of the cost.
+    for scale in (4.0, 1.0):
+        centre_d = best_d
+        span = reach if scale > 1 else step * 3
+        offsets = np.arange(-span, span + step * scale / 2, step * scale)
+        for dy in offsets:
+            for dx in offsets:
+                ox, oy = centre_d[0] + dx, centre_d[1] + dy
+                if math.hypot(ox, oy) > reach:
+                    continue
+                s = _ring_score(rim, small + (ox, oy), band)
+                if best is None or s > best:
+                    best, best_d = s, (ox, oy)
     moved = math.hypot(*best_d) / ppm_small
     corners = tuple((x + best_d[0] * factor, y + best_d[1] * factor) for x, y in placed.corners)
     centre = (placed.centre[0] + best_d[0] * factor, placed.centre[1] + best_d[1] * factor)
@@ -148,10 +163,40 @@ def leftover(rim, placed_list, scale_field, factor):
             "overlapping_pairs": overlaps}
 
 
-def place_tags_then_blue(detections, image, scale_field, factor):
-    """Method C: tags anchor, blue explains the rest. The blue chooses which corner each tag lies
-    in, nudges each tray onto the rim beside it, and what is then left over is reported."""
+def place_tags_then_blue(detections, image, scale_field, factor, ring_floor=0.0):
+    """Method C: tags anchor, blue explains the rest.
+
+    The blue chooses which corner each tag lies in and nudges each tray onto the rim beside it. A
+    tag whose tray covers less blue than `ring_floor` is not a tray at all (a tag on a wall, a
+    sheet or a crate) and is dropped. The blue those trays do not cover is then put through the
+    app's own finder, so a tray whose tag was covered by leaves, or which never had one, is still
+    found. What is left after that is reported as leftover.
+    """
+    from npec_rig.tray_placement import find_outlines
+
     rim = _blue_rim(image)
     first = place_from_tags(detections, scale_field, factor, rim=rim)
     moved = [nudge_onto_blue(p, rim, scale_field, factor) for p in first]
-    return moved, leftover(rim, moved, scale_field, factor)
+    kept = [p for p in moved if p.ring >= ring_floor]
+    dropped = len(moved) - len(kept)
+
+    # The blue no placed tray accounts for, given back to the app's finder as a picture of its own.
+    rest = image.copy()
+    for p in kept:
+        cv2.fillConvexPoly(rest, np.round(np.asarray(p.corners, float) / factor).astype(np.int32), (0, 0, 0))
+    extra = []
+    for o in find_outlines(rest, scale_field, factor):
+        if any(cv2.intersectConvexConvex(np.asarray(o.corners, np.float32),
+                                         np.asarray(k.corners, np.float32))[0] > 0.25 *
+               cv2.contourArea(np.asarray(o.corners, np.float32)) for k in kept):
+            continue
+        extra.append(Placed(None, o.centre, o.corners, o.tilt_deg, 0.0,
+                            _ring_score(rim, np.asarray(o.corners, float) / factor,
+                                        max(2.0, RIM_BAND_MM * scale_field.px_per_mm(*o.centre) / factor))))
+    out = kept + extra
+    report = leftover(rim, out, scale_field, factor)
+    report.update({"from_tags": len(kept), "from_blue": len(extra), "dropped_low_ring": dropped,
+                   "rings": [round(p.ring, 3) for p in out],
+                   "tray_rings": [[round(p.ring, 3), "tag" if p.tray_id is not None else "blue"]
+                                  for p in out]})
+    return out, report
