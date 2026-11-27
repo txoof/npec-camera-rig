@@ -37,6 +37,18 @@ Python's `sqlite3`; they import nothing from `src/npec_rig/`.
 | `cellframe.py` | each cell's centre in its tray tag's own frame, measured from a rig photo. Gives the cell spacing in tag sides |
 | `helios_grid.py` | places the 4 x 5 cell grid on a Helios tray photo from its tag, and draws it for checking |
 | `make_crops.py` | the crop pairs for the outlines, one from each camera per plant, with `crops/manifest.json` |
+| `blind.py` | gives every crop a blind name in a recorded shuffled order and writes `crops/blind_key.csv` |
+
+## The handoff for the outlines (step 3)
+
+`handoff/README.md` is what goes to the person doing the outlining: what counts as plant, the zoom
+for each camera, and the output to send back. With the 20 images it is `npec-411-outlines.zip` on
+the scratch viewer, under `411-helios/`.
+
+The crops are named `plant01.png` to `plant20.png` in a shuffled order (`blind.py`, seed 411), with
+the two crops of one plant at least five places apart, so the person cannot tell which crops are
+pairs. **`crops/blind_key.csv` holds the mapping. Do not open it until the outlines are saved**; it
+is in the repository so the comparison can be checked afterwards, not so it can be read before.
 
 ## Running them
 

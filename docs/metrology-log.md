@@ -9818,6 +9818,21 @@ id, the Helios scale in px/mm and where it comes from, and the rig photo's own m
 that cell, taken from the app's own reading so that the outline and the app's segmenters are
 measured on the same scale. No mask and no area is in it. Figure 35.1-c.
 
+**The crops are blinded.** The two crops of one plant would be obvious from their file names, and
+an outline drawn just after the same plant was outlined on the other camera is pulled toward the
+first. So the 20 crops are renamed `plant01` to `plant20` in a shuffled order (`blind.py`, seed
+411), with the two crops of one plant at least five places apart, and the mapping is held in
+`crops/blind_key.csv`, not opened until the outlines are saved. The cameras still look different
+and the person will know which is which; what is hidden is which crops are a pair. The rulebook
+given with them is that of section 24, with one change: yellow is counted as not plant, following
+section 33 (Aaron, 2026-11-10), and the white label stick is never plant. The zoom is set from the
+crop's width, 400% for the Helios crops and 800% for the rig crops, so a plant fills the same
+amount of screen either way (about 0.026 mm per screen pixel) and the person's judgement of an
+edge is made at the same apparent size on both cameras. Areas are taken in pixels, with no scale
+set in ImageJ, and turned into mm² afterwards from `crops/manifest.json`. Section 24's second pass
+is asked for but not required (Aaron, 2026-11-27): without it the person's own spread between
+sittings is unmeasured here, and a difference between the two cameras cannot be told from it.
+
 **Covers / does not cover.** Seven of twelve trays, one experiment, one rig. The matching, the cell
 names, the scale and the pairing are settled; nothing about plant area is. The scale rests on one
 calliper reading of one tag whose number of repeats was not recorded, and on the assumption that
