@@ -13056,6 +13056,48 @@ still like this the honest answer is that the trays are covered and not measured
 turned about 45 degrees to the table and to every other tray is not a tray. Neither check exists
 (Aaron, 2026-11-27).
 
+### 56.7 The same stills split by which tag the trays carried (2026-11-27, after 56.6)
+
+56.6 scored all 59 stills together, and that understates C. Looking at the sheets, Aaron picked
+out an October still where C was far worse than A: eighteen trays against A's twelve, overlapping
+and turned at angles. That still is not a hard scene. It is the **20 mm edge tag** layout of 12 to
+19 October, where a tag was stuck on the rim of a tray instead of lying in a corner cell. C places
+a tray by stepping a fixed distance from the tag's corner cell, so with an edge tag the step is
+simply wrong and every tag throws out a tray. Section 20.1 recorded the same failure for every
+tag-led method on these stills. Those tags were replaced by the roughly 40 mm cell A1 tags on
+2026-10-19 (Aaron, CLAUDE.md), so the layout no longer occurs.
+
+Splitting the 59 stills on that date:
+
+| Stills | Count | A trays | C trays | Extra | C = A on | Mean nudge |
+|---|---|---|---|---|---|---|
+| Before 2026-10-20, 20 mm edge tags, obsolete | 20 | 240 | 290 | +50 | 6 of 20 | 23 mm |
+| 2026-10-20 onward, cell A1 tags, as used now | 39 | 293 | 316 | +23 | 28 of 39 | 11 mm |
+
+The mean nudge tells the same story: on the obsolete stills C moves each tray 23 mm, against its
+25 mm limit, because there is nothing for it to settle on; on current stills it moves 11 mm.
+
+*With the 0.40 rim-coverage floor of 56.6, on the 39 current stills only:*
+
+| Floor | Extra trays over A | C > A | C < A | C = A |
+|---|---|---|---|---|
+| none | +23 | 7 | 4 | 28 |
+| **0.40** | **0** | **4** | **4** | **31** |
+| 0.50 | -15 | 3 | 14 | 22 |
+
+At 0.40 the net extra trays fall to zero and C matches A on 31 of 39 stills. Of the 8 that differ,
+**4 are the off-grid layout where A is wrong and C is right**, and 4 have one extra tray each.
+
+**What this does and does not show.** It does not show C is correct. A is not truth: on the four
+off-grid stills A is the method known to be wrong. For the four stills where C has one tray more
+than A, nobody has yet looked at which is right. The floor was also read off this same set, so it
+is fitted to it. What the split does show is that C's bad behaviour in 56.6 was concentrated in a
+tag layout the rig stopped using in October, and that on the layouts in use now C and A agree on
+four stills in five.
+
+**A remains better than C on the obsolete stills, and on covered trays**, where C has nothing to
+anchor on and falls back to A anyway.
+
 *Where the raw data is.* Scripts in `experiments/577-tray-from-tags/`; the per-still numbers in
 `cmp.jsonl` of each set, not in the repository because the photos are not either. Sheets drawn for
 inspection were put on the controller's scratch viewer, which is not kept.
