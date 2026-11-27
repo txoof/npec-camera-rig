@@ -12609,12 +12609,17 @@ in the north-east corner 180. Dirty tags have no special handling: an unreadable
 outlined with "No tag" and a "not seen" report for 48 hours (#331, #318); measuring a tray with no
 tag is #471, not part of this test (triage of #68, Aaron, 2026-10-27).
 
-**Setup.** Experiment 4 (Dario 13 Emergence, 6 trays: tags 8, 9, 11, 12, 25, 51) is stopped for the
-session and resumed after it. Its 6 trays stay on the table, slid a few centimetres to touch, each
-in the table location it had before, and are put back at the end (a `restore` check compares each
-tray's location, cell A1 corner and centre with a snapshot taken before). Six spare 4 x 5 trays, each
-with its own unused tag in cell A1, take the other slots. A new experiment, "M4 acceptance 72", takes
-a photo a minute under the steady chamber lights (about 08:35 to 00:00 UTC).
+**Setup.** Experiment 4 (Dario 13 Emergence, 6 trays: tags 8, 9, 11, 12, 25, 51) keeps running with its
+5 minute interval, and none of its settings is changed. Its 6 trays stay on the table, slid a few
+centimetres to touch, each in the table location it had before, and are put back at the end (a
+`restore` check compares each tray's location, cell A1 corner and centre with a snapshot taken
+before). Six spare 4 x 5 trays (tags 55, 29, 49, 36, 50, 33, named A to F), each with its own unused
+tag in cell A1, take the other slots. The test photos are taken by hand with the Capture button of
+the Gallery, which puts them into the running experiment, so they are read for trays like the
+scheduled ones; the scheduled photos continue and also count. The spare trays and the hand-taken
+photos therefore appear in experiment 4's own readings and Table locations panel (a decision of
+Aaron, 2026-11-27: leaving the experiment running is acceptable). Chamber lights are steady from about
+08:35 to 00:00 UTC.
 
 The layout was chosen by hand before the session, not drawn at random: 12 trays in 2 rows of 6
 (North 1 to 6, South 1 to 6, trays touching), every tray at 0 or 180 degrees (A1 south-west or
@@ -12641,7 +12646,7 @@ level: 0, no marker (a control: does clear plastic alone change the reading); 1,
 tag's area covered (a 13 mm blotch over one corner of a 40 mm tag); 2, about 25% (a band across one
 side); 3, about 50%; 4, all of it. The fractions are a choice, not measurements, and the tag size is
 to be measured when the sheets are made. On one spare tray, a sheet is taped by one edge over its tag
-for each level in turn, 3 photos after each level, then the sheet is taken off and 3 photos follow.
+for each level in turn, 3 hand-taken photos after each level (a burst), then the sheet is taken off and 3 photos follow.
 Levels after the first one at which the tag is no longer read are skipped. Pass, from the decision
 of 2026-10-27 (today's behaviour): at no level is any tag number read that is not on the layout or
 any other tray named by this tray's number; the rig keeps taking a photo a minute and its pages
@@ -12650,8 +12655,10 @@ warning; the other 11 trays keep reading as in check 1; with the sheet off, the 
 within 3 photos.
 
 **What is recorded.** Every check command of `~/scratch/72-m4-acceptance/m4.py` (read only: GET
-requests to the rig and one ssh read) is appended with its UTC time to `session-log.txt`, and each
-physical step is timestamped by a `note` line. The photos and their tray readings stay in the
+requests to the rig and one ssh read) is appended with its UTC time to `session-log.txt`. The person
+writes nothing down: the photos carry their own times, hand-taken photos come in bursts (3 after the
+layout is set, 2 after the swap, 3 per cover level, 3 after the sheet is off), and the person's
+messages to the checker mark each step. The photos and their tray readings stay in the
 experiment's folder on `npec-rig-01`. At the write-up the session log is copied to
 `docs/figures/54/` and the overlays the Gallery draws for the first photo of each check are copied
 beside it, as `docs/figures/README.md` asks.
