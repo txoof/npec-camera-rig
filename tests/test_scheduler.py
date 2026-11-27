@@ -47,6 +47,13 @@ PHOTO_WORK_S = 0.025
 SHORT_DB_WAIT_S = 0.005
 
 
+# How long a stopped schedule is watched for a photo it should not take. Absolute, not a
+# fraction of a slot: it has to cover one scheduler poll and the start of a photo, which is work
+# that does not get faster when INTERVAL_S is lowered (the note above, #547 review). At the
+# INTERVAL_S above it is 10 slots.
+NO_PHOTO_WINDOW_S = 0.5
+
+
 def _slots(n: float) -> float:
     """`n` photo intervals, in seconds."""
     return n * INTERVAL_S
@@ -197,11 +204,22 @@ class HeldBackend(SyntheticBackend):
         self._allowed.release()
 
     def no_still_begins_within(self, seconds: float) -> bool:
-        """True when the scheduler starts no still at all in `seconds`."""
+        """True when the scheduler starts no still at all in `seconds`.
+
+        A still that does begin is let through rather than left waiting. Otherwise a failing run
+        strands the scheduler thread inside `capture_full_res` for its whole 10 s timeout: the
+        `no_scheduler_left_running` fixture's `join(5.0)` gives up, the thread outlives the test,
+        and its own assertion is raised on top of the real failure, hiding it."""
         if self._begun.acquire(timeout=seconds):
-            self._begun.release()
+            self._allowed.release()
             return False
         return True
+
+    def let_everything_through(self) -> None:
+        """Teardown. Release enough permits that any still now waiting, and any the scheduler
+        begins before it notices the app is going down, finishes instead of blocking."""
+        for _ in range(100):
+            self._allowed.release()
 
 
 def test_stopping_the_experiment_stops_the_photos() -> None:
@@ -221,33 +239,43 @@ def test_stopping_the_experiment_stops_the_photos() -> None:
     case the test measures."""
     camera = HeldBackend()
     CameraManager.set_instance(CameraManager(camera))
-    with TestClient(app) as client:
-        experiment, started = _start(client, INTERVAL_S)
-        since = started["schedule"]["since"]
+    try:
+        with TestClient(app) as client:
+            experiment, started = _start(client, INTERVAL_S)
+            since = started["schedule"]["since"]
 
-        camera.wait_for_a_still_to_begin()
-        camera.let_the_still_finish()
-        _wait_for(lambda: len(database.captures_for_experiment(experiment["id"])) >= 1)
+            camera.wait_for_a_still_to_begin()
+            camera.let_the_still_finish()
+            _wait_for(lambda: len(database.captures_for_experiment(experiment["id"])) >= 1)
 
-        # The next still is held open, so the stop lands in the middle of it every run. No other
-        # still can finish meanwhile: each one needs a release of its own.
-        camera.wait_for_a_still_to_begin()
-        photos_in_the_experiment = len(database.captures_for_experiment(experiment["id"]))
-        client.post(f"/api/experiments/{experiment['id']}/stop")
-        camera.let_the_still_finish()
+            # The next still is held open, so the stop lands in the middle of it every run. No
+            # other still can finish meanwhile: each one needs a release of its own.
+            camera.wait_for_a_still_to_begin()
+            photos_in_the_experiment = len(database.captures_for_experiment(experiment["id"]))
+            stopped = client.post(f"/api/experiments/{experiment['id']}/stop")
+            # Checked here, so a refused stop says so instead of surfacing as a timeout below.
+            assert stopped.status_code == 200, stopped.text
+            camera.let_the_still_finish()
 
-        # Its slot is recorded as missed, with the photo left out of the experiment.
-        _wait_for(
-            lambda: database.schedule_progress(experiment["id"], since)["missed_reasons"].get(
-                "experiment stopped during the photo"
+            # Its slot is recorded as missed, with the photo left out of the experiment.
+            _wait_for(
+                lambda: database.schedule_progress(experiment["id"], since)["missed_reasons"].get(
+                    "experiment stopped during the photo"
+                )
+                == 1
             )
-            == 1
-        )
-        assert len(database.captures_for_experiment(experiment["id"])) == photos_in_the_experiment
+            assert (
+                len(database.captures_for_experiment(experiment["id"]))
+                == photos_in_the_experiment
+            )
 
-        # The schedule has stopped: over the next three or four slots no still is begun at all.
-        assert camera.no_still_begins_within(_slots(3.4)), "a photo was started after the stop"
-        assert client.get("/api/experiments").json()[0]["schedule"] is None
+            # The schedule has stopped: no still is begun at all from here on.
+            assert camera.no_still_begins_within(
+                NO_PHOTO_WINDOW_S
+            ), "a photo was started after the stop"
+            assert client.get("/api/experiments").json()[0]["schedule"] is None
+    finally:
+        camera.let_everything_through()
 
 
 def test_after_a_restart_the_schedule_resumes_and_counts_the_photos_missed_while_down() -> None:
