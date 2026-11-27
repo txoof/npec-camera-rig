@@ -327,14 +327,15 @@ def test_a_tray_cut_off_by_the_photo_edge_is_cut_from_the_side_inside_the_photo(
 
 
 def test_only_the_tray_of_a_touching_block_that_reaches_the_photo_edge_is_marked_edge() -> None:
-    """Two trays touching in one blue piece, 6100 px wide, the west one running off the west edge
-    of a 7200 px photo. The piece touches the edge, but only the west tray does: the east tray,
-    x 3050 to 6100, lies well inside. Marking the whole piece puts a false "partly outside the
-    photo" on every tray of a touching block (#577)."""
+    """Two trays touching in one blue piece 5500 px wide, in a 7200 px photo, the west one running
+    600 px off the west edge: the cut puts its outline at x -600 to 2450 and the east tray's at
+    2450 to 5500, 1700 px clear of the east edge. The piece touches the edge, but only the west
+    tray does. Marking the whole piece puts a false "partly outside the photo" on every tray of a
+    touching block: all twelve on photo 319 carried it (#577)."""
     from npec_rig.tray_placement import find_outlines
 
-    trays = find_outlines(_scene((1800, 1300), [(0, 400, 6100, 4060)]), scale_field_from_dict(EVEN_10), 4)
-    assert sorted((round(t.centre[0], -2), t.edge) for t in trays) == [(1500, True), (4600, False)]
+    trays = find_outlines(_scene((1800, 1300), [(0, 400, 5500, 4060)]), scale_field_from_dict(EVEN_10), 4)
+    assert sorted((round(t.centre[0], -2), t.edge) for t in trays) == [(900, True), (4000, False)]
 
 
 def test_trays_cut_from_one_blue_piece_share_a_block_and_separate_pieces_do_not() -> None:

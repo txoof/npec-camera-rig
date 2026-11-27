@@ -610,6 +610,17 @@ metrology log backs it.
   a measured tray edge (outlines were judged by eye on quarter-size pictures); stills picked at
   random; 1x1 or black trays.
 
+- **A tray lying off its touching neighbours' grid is outlined wrongly (2026-11-27).** The
+  outlines above are cut from one blue blob by a uniform grid of tray-sized cells. On production
+  photo 319 of 2026-11-27, eleven touching trays gave twelve outlines: one tray sitting half a
+  tray lower than the block was split across two of them, its plants counted on an outline with
+  no tray ID (82.3 mm² there against 6.6 mm² reported for the tray), both outlines about 170 to
+  200 mm from the tray's real centre. None of the 68 stills behind the result above holds such a
+  layout, so that evidence does not cover it. Since 2026-11-27 a block of touching trays holding
+  fewer tags than outlines warns every tray in it ("fewer tags than trays"), so the numbers are
+  no longer reported as if they were sound; a block whose tags were all missed is still not
+  caught. The placement itself is to be changed (metrology log 55, #577).
+
 ### Cells placed in each tray (round 3, 2026-11-06)
 
 - **Area per cell.** Each 4x5 and 2x2 tray's cells are placed from its outline and tag, and each

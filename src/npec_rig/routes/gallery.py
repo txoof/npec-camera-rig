@@ -273,7 +273,8 @@ _TRAY_COLOUR = (255, 220, 0)  # yellow, apart from the tags and the blue trays
 
 # Each warning in a few words on the image, where the trays sit close together; Info has them in
 # full.
-_SHORT_WARNINGS = {"partly outside the photo": "PARTLY OUTSIDE", "two tags in one tray outline": "TWO TAGS"}
+_SHORT_WARNINGS = {"partly outside the photo": "PARTLY OUTSIDE", "two tags in one tray outline": "TWO TAGS",
+                   "fewer tags than trays": "FEWER TAGS"}
 
 
 def _tray_labels(inputs: dict) -> list[tuple[np.ndarray | None, np.ndarray, list[str], bool]]:

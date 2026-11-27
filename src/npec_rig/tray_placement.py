@@ -170,9 +170,13 @@ def name_trays(outlines: list[TrayOutline], detections: list[TagDetection]) -> l
         if holding:
             home[k] = min(holding, key=lambda i: math.dist(tag.centre, outlines[i].centre))
     # A block of two or more outlines cut from one blue piece, holding at least one tag and at
-    # least one outline with no tag: fewer tags than outlines, so the cut is not to be trusted for
-    # any tray in it. A block with no tag at all says nothing, which is the ordinary case for
-    # untagged trays (development's 2 x 2 trays), and a block of -1 is unknown (a saved reading).
+    # least one outline with no tag: fewer tags than outlines, so the cut is not to be trusted
+    # for any tray in it. A block with no tag at all is left alone: nothing there says how many
+    # trays it holds, so the count cannot be short (development's 2 x 2 trays were photographed untagged, metrology
+    # log 20). That is the blind spot of counting tags: a block whose tags were all missed, under
+    # leaves or in a dim photo, is cut just as badly and says nothing. Placing each tray from its
+    # own tag is what covers that, not a louder warning here (#577, step 2). A block of -1 is
+    # unknown: an outline read back from a saved reading.
     in_block = Counter(o.block for o in outlines if o.block >= 0)
     named_blocks = {outlines[i].block for i in home.values()}
     untagged_blocks = {
