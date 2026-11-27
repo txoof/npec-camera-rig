@@ -13192,7 +13192,8 @@ back to the finder, so it does not need this.
 twelve outlines above and D's eleven below, outlines in yellow and numbered; the tray at the left
 is the one the app splits. `docs/figures/56/trays-under-lids-before-after.jpg`: the still Aaron
 excepted, where D returns the app's own four outlines for about ten trays under clear lids. Both
-made by `experiments/577-tray-from-tags/draw.py` on 2026-11-27 and scaled to 1400 px wide.
+made by `experiments/577-tray-from-tags/draw_method_d.py` on 2026-11-27 and scaled to 1400 px
+wide. (`draw.py` beside it draws method C, which was not adopted; the figures show D, which was.)
 
 ![Photo 319, the app's outlines above and method D's below](figures/56/off-grid-tray-before-after.jpg)
 
