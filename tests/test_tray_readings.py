@@ -1752,11 +1752,13 @@ def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_savin
     ends. The reading must fail with the lock error, so the caller retries (#464); it must not be
     saved with no cells and no mark. The lock stops reads too, as the rollback journal's does.
 
-    The bearing has to be the query that meets the lock, and the reading reads rig.db four times
-    before it (#561): the capture row for itself, its own saved reading (`database.tray_readings`),
-    the stored tags, and the capture row again in `found_trays`, for the photo's calibration. So
-    the lock is taken while the reading is segmenting the photo, which is after all four and
-    before the bearing. The reading says when
+    The bearing has to be the query that meets the lock, and the reading reads rig.db three times
+    before it (#561, #564): the capture row for itself, its own saved reading
+    (`database.tray_readings`), and the stored tags (`images.stored_tag_detections`, then
+    `images._store_tags` to write them). It used to read the capture row a fourth time, in
+    `found_trays`, for the photo's calibration; that read is gone, and `found_trays` now takes the
+    row the first read already returned (#564). So the lock is taken while the reading is
+    segmenting the photo, which is after all three and before the bearing. The reading says when
     that is itself: it holds `images.full_decode_slot()` for the whole of its segmentation, and it
     can only take that slot once the tag search has let go of it and the tags are stored."""
     import sqlite3
@@ -1806,8 +1808,9 @@ def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_savin
                 if time.monotonic() > deadline:
                     raise RuntimeError("the reading never took the full-decode slot to segment")
                 time.sleep(0.005)
-            # The reading holds the slot: it is segmenting, past the capture row it reads for the
-            # calibration, and it reads rig.db next for the A1 bearing.
+            # The reading holds the slot: it is segmenting, past every rig.db read it makes before
+            # that (the capture row, its saved reading and the stored tags), and it reads rig.db
+            # next for the A1 bearing.
             #
             # The margin, measured over ten instrumented runs under load: the segmentation holds
             # the slot 172 to 192 ms, this loop notices it is taken within 15 ms at worst
@@ -1824,7 +1827,7 @@ def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_savin
             locker_failed.append(exc)
             gave_up.set()
 
-    locker = threading.Thread(target=lock_once_segmenting)
+    locker = threading.Thread(target=lock_once_segmenting, daemon=True)
 
     def detect_then_lock(frame):
         if not locker.is_alive() and locker.ident is None:  # once: the tags are searched once per photo
@@ -1894,10 +1897,12 @@ def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calib
     the readings with nothing on any page to say why. A photo whose reading meets a locked rig.db
     must be read again, as #439 and #483 settled for every other query the reading makes.
 
-    The lock is placed with no polling and no timing margin (#561). The reading stores the
+    The lock is *placed* with no polling and no timing margin (#561); the *hold* has an explicit
+    cap, because a lock that never ends would hang the worker. The reading stores the
     photo's tags in rig.db (`images._store_tags`) and then takes `images._key_locks_guard` to
     forget that photo's tag lock. This test holds that guard, from inside the tag search, so the
-    reading parks there: after its tags are stored, and before the capture row is read again.
+    reading parks there: after its tags are stored, and before it looks for the photo's trays.
+    (Before the fix this was also where the capture row was read a second time.)
     The hand-over is exact rather than timed, in both directions. The reading releases the
     photo's own tag lock as the last thing it does before the park, so the locker waits on that
     lock instead of watching for a side effect, and at the park the reading holds no rig.db
@@ -1906,7 +1911,16 @@ def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calib
 
     With the row read once, nothing reads rig.db between the park and the save, so the query that
     meets the lock here is now the save itself (`record_tray_readings`). It raises, as every
-    other locked query in a reading does, and the reader reads the photo again.
+    other locked query in a reading does, and the reader reads the photo again. The assertion
+    below names that query, rather than only checking that some query met the lock: that is the
+    claim of this test, and `met` is collected from the message so a different query failing in
+    its place fails here instead of passing quietly.
+
+    The hold has to cover the longest stretch of the reading -- the full-size decode, the
+    segmentation, the tray measurement and then the save -- so it is given 20 s, with `seconds=60`
+    behind it on the holder thread. A long cap costs nothing: `until=gave_up` ends the hold the
+    moment the save meets it (0.4 s on a 16-core box), and the cap only decides how long a broken
+    run takes to fail.
     """
     from npec_rig import images
 
@@ -1932,17 +1946,27 @@ def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calib
         holding = False
         try:
             tag_lock = images._key_locks[f"tags:{source}"]  # held by the reading until it stores
-            guard.acquire()
+            # Timed out, not bare: the suite has no pytest-timeout, so an unbounded wait here
+            # would hang this xdist worker for the whole CI job with no test named (#565).
+            if not guard.acquire(timeout=15):
+                raise RuntimeError("images' key-lock guard was still held after 15 s")
             holding = True
             armed.set()
             if not tag_lock.acquire(timeout=15):
                 raise RuntimeError("the reading never stored the photo's tags")
             # The reading has stored its tags and closed that connection, and its next step is the
             # guard above, so it is standing still with nothing open on rig.db.
-            with lock_held(until=gave_up, readers_too=True):
+            # `seconds` is explicit and generous: the default 5 s drops the lock whatever happens,
+            # and the reading has a full-size decode, a segmentation, the tray measurement and
+            # then the save to get through while it is up. `until=gave_up` ends the hold as soon
+            # as the save meets the lock, so the cap only bounds a run that has already gone wrong.
+            with lock_held(60, until=gave_up, readers_too=True):
                 guard.release()
                 holding = False
-                gave_up.wait(10)
+                if not gave_up.wait(20):
+                    # The reading never met the lock. End the hold now rather than leave
+                    # `lock_held` to join a holder sleeping out its 60 s; `met` fails the test.
+                    gave_up.set()
         except BaseException as exc:  # the test fails on it below: a locker that could not take
             # the lock must not leave the reading to pass quietly
             locker_failed.append(exc)
@@ -1953,7 +1977,7 @@ def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calib
             gave_up.set()
             lock_over.set()
 
-    locker = threading.Thread(target=lock_once_the_tags_are_stored)
+    locker = threading.Thread(target=lock_once_the_tags_are_stored, daemon=True)
 
     def detect_then_arm(frame):
         if locker.ident is None:  # once: the tags are searched once per photo
@@ -1963,12 +1987,19 @@ def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calib
 
     class LockMet(logging.Handler):
         def emit(self, record: logging.LogRecord) -> None:
-            # The reading's thread only: the lock stops every rig.db access in this process while
-            # it is up, and a thread left running by a neighbouring test would otherwise end it.
-            if record.threadName != "tray-reader":
+            # Keyed on the query, not on the thread. "tray-reader" is the fixed name every
+            # TrayReader gives its thread, so it does not pick this test's reader out: the app
+            # lifespan starts one too, `stop(timeout_s=0)` never joins it, and `database._connect`
+            # looks db_path() up fresh on every query, so a reader left behind by one of the 22
+            # tests that use `with TestClient(app)` polls this test's rig.db. Its locked query
+            # would end the hold before this reading reached the save, and the test would pass
+            # having met no lock at all. The thread name stays as a second filter, but the query
+            # is what this test is about: the save is the one query that may meet the lock (#564).
+            message = record.getMessage()
+            if record.threadName != "tray-reader" or not message.startswith("record_tray_readings:"):
                 return
-            if "rig.db was locked" in record.getMessage():
-                met.append(record.getMessage().split(":")[0])  # the query that met it
+            if "rig.db was locked" in message:
+                met.append(message.split(":")[0])  # the query that met it
                 gave_up.set()  # the lock ends as the reading gives up on it, not before
 
     handler = LockMet()
@@ -1987,7 +2018,9 @@ def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calib
         logging.getLogger("npec_rig.database").removeHandler(handler)
         if locker_failed:
             raise locker_failed[0]
-    assert met, "the reading never met the lock: it was not held where this test meant to hold it"
+    # The save, and nothing earlier: with the capture row read once, no query of the reading
+    # between the park and the save touches rig.db (#564).
+    assert met == ["record_tray_readings"]
     reading = tray_readings.photo_readings(path)
     assert reading["status"] == "read"
     assert len(reading["trays"]) == 12
