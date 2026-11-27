@@ -77,9 +77,15 @@ def _fresh_camera_manager(request: pytest.FixtureRequest):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_cmdline_main(config: pytest.Config) -> None:
-    """A bare `pytest` (the unit tier, every test) runs on the Pi's 4 cores: 20 s serially, about
-    12 s in parallel (#169). Only then: the other tiers use the one camera or decode 64MP frames,
-    and four at once would fight over the camera or run out of memory. `-n 0` runs serially."""
+    """A bare `pytest` (the unit tier, every test) runs on 4 cores. Measured 2026-11-26 on an
+    8-core/16-thread AMD Ryzen 7 5700X: 151 s serially, 47 s in parallel, 1067 tests. Before #547
+    the same suite was 254 s and 83 s. On the Arm64 CI runner (#546), 50 s. The Pi
+    controller is slower still and was over 300 s in parallel before #547; it has not been
+    re-measured since, so no Pi figure is quoted here. The 20 s and
+    12 s of #169 were measured when tests/ was 5,565 lines, a third of today's, and were stale by
+    13x and 7.4x when #547 replaced them. Only then: the other tiers use the one camera or decode
+    64MP frames, and four at once would fight over the camera or run out of memory. `-n 0` runs
+    serially."""
     if (
         config.pluginmanager.hasplugin("xdist")
         and config.option.numprocesses is None

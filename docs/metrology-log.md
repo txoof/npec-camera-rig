@@ -12518,3 +12518,77 @@ VmPeak, 1.15 GiB, plus 25%, rounded up to 256 MiB, which is the rule of 52.6, an
 holds. It replaces the 2 GiB placeholder. The 25% margin was confirmed by Aaron on
 2026-11-26 (52.6). The failure message now gives the limit in decimal GB with one decimal
 (1.5 GiB shows as "1.6 GB"); before it printed GiB as "GB" rounded to a whole number.
+
+## 53. JPEG ringing at a sharp edge in a synthetic test scene, on and off the 8 x 8 block grid (issue #547, written 2026-11-26, after the measurement)
+
+**Label: development check.** This is about a test fixture, not about the rig's trays, plants or
+table. It is written down because it changed how a test scene is drawn, and because the margin it
+measures is small enough that the next person halving a scene should know about it.
+
+### 53.1 Why it was measured
+
+Issue #547 halved the synthetic scenes of `tests/test_tray_readings.py` from 10 px/mm to 5 px/mm to
+cut the file's run time. One of them, `_matted_tray_scene`, draws a tray whose soil is hidden under
+blue mats: a large rectangle of mat-edge colour (`MAT_EDGE_RGB`, RGB 100, 105, 96) on a blue tray,
+with a mint leaf elsewhere on the tray. The mats must not read as plant. Halved exactly, the scene
+stopped behaving: the mats seeded their own leaf cores and the tray's grown area came out at
+7,756 mm² where 1,156 mm² was expected.
+
+### 53.2 What was measured and how
+
+A photo was taken of each scene through the ordinary capture path (`captures.take_photo`, the
+synthetic camera backend, the rig's own JPEG settings), the stored JPEG was read back, and the
+greenness of every pixel inside the mat rectangle was worked out the way the segmenter does,
+`(2G - R - B) / (R + G + B)`. Two numbers are reported for each scene: the highest greenness
+inside the rectangle, and how many of its pixels reach `segmentation.GROWN_CORE_MIN` (0.07), the
+cutoff above which a pixel can start a leaf. The mat colour itself is a flat 0.0465, so anything
+higher is the JPEG's doing. One photo per scene; the drawing and the encoder are deterministic, so
+there is no spread to report. Measured 2026-11-26 on the controller `testpi-02`, branch
+`547-faster-unit-suite`.
+
+Three scenes:
+
+| Scene | Mat rectangle | On the JPEG 8 x 8 grid? |
+|---|---|---|
+| 10 px/mm, as it stood before #547 | y 600 to 1200, x 2000 to 3100 (660,000 px) | No |
+| 5 px/mm, halved exactly | y 300 to 600, x 1000 to 1550 (165,000 px) | No |
+| 5 px/mm, moved onto the grid | y 304 to 600, x 1000 to 1552 (163,392 px) | Yes |
+
+### 53.3 Results
+
+| Scene | Highest greenness in the mats | Pixels at or above 0.07 | Margin to the 0.07 cutoff |
+|---|---|---|---|
+| 10 px/mm, off the grid | 0.0612 | 0 | 0.0088 under |
+| 5 px/mm, halved exactly, off the grid | 0.2263 | 603 | 0.1563 over |
+| 5 px/mm, on the grid | 0.0535 | 0 | 0.0165 under |
+
+JPEG encodes in 8 x 8 blocks. An edge that falls inside a block is spread across the whole block
+when it is encoded, and the ringing around it reaches further from the true colour than an edge
+lying on a block boundary. At 10 px/mm the scene was already off the grid, but its ringing stopped
+0.0088 below the leaf-core cutoff; halving the coordinates moved every edge to a different place
+inside its block and the ringing rose past the cutoff, by a wide margin. Aligning the two blocks to
+multiples of 8 put the whole mat rectangle 0.0165 under it again.
+
+### 53.4 What was decided, and what it does and does not cover
+
+The on-grid 5 px/mm scene was kept. The alternative, keeping this one scene at 10 px/mm, was
+timed: one photo of it read through `tray_readings.read_photo` takes 1.33 s at 10 px/mm against
+0.33 s at 5 px/mm, and twelve tests in the file use the scene, so the alternative costs at least
+12 s on a file that now runs in about 31 s.
+
+This covers:
+
+- One synthetic scene, one colour pair (`MAT_EDGE_RGB` against `TRAY_BLUE`), one rectangle size,
+  the rig's current JPEG quality setting, and one encoder (Pillow, as `captures` uses it).
+
+It does not cover:
+
+- Real photographs. Real mats are not aligned to the JPEG block grid, so this scene now exercises
+  an alignment production never meets. Nothing in the test suite now catches "leaf-core growth
+  seeds itself from a mat edge in a real photo"; if that is wanted it needs a fixture photograph,
+  not a drawn scene.
+- Any claim about how much ringing a real photograph has. The figures above come from a drawn
+  rectangle with a perfectly sharp edge, which is the worst case for ringing; a photographed edge
+  is already soft.
+- The other scenes in the file. They were halved without moving onto the grid and they still read
+  the areas expected of them, but their margin to the cutoff was not measured.

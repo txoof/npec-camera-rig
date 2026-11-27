@@ -1,4 +1,5 @@
 import json
+import shutil
 import sqlite3
 
 import pytest
@@ -21,6 +22,101 @@ def isolated_folders(monkeypatch: pytest.MonkeyPatch, tmp_path):
     from npec_rig import exports
 
     exports.fail_unfinished_exports()
+
+
+# --- The experiment the Reprocess tests start from, built once for the module (#547) --------------
+# Taking one photo of `one_tray_plant_scene` costs about 0.3 s and reading one about 0.75 s, and
+# sixteen tests below start from the same handful of states made only of those two steps. Each
+# state is built here once and kept in a folder of its own; a test asks for one by name and gets a
+# copy of it in its own temp folders, so a test that deletes a photo, writes rows or runs Reprocess
+# cannot be seen by any other test and the order the tests run in does not matter.
+
+# Every folder and file the rig writes, as the per-test fixtures above and in tests/conftest.py lay
+# them out under one root: copying a root copies a whole rig state.
+_ROOT_FOLDERS = {
+    "NPEC_RIG_PHOTOS_DIR": "rig",
+    "NPEC_RIG_EXPERIMENTS_DIR": "experiments",
+    "NPEC_RIG_CALIBRATION_DIR": "calibration",
+    "NPEC_RIG_DERIVED_DIR": "derived",
+    "NPEC_RIG_MASKS_DIR": "masks",
+}
+
+
+def _point_at(patch: pytest.MonkeyPatch, root) -> None:
+    """Point the rig at `root`: its photos, experiments, calibrations, derived images, masks and
+    rig.db all under that one folder."""
+    for name, folder in _ROOT_FOLDERS.items():
+        patch.setenv(name, str(root / folder))
+    patch.setenv("NPEC_RIG_DB_PATH", str(root / "rig.db"))
+
+
+@pytest.fixture(scope="module")
+def _twin_states(tmp_path_factory) -> dict[str, tuple]:
+    """Each starting state as (its folder, the experiment's ID, its photo paths), built once.
+
+    `"<n> unread"`: a stopped experiment with `n` photos of `one_tray_plant_scene` taken as
+    captures and never read. `"<n> read"`: the same, with each photo read once, so its areas are
+    saved in rig.db and its mask on disk. The experiment is the first one made, so its ID is 1.
+    """
+    import npec_rig.camera as camera_module
+    from npec_rig import tray_readings
+    from npec_rig.camera import CameraManager
+    from tests.helpers import one_tray_plant_scene
+
+    source = tmp_path_factory.mktemp("twin-states")
+    states: dict[str, tuple] = {}
+    with pytest.MonkeyPatch.context() as patch:
+        # The same lens-drive waits the per-test fixtures drop (tests/conftest.py): they run after
+        # this one, so this build would otherwise wait where no test does.
+        patch.setattr(camera_module, "LENS_APPROACH_PAUSE_S", 0.0)
+        patch.setattr(camera_module, "LENS_POLL_INTERVAL_S", 0.0)
+        running = source / "running"
+        _point_at(patch, running)
+        one_tray_plant_scene(patch)
+        experiment = captures.start_experiment(captures.create_experiment()["id"])
+        paths: list[str] = []
+        for count in (1, 2, 3):
+            _array, record = captures.take_photo("capture")
+            del _array
+            paths.append(record["path"])
+            root = source / f"{count}-unread"
+            shutil.copytree(running, root)
+            # The copy is stopped and kept; `running` stays running, for the next photo.
+            _point_at(patch, root)
+            captures.stop_experiment(experiment["id"])
+            states[f"{count} unread"] = (root, experiment["id"], tuple(paths))
+            _point_at(patch, running)
+        for count in (1, 2):
+            unread, experiment_id, taken = states[f"{count} unread"]
+            root = source / f"{count}-read"
+            shutil.copytree(unread, root)
+            _point_at(patch, root)
+            for path in taken:
+                tray_readings.read_photo(path)
+            states[f"{count} read"] = (root, experiment_id, taken)
+    CameraManager.set_instance(None)  # the scene's camera does not outlive the build
+    return states
+
+
+@pytest.fixture
+def twin(_twin_states, monkeypatch, tmp_path, isolated_folders, isolated_settings_db):
+    """Start a test from one of `_twin_states`: copies that state into this test's own folders and
+    gives back the experiment's ID and its photo paths. The copy is the test's alone."""
+    from tests.helpers import one_tray_plant_scene
+
+    def start_from(state: str) -> tuple[int, list[str]]:
+        root, experiment_id, paths = _twin_states[state]
+        for entry in root.iterdir():
+            if entry.is_dir():
+                shutil.copytree(entry, tmp_path / entry.name, dirs_exist_ok=True)
+            else:
+                shutil.copy2(entry, tmp_path / entry.name)
+        # The camera, the tag and the calibration the copied photos were taken with: Reprocess
+        # reads a photo's tags again through `photo_tags.detect_tags`.
+        one_tray_plant_scene(monkeypatch)
+        return experiment_id, list(paths)
+
+    return start_from
 
 
 def test_version_1_photos_become_rig_photos() -> None:
@@ -205,30 +301,25 @@ def _reprocessed(client, experiment_id: int) -> dict:
         time.sleep(0.05)
 
 
-def test_reprocess_fills_in_the_area_of_an_experiment_photo_that_has_none(monkeypatch) -> None:
+def test_reprocess_fills_in_the_area_of_an_experiment_photo_that_has_none(twin) -> None:
     """`one_tray_plant_scene`: 1500 mm2 of plant inside tray 5, worked out by hand. The photo is
     taken during the experiment but never read, as the potato run's photos before areas existed."""
     from fastapi.testclient import TestClient
 
     from npec_rig import tray_readings
     from npec_rig.app import app
-    from tests.helpers import one_tray_plant_scene
 
-    one_tray_plant_scene(monkeypatch)
-    experiment = captures.start_experiment(captures.create_experiment()["id"])
-    _array, record = captures.take_photo("capture")
-    del _array
-    captures.stop_experiment(experiment["id"])
-    assert tray_readings.photo_readings(record["path"]) is None
+    experiment_id, [path] = twin("1 unread")
+    assert tray_readings.photo_readings(path) is None
 
-    progress = _reprocessed(TestClient(app), experiment["id"])
+    progress = _reprocessed(TestClient(app), experiment_id)
 
     assert (progress["done"], progress["total"]) == (1, 1)
-    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    tray = tray_readings.photo_readings(path)["trays"][0]
     assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
 
 
-def test_reprocess_recounts_from_the_saved_mask_without_segmenting_again(monkeypatch) -> None:
+def test_reprocess_recounts_from_the_saved_mask_without_segmenting_again(twin) -> None:
     """The photo is read once (its mask saved), then its file is deleted: an area after Reprocess
     can only come from the mask. 1500 mm2 as `one_tray_plant_scene`."""
     from fastapi.testclient import TestClient
@@ -236,24 +327,18 @@ def test_reprocess_recounts_from_the_saved_mask_without_segmenting_again(monkeyp
     from npec_rig import tray_readings
     from npec_rig.app import app
     from npec_rig.captures import photo_file
-    from tests.helpers import one_tray_plant_scene
 
-    one_tray_plant_scene(monkeypatch)
-    experiment = captures.start_experiment(captures.create_experiment()["id"])
-    _array, record = captures.take_photo("capture")
-    del _array
-    captures.stop_experiment(experiment["id"])
-    tray_readings.read_photo(record["path"])
-    photo_file(record["path"]).unlink()
+    experiment_id, [path] = twin("1 read")
+    photo_file(path).unlink()
 
-    progress = _reprocessed(TestClient(app), experiment["id"])
+    progress = _reprocessed(TestClient(app), experiment_id)
 
     assert (progress["done"], progress["failed"]) == (1, 0)
-    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    tray = tray_readings.photo_readings(path)["trays"][0]
     assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
 
 
-def test_reprocess_keeps_a_photos_areas_when_it_can_no_longer_work_them_out(monkeypatch) -> None:
+def test_reprocess_keeps_a_photos_areas_when_it_can_no_longer_work_them_out(twin) -> None:
     """Review of #287: a photo read with areas, whose file and mask are then both gone, cannot be
     segmented or counted again. Reprocess must leave its saved areas as they were and count it as
     failed, not replace them with none (lost data). 1500 mm2 as `one_tray_plant_scene`."""
@@ -262,25 +347,19 @@ def test_reprocess_keeps_a_photos_areas_when_it_can_no_longer_work_them_out(monk
     from npec_rig import segmentation, tray_readings
     from npec_rig.app import app
     from npec_rig.captures import photo_file
-    from tests.helpers import one_tray_plant_scene
 
-    one_tray_plant_scene(monkeypatch)
-    experiment = captures.start_experiment(captures.create_experiment()["id"])
-    _array, record = captures.take_photo("capture")
-    del _array
-    captures.stop_experiment(experiment["id"])
-    tray_readings.read_photo(record["path"])
-    photo_file(record["path"]).unlink()
-    segmentation.mask_file(record["path"]).unlink()
+    experiment_id, [path] = twin("1 read")
+    photo_file(path).unlink()
+    segmentation.mask_file(path).unlink()
 
-    progress = _reprocessed(TestClient(app), experiment["id"])
+    progress = _reprocessed(TestClient(app), experiment_id)
 
     assert (progress["done"], progress["failed"]) == (1, 1)
-    tray = tray_readings.photo_readings(record["path"])["trays"][0]
+    tray = tray_readings.photo_readings(path)["trays"][0]
     assert tray["area_mm2"] == pytest.approx(1500, rel=0.01)
 
 
-def test_reprocess_reads_an_experiment_again_with_the_rebuilt_twin(monkeypatch) -> None:
+def test_reprocess_reads_an_experiment_again_with_the_rebuilt_twin(twin) -> None:
     """Part B, test point 4 (#286). Two photos of `one_tray_plant_scene` (150,000 plant px at 10.0
     px/mm, 1500 mm2), read once, so their masks are saved. After a twin is rebuilt at 10.0 x 5.00 /
     4.90 px/mm, Reprocess gives each 1500 x (4.90 / 5.00)^2 = 1440.6 mm2, names the twin as its
@@ -296,36 +375,27 @@ def test_reprocess_reads_an_experiment_again_with_the_rebuilt_twin(monkeypatch) 
     from npec_rig.calibration import CalibrationArtifact, ScaleField
     from npec_rig.calibration_store import save_calibration
     from npec_rig.captures import photo_file
-    from tests.helpers import one_tray_plant_scene
 
-    one_tray_plant_scene(monkeypatch)
     stem = json.loads((Path(__file__).parent / "fixtures" / "trays" / "shuffles-2026-10-20.json").read_text())["calibration"]
-    experiment = captures.start_experiment(captures.create_experiment()["id"])
-    paths = []
-    for _ in range(2):
-        _array, record = captures.take_photo("capture")
-        del _array
-        paths.append(record["path"])
-        tray_readings.read_photo(record["path"])
-    captures.stop_experiment(experiment["id"])
+    experiment_id, paths = twin("2 read")
     photos = {p: photo_file(p).read_bytes() for p in paths}
     masks = {p: segmentation.load_mask(p) for p in paths}
-    twin = "20261026T150000000001"
+    rebuilt = "20261026T150000000001"  # the twin's own stem; `twin` is the fixture above
     save_calibration(
         CalibrationArtifact(
             created_at="2026-10-26T15:00:00+00:00", scale_field=ScaleField((1.0, 0.0, 0.0), 10.0 * 5.00 / 4.90, 0.0),
             frame_stem=stem, lens_position=6.05, rebuilt_from=stem,
         ),
-        stem=twin, promote=False,
+        stem=rebuilt, promote=False,
     )
 
-    progress = _reprocessed(TestClient(app), experiment["id"])
+    progress = _reprocessed(TestClient(app), experiment_id)
 
     assert (progress["done"], progress["failed"]) == (2, 0)
     for p in paths:
         tray = tray_readings.photo_readings(p)["trays"][0]
         assert tray["area_mm2"] == pytest.approx(1440.6, rel=0.01)  # 1%: JPEG blurs the edge
-        assert tray["calibration"] == twin
+        assert tray["calibration"] == rebuilt
         assert photo_file(p).read_bytes() == photos[p]
         assert np.array_equal(segmentation.load_mask(p), masks[p])
 
@@ -527,28 +597,19 @@ def test_the_experiments_page_has_one_data_button_per_experiment_in_place_of_the
 # --- The Reprocess API (#483, PR B): dry run, confirmation, Stop, saved progress ---------------------
 
 
-def _experiment_with_photos(monkeypatch, count: int) -> tuple[int, list[str]]:
-    """An experiment stopped after `count` photos of `one_tray_plant_scene` taken as captures."""
-    from tests.helpers import one_tray_plant_scene
-
-    one_tray_plant_scene(monkeypatch)
-    experiment = captures.start_experiment(captures.create_experiment()["id"])
-    paths = []
-    for _ in range(count):
-        _array, record = captures.take_photo("capture")
-        del _array
-        paths.append(record["path"])
-    captures.stop_experiment(experiment["id"])
-    return experiment["id"], paths
+def _experiment_with_photos(twin, count: int) -> tuple[int, list[str]]:
+    """An experiment stopped after `count` photos of `one_tray_plant_scene` taken as captures,
+    none of them read: this test's own copy of the state `_twin_states` built once."""
+    return twin(f"{count} unread")
 
 
-def test_a_reprocess_dry_run_counts_the_photos_and_changes_nothing(monkeypatch) -> None:
+def test_a_reprocess_dry_run_counts_the_photos_and_changes_nothing(twin) -> None:
     from fastapi.testclient import TestClient
 
     from npec_rig import tray_readings
     from npec_rig.app import app
 
-    experiment_id, paths = _experiment_with_photos(monkeypatch, 2)
+    experiment_id, paths = _experiment_with_photos(twin, 2)
     client = TestClient(app)
 
     response = client.post(f"/api/experiments/{experiment_id}/reprocess", json={"dry_run": True})
@@ -560,13 +621,13 @@ def test_a_reprocess_dry_run_counts_the_photos_and_changes_nothing(monkeypatch) 
     assert [tray_readings.photo_readings(p) for p in paths] == [None, None]
 
 
-def test_a_reprocess_without_the_experiment_id_confirmed_starts_nothing(monkeypatch) -> None:
+def test_a_reprocess_without_the_experiment_id_confirmed_starts_nothing(twin) -> None:
     from fastapi.testclient import TestClient
 
     from npec_rig import tray_readings
     from npec_rig.app import app
 
-    experiment_id, paths = _experiment_with_photos(monkeypatch, 1)
+    experiment_id, paths = _experiment_with_photos(twin, 1)
     client = TestClient(app)
 
     for body in ({}, {"confirm": experiment_id + 1}):
@@ -577,7 +638,7 @@ def test_a_reprocess_without_the_experiment_id_confirmed_starts_nothing(monkeypa
     assert tray_readings.photo_readings(paths[0]) is None
 
 
-def test_reprocess_stops_after_the_photo_it_is_reading(monkeypatch) -> None:
+def test_reprocess_stops_after_the_photo_it_is_reading(monkeypatch, twin) -> None:
     """Three photos; Stop is asked while the second is being read (its tags are searched then). The
     second finishes, the third is not read: 2 of 3 done, the run says it was stopped."""
     import time
@@ -587,7 +648,7 @@ def test_reprocess_stops_after_the_photo_it_is_reading(monkeypatch) -> None:
     from npec_rig import photo_tags, tray_readings
     from npec_rig.app import app
 
-    experiment_id, paths = _experiment_with_photos(monkeypatch, 3)
+    experiment_id, paths = _experiment_with_photos(twin, 3)
     client = TestClient(app)
     tags = photo_tags.detect_tags  # the scene's own, as `one_tray_plant_scene` set it
     calls = []
@@ -611,17 +672,16 @@ def test_reprocess_stops_after_the_photo_it_is_reading(monkeypatch) -> None:
     assert [tray_readings.photo_readings(p) is not None for p in paths] == [True, True, False]
 
 
-def test_a_failed_photo_is_listed_with_its_reason_and_kept_in_rig_db(monkeypatch) -> None:
+def test_a_failed_photo_is_listed_with_its_reason_and_kept_in_rig_db(twin) -> None:
     """The photo and its masks are gone, so it cannot be redone: its saved reading stays, and the
     run keeps its path and why, in rig.db, for the next time the page or a script asks."""
     from fastapi.testclient import TestClient
 
-    from npec_rig import segmentation, tray_readings
+    from npec_rig import segmentation
     from npec_rig.app import app
     from npec_rig.captures import photo_file
 
-    experiment_id, [path] = _experiment_with_photos(monkeypatch, 1)
-    tray_readings.read_photo(path)
+    experiment_id, [path] = twin("1 read")
     photo_file(path).unlink()
     segmentation.mask_file(path).unlink()
 
@@ -635,13 +695,13 @@ def test_a_failed_photo_is_listed_with_its_reason_and_kept_in_rig_db(monkeypatch
     assert (saved["state"], saved["failures"]) == ("finished", progress["failures"])
 
 
-def test_a_reprocess_left_running_when_the_app_stopped_is_marked_interrupted_and_not_resumed(monkeypatch) -> None:
+def test_a_reprocess_left_running_when_the_app_stopped_is_marked_interrupted_and_not_resumed(twin) -> None:
     from fastapi.testclient import TestClient
 
     from npec_rig import tray_readings
     from npec_rig.app import app
 
-    experiment_id, paths = _experiment_with_photos(monkeypatch, 1)
+    experiment_id, paths = _experiment_with_photos(twin, 1)
     run = database.create_reprocess_run(experiment_id, total=10, started_at="2026-11-24T10:00:00+00:00")
     database.update_reprocess_run(run, done=3, failed=1)
     client = TestClient(app)
@@ -687,7 +747,7 @@ def _wait_until_finished(client, experiment_id: int, timeout_s: float = 30) -> d
         time.sleep(0.05)
 
 
-def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch) -> None:
+def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> None:
     """The lock is taken as the photo's reading is about to be saved and let go when the first
     failure to save is logged: the photo is read on the next try and the run reports no failure."""
     import logging
@@ -698,7 +758,7 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch) -> None:
     from npec_rig import settings, tray_readings
     from npec_rig.app import app
 
-    experiment_id, [path] = _experiment_with_photos(monkeypatch, 1)
+    experiment_id, [path] = _experiment_with_photos(twin, 1)
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.05)
     gave_up = threading.Event()
@@ -725,7 +785,7 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch) -> None:
     assert tray_readings.photo_readings(path)["status"] == "read"
 
 
-def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypatch) -> None:
+def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypatch, twin) -> None:
     """The lock is held through the 3 tries of the cap and let go when the run logs that it gave
     the photo up, so the failure itself can be saved: the photo is listed as failed with the reason."""
     import logging
@@ -736,7 +796,7 @@ def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypa
     from npec_rig import settings, tray_readings
     from npec_rig.app import app
 
-    experiment_id, [path] = _experiment_with_photos(monkeypatch, 1)
+    experiment_id, [path] = _experiment_with_photos(twin, 1)
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.01)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_TRIES", 3)
@@ -766,7 +826,7 @@ def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypa
     assert "locked" in failure["reason"] and "3 tries" in failure["reason"]
 
 
-def test_a_reprocess_that_could_not_save_its_end_does_not_block_the_next_one(monkeypatch) -> None:
+def test_a_reprocess_that_could_not_save_its_end_does_not_block_the_next_one(monkeypatch, twin) -> None:
     """Second review of #483: rig.db stays locked for every try of the run's last write, so its row
     stays `running` though its thread has ended. No thread runs it, so it reads as interrupted and a
     new Reprocess starts (not 409 until a restart)."""
@@ -779,7 +839,7 @@ def test_a_reprocess_that_could_not_save_its_end_does_not_block_the_next_one(mon
     from npec_rig.app import app
     from tests.helpers import lock_held
 
-    experiment_id, [path] = _experiment_with_photos(monkeypatch, 1)
+    experiment_id, [path] = _experiment_with_photos(twin, 1)
     photo_tags.photo_tags_for(path)  # its tags are stored before the lock, so only writes meet it
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.01)
@@ -827,13 +887,13 @@ def test_discarding_an_experiment_removes_the_reprocess_rows_it_has() -> None:
         assert conn.execute("SELECT COUNT(*) FROM reprocess_failure").fetchone()[0] == 0
 
 
-def test_a_confirm_that_is_not_the_experiment_id_as_a_number_starts_nothing(monkeypatch) -> None:
+def test_a_confirm_that_is_not_the_experiment_id_as_a_number_starts_nothing(twin) -> None:
     """`true` is not 1: the experiment's ID must be sent as the number."""
     from fastapi.testclient import TestClient
 
     from npec_rig.app import app
 
-    experiment_id, _paths = _experiment_with_photos(monkeypatch, 1)
+    experiment_id, _paths = _experiment_with_photos(twin, 1)
     assert experiment_id == 1
     client = TestClient(app)
 
@@ -851,12 +911,12 @@ def _finished_run(experiment_id: int, done: int, failed: int, seconds: int, *, l
                                   finished_at=f"2026-11-24T10:{seconds // 60:02d}:{seconds % 60:02d}+00:00")
 
 
-def test_the_estimate_counts_the_photos_a_run_redid_not_the_ones_it_failed_at(monkeypatch) -> None:
+def test_the_estimate_counts_the_photos_a_run_redid_not_the_ones_it_failed_at(twin) -> None:
     """A finished run of 4 photos, 2 of them failed, took 100 s: the 2 it redid took 50 s each, so
     the 2 photos of this experiment are estimated at 100 s. A run that redid none gives no estimate."""
     from npec_rig import tray_readings
 
-    experiment_id, _paths = _experiment_with_photos(monkeypatch, 2)
+    experiment_id, _paths = _experiment_with_photos(twin, 2)
 
     _finished_run(experiment_id, 2, 2, 5)  # redid none: no rate
     assert tray_readings.reprocess_plan(experiment_id)["estimated_seconds"] is None
@@ -864,12 +924,12 @@ def test_the_estimate_counts_the_photos_a_run_redid_not_the_ones_it_failed_at(mo
     assert tray_readings.reprocess_plan(experiment_id)["estimated_seconds"] == 100
 
 
-def test_the_estimate_leaves_out_a_run_that_gave_a_photo_up_for_a_lock(monkeypatch) -> None:
+def test_the_estimate_leaves_out_a_run_that_gave_a_photo_up_for_a_lock(twin) -> None:
     """Giving a photo up for a lock takes the tries' waits, so such a run says nothing of the time a
     photo takes: the estimate is from the run before it, 100 s for 2 photos, 50 s each."""
     from npec_rig import tray_readings
 
-    experiment_id, _paths = _experiment_with_photos(monkeypatch, 2)
+    experiment_id, _paths = _experiment_with_photos(twin, 2)
     _finished_run(experiment_id, 2, 0, 100)
     _finished_run(experiment_id, 3, 1, 10, lock_failures=1)
 
@@ -879,6 +939,8 @@ def test_the_estimate_leaves_out_a_run_that_gave_a_photo_up_for_a_lock(monkeypat
 def test_progress_is_still_given_while_rig_db_is_locked_for_a_run_with_no_thread(monkeypatch) -> None:
     """Second review of #501: a run left `running` (its last save met a lock) is shown as interrupted
     even while the lock lasts, the write that marks it waits for the lock to end: no 500."""
+    import threading
+
     from fastapi.testclient import TestClient
 
     from npec_rig import settings
@@ -890,21 +952,24 @@ def test_progress_is_still_given_while_rig_db_is_locked_for_a_run_with_no_thread
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
     client = TestClient(app)
 
-    with lock_held(2):
+    # Let go the moment both pages have been asked for, rather than after a fixed 2 s (#547): what
+    # is tested is that they answer while the lock lasts, not how long it lasts.
+    with lock_held(2, until=(release := threading.Event())):
         one = client.get(f"/api/experiments/{experiment_id}/reprocess")
         listed = client.get("/api/experiments")
+        release.set()
     assert (one.status_code, one.json()["state"], one.json()["running"]) == (200, "interrupted", False)
     assert listed.status_code == 200
     assert [e["reprocess"]["state"] for e in listed.json() if e["id"] == experiment_id] == ["interrupted"]
     assert client.get(f"/api/experiments/{experiment_id}/reprocess").json()["state"] == "interrupted"  # and now marked
 
 
-def test_reprocess_of_a_purged_experiment_is_refused(monkeypatch) -> None:
+def test_reprocess_of_a_purged_experiment_is_refused(twin) -> None:
     from fastapi.testclient import TestClient
 
     from npec_rig.app import app
 
-    experiment_id, _paths = _experiment_with_photos(monkeypatch, 1)
+    experiment_id, _paths = _experiment_with_photos(twin, 1)
     database.purge_experiment(experiment_id, now="2026-11-24T10:00:00+00:00")
     client = TestClient(app)
 
@@ -927,13 +992,13 @@ def test_progress_without_failures_never_has_the_failures_key(monkeypatch) -> No
 # --- One job that reads every photo at a time: a Reprocess waits for a time lapse video (#503) --
 
 @needs_ffmpeg
-def test_a_reprocess_is_refused_while_a_video_is_being_made_and_starts_once_it_is_done(monkeypatch, tmp_path) -> None:
+def test_a_reprocess_is_refused_while_a_video_is_being_made_and_starts_once_it_is_done(monkeypatch, tmp_path, twin) -> None:
     from fastapi.testclient import TestClient
 
     from npec_rig import timelapse
     from npec_rig.app import app
 
-    experiment_id, _paths = _experiment_with_photos(monkeypatch, 1)
+    experiment_id, _paths = _experiment_with_photos(twin, 1)
     client = TestClient(app)
     video_id, release = video_held(experiment_id, monkeypatch, tmp_path)
     try:
