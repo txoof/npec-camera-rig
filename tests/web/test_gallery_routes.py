@@ -685,3 +685,23 @@ def test_an_hour_asks_only_for_its_own_photos() -> None:
     assert later.status_code == 200
     assert path not in [p["path"] for p in later.json()]
     assert client.get("/api/captures", params={"after": "yesterday"}).status_code == 422
+
+
+def test_a_photo_whose_row_was_added_after_it_was_taken_is_marked_in_the_list() -> None:
+    client = TestClient(app)
+    normal = client.post("/capture").json()
+    # A second photo with no row yet: a copy of the first under another time, its row added by hand.
+    folder = captures.photos_root() / normal["date"]
+    stem = "235959_999999"
+    for suffix in (".jpg", ".json"):
+        (folder / f"{stem}{suffix}").write_bytes((folder / normal["filename"]).with_suffix(suffix).read_bytes())
+    late_path = f"{normal['path'].rsplit('/', 1)[0]}/{stem}"
+    database.record_capture(
+        taken_at=f"{normal['date']}T23:59:59+00:00", path=late_path, purpose="capture", calibration=None,
+        validation=None, lens_position=None, focus_locked_at=None, exposure_us=None, analogue_gain=None,
+        flags=[], added_later=True)
+
+    items = {item["path"]: item for item in client.get("/api/captures").json()}
+
+    assert items[late_path]["added_later"] == "Added after it was taken"
+    assert items[normal["path"]]["added_later"] is None

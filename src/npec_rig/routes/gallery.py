@@ -52,6 +52,7 @@ def api_captures(
     # be read leaves the photos listed.
     for item in items:
         item["lights"] = _lights(item.get("record"))
+        item["added_later"] = _added_later(item.get("record"))
     try:
         for item in items:
             record = item.get("record")
@@ -61,6 +62,15 @@ def api_captures(
         for item in items:
             item["trays"] = None
     return items
+
+
+ADDED_LATER = "Added after it was taken"
+
+
+def _added_later(record: dict | None) -> str | None:
+    """The mark for a photo whose database row was added after the photo was taken (#488), saved
+    while rig.db could not be written; None for any other photo."""
+    return ADDED_LATER if record is not None and record.get("added_later") else None
 
 
 LIGHTS_NOT_CHECKED = "Lights not checked: auto exposure was off"
