@@ -193,7 +193,10 @@ class Scheduler:
                 # The app is shutting down: the camera may already be closing.
                 if self._stop.is_set():
                     return 0.0
-                array, record = captures.take_photo("capture")
+                # The slot goes into the photo's info file, so a row added later is linked to
+                # its slot by name, not by when the photo was taken (#488).
+                schedule = {"since": since, "slot": slot, "due_at": due_at}
+                array, record = captures.take_photo("capture", extra={"schedule": schedule})
                 del array
                 self._database_since = datetime.now(UTC) - timedelta(seconds=record.get("database_s", 0.0))
                 # Stop pressed while the photo was taken: it was saved as a rig photo.
@@ -252,13 +255,17 @@ class Scheduler:
         unlinked = database.unlinked_slots(experiment["id"])
         if not unlinked:
             return
-        interval = timedelta(seconds=experiment["interval_s"])
+        # Every day from the oldest slot's due time to now: a photo may be saved long after its
+        # slot was due, across UTC midnight too (#488).
+        today = datetime.now(UTC).date()
+        day = datetime.fromisoformat(unlinked[0]["due_at"]).date()  # oldest first
         days = set()
-        for slot in unlinked:
-            due = datetime.fromisoformat(slot["due_at"])
-            days |= {due.strftime("%Y-%m-%d"), (due + interval).strftime("%Y-%m-%d")}
+        while day <= today:
+            days.add(day.isoformat())
+            day += timedelta(days=1)
         adopted = captures.adopt_unrecorded_photos(experiment, days)
         database.link_unlinked_slots(
             experiment["id"], experiment["interval_s"], not_found=MISSED_NOT_FOUND,
+            photo_paths=adopted.slots,
             unreadable=adopted.unreadable, unreadable_reason=MISSED_RECORD_UNREADABLE,
         )

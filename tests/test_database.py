@@ -1,4 +1,5 @@
 import contextlib
+import json
 import sqlite3
 import time
 
@@ -9,7 +10,7 @@ from npec_rig import captures, database, health, settings
 from npec_rig.app import app
 from npec_rig.camera import CameraManager
 from npec_rig.settings import db_path, save_setting
-from tests.helpers import lock_held, stored_validation
+from tests.helpers import lock_held, stored_validation, table_calibration
 
 pytestmark = pytest.mark.unit
 
@@ -578,15 +579,17 @@ def _row(taken_at: str, path: str, experiment_id: int, calibration: str) -> None
     )
 
 
-def _photo_saved_while_locked(monkeypatch: pytest.MonkeyPatch, after: str) -> tuple[dict, dict]:
-    """A running experiment's photo saved to disk while rig.db stayed locked, between a photo
-    measured with calibration "cal-a" and one measured with `after`."""
+def _photo_saved_while_locked(monkeypatch: pytest.MonkeyPatch, *, calibrated: bool = False) -> tuple[dict, dict]:
+    """A running experiment's photo saved to disk while rig.db stayed locked, after a photo
+    measured with calibration "cal-a". With `calibrated`, calibration TABLE_STEM is the active one
+    when the photo is taken: the calibration was replaced since the photo before."""
     monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(db_path().parent / "experiments"))
     client = TestClient(app)  # no lifespan: no scheduler takes photos of its own
     experiment = client.post("/api/experiments", json={"interval_s": 60}).json()
     experiment = client.post(f"/api/experiments/{experiment['id']}/start").json()
     _row("2026-11-17T14:06:59+00:00", "experiments/x/stills/2026-11-17/140659_000000", experiment["id"], "cal-a")
-    _row("2099-01-01T00:00:00+00:00", "experiments/x/stills/2099-01-01/000000_000000", experiment["id"], after)
+    if calibrated:
+        table_calibration()
     # Done once on a new rig.db, before the lock: the camera's settings table, the JPEG setting.
     CameraManager.instance()
     settings.photo_quality_in_use()
@@ -598,23 +601,55 @@ def _photo_saved_while_locked(monkeypatch: pytest.MonkeyPatch, after: str) -> tu
     return experiment, record
 
 
-def test_a_photo_saved_while_rig_db_was_locked_is_added_with_the_calibration_around_it(
+def test_a_photo_saved_while_rig_db_was_locked_is_added_with_the_calibration_it_was_taken_under(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    experiment, record = _photo_saved_while_locked(monkeypatch, after="cal-a")
+    """#488: the photo before it was measured with "cal-a"; the calibration was replaced in
+    between. The row names the calibration in the photo's own info file, and says it was added
+    later."""
+    experiment, record = _photo_saved_while_locked(monkeypatch, calibrated=True)
 
     assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 1
     row = database.captures_by_path([record["path"]])[record["path"]]
     assert row["taken_at"] == record["timestamp"]
     assert row["experiment_id"] == experiment["id"]
-    assert row["calibration"] == "cal-a"
+    assert row["calibration"] == "20270101T000000000000"
+    assert row["added_later"] == 1
     assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 0
 
 
-def test_a_photo_added_between_two_calibrations_has_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    experiment, record = _photo_saved_while_locked(monkeypatch, after="cal-b")
+def _info_file_from_before_488(record: dict, session: str | None) -> None:
+    """Rewrite the info file of `record` as photos had it before #488: no calibration, and the
+    validation session it names as given."""
+    path = captures.experiments_root().parent / f"{record['path']}.json"
+    saved = json.loads(path.read_text())
+    del saved["calibration"]
+    saved["validation"] = {**saved["validation"], "session": session}
+    path.write_text(json.dumps(saved))
+
+
+def test_a_photo_with_an_older_info_file_gets_the_calibration_of_its_recorded_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#488: before it, an info file named only the validation session. The session names the
+    calibration it checked, whatever the photos around the added one were measured with."""
+    experiment, record = _photo_saved_while_locked(monkeypatch, calibrated=True)
+    stored_validation("20270101T010000000000", "20260909T090909000000")
+    _info_file_from_before_488(record, "20270101T010000000000")
 
     captures.adopt_unrecorded_photos(experiment, {record["date"]})
+
+    assert database.captures_by_path([record["path"]])[record["path"]]["calibration"] == "20260909T090909000000"
+
+
+def test_a_photo_with_an_older_info_file_and_no_validation_has_no_calibration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    experiment, record = _photo_saved_while_locked(monkeypatch, calibrated=True)
+    _info_file_from_before_488(record, None)
+
+    captures.adopt_unrecorded_photos(experiment, {record["date"]})
+
     assert database.captures_by_path([record["path"]])[record["path"]]["calibration"] is None
 
 
@@ -623,7 +658,7 @@ def test_a_damaged_info_file_with_an_unusual_name_does_not_stop_the_others_being
 ) -> None:
     """#481 review: a damaged info file whose name is not the rig's HHMMSS_ffffff (a file copied
     in by hand) is skipped like any damaged one; the photo beside it still gets its row."""
-    experiment, record = _photo_saved_while_locked(monkeypatch, after="cal-a")
+    experiment, record = _photo_saved_while_locked(monkeypatch)
     day = captures.experiments_root() / experiment["folder"] / "stills" / record["date"]
     (day / "copy.jpg").write_bytes((day / record["filename"]).read_bytes())
     (day / "copy.json").write_text("")
