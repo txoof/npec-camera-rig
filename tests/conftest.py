@@ -1,5 +1,6 @@
 import atexit
 import os
+import re
 import shutil
 import tempfile
 
@@ -11,7 +12,7 @@ import pytest
 # failed there although / had 41 GB free (#543). When the system temp folder has less than this
 # free, temporary files go to a folder under the home directory instead. 10 GB is twice the
 # 5 GB floor, a test setup choice with room for a video, not a measurement. This must run before
-# anything calls tempfile (the mkdtemp calls below) and before pytest makes its base folder.
+# anything calls tempfile (the mkdtemp call below) and before pytest makes its base folder.
 _MIN_TEMP_FREE_BYTES = 10_000_000_000
 if shutil.disk_usage(tempfile.gettempdir()).free < _MIN_TEMP_FREE_BYTES:
     _roomier_temp_dir = os.path.join(os.path.expanduser("~"), ".cache", "npec-rig-tests-tmp")
@@ -127,27 +128,58 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 # this has to be set here, at conftest module load, not in a fixture. Unconditional (not
 # setdefault): a real value already in the environment must not cause tests to write into
 # /var/lib/npec-rig/{rig,experiments,calibration}.
-_test_photos_dir = tempfile.mkdtemp(prefix="npec-rig-tests-")
-os.environ["NPEC_RIG_PHOTOS_DIR"] = _test_photos_dir
-atexit.register(shutil.rmtree, _test_photos_dir, ignore_errors=True)
+#
+# All four folders live in one folder per run, named with the run's process ID. A run that is
+# killed (timeout, out of memory, kill -9) skips its exit hook and leaves that folder, so each
+# run first removes the folders of runs whose process has gone (#558). A folder of a run that is
+# still going, in this or another session, is left alone, so no time limit is needed. Made here,
+# at module load, and not in pytest's own temp folder: that folder exists only after pytest has
+# started, and an import of app.py before it would read /var/lib/npec-rig.
+_RUN_DIR_PREFIX = "npec-rig-tests-"
 
-_test_experiments_dir = tempfile.mkdtemp(prefix="npec-rig-tests-experiments-")
-os.environ["NPEC_RIG_EXPERIMENTS_DIR"] = _test_experiments_dir
-atexit.register(shutil.rmtree, _test_experiments_dir, ignore_errors=True)
 
-_test_calibration_dir = tempfile.mkdtemp(prefix="npec-rig-tests-calibration-")
-os.environ["NPEC_RIG_CALIBRATION_DIR"] = _test_calibration_dir
-atexit.register(shutil.rmtree, _test_calibration_dir, ignore_errors=True)
+def _remove_folders_of_dead_runs(root: str) -> None:
+    try:
+        names = os.listdir(root)
+    except OSError:
+        return
+    for name in names:
+        match = re.match(rf"{_RUN_DIR_PREFIX}(\d+)-", name)
+        if match is None:
+            continue
+        try:
+            os.kill(int(match.group(1)), 0)  # signal 0 only asks whether the process exists
+        except ProcessLookupError:
+            shutil.rmtree(os.path.join(root, name), ignore_errors=True)
+        except PermissionError:
+            pass  # a process of another user: it is still running
+        except OverflowError:
+            pass  # a name that is not one of ours: a number too large for a process ID
+
+
+_remove_folders_of_dead_runs(tempfile.gettempdir())
+_test_run_dir = tempfile.mkdtemp(prefix=f"{_RUN_DIR_PREFIX}{os.getpid()}-")
+atexit.register(shutil.rmtree, _test_run_dir, ignore_errors=True)
+
+
+def _make_test_dir(name: str) -> str:
+    path = os.path.join(_test_run_dir, name)
+    os.makedirs(path)
+    return path
+
+
+os.environ["NPEC_RIG_PHOTOS_DIR"] = _make_test_dir("photos")
+os.environ["NPEC_RIG_EXPERIMENTS_DIR"] = _make_test_dir("experiments")
+os.environ["NPEC_RIG_CALIBRATION_DIR"] = _make_test_dir("calibration")
 
 # The database and derived folder are set per test (isolated_settings_db), and monkeypatch removes them when the
 # test ends. A thread that outlives its test (the app's scheduler or tray reader, stopped without
 # waiting) then falls back to these, never to /var/lib/npec-rig: on 2026-10-21 one such thread
 # migrated the live rig.db (#222).
-_test_fallback_dir = tempfile.mkdtemp(prefix="npec-rig-tests-fallback-")
+_test_fallback_dir = _make_test_dir("fallback")
 os.environ["NPEC_RIG_DB_PATH"] = os.path.join(_test_fallback_dir, "rig.db")
 os.environ["NPEC_RIG_DERIVED_DIR"] = os.path.join(_test_fallback_dir, "derived")
 os.environ["NPEC_RIG_MASKS_DIR"] = os.path.join(_test_fallback_dir, "masks")
-atexit.register(shutil.rmtree, _test_fallback_dir, ignore_errors=True)
 # Likewise the camera: a scheduler thread left over from a test, during a running experiment in
 # the live rig.db, must never reach the real camera.
 os.environ["NPEC_RIG_SYNTHETIC_CAMERA"] = "1"
