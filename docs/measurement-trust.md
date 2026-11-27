@@ -626,6 +626,24 @@ metrology log backs it.
   metrology log 28), so plant areas are not changed by them and no rule is added. Not shown: an
   empty cell filled with soil (none existed in the data).
 
+### Tray identity, a moved tray and a covered tag (M4 acceptance, 2026-11-27)
+
+- **12 trays named correctly.** In 4 photos, all 12 tags were read, each tray in its planned table location with cell
+  A1 in the planned corner (0 and 180 degrees), and no tag was read wrongly or twice. Across all 54 photos of the
+  session (595 tag readings with the 12 trays on the table) no tag outside the layout appeared. One hand-chosen layout,
+  one day (`docs/metrology-log.md`, section 54).
+- **A moved tray shows in the dwell table.** Two trays swapped places and each turned 180 degrees. The first photo
+  after listed both as moved, and the Table locations panel showed both moves, dated to the swap, once the trays had
+  been over an hour in their new places. No other tray showed a move.
+- **A covered tag is lost, never misread.** With a clear plastic sheet alone, and with each of 7 black pieces (8 runs) from
+  4.8 x 4.9 mm (1.5% of a 40 mm tag) to 40 x 39 mm, tag 49 was not read in any of 29 photos, the tray was outlined with
+  no tag and reported "not seen", the other 11 trays kept reading as planned, and no wrong number appeared. Tag 49 read
+  again as soon as the covers came off. **A speck of about one square of the tag therefore costs the tray its name for
+  as long as it stays;** the rig warns, and it does not measure the tray without its tag (#471). No smaller patch was
+  tried, and soil was not used.
+- **Not shown.** Random positions and rotations, other angles, fewer than 12 trays, real dirt, other tags, a tag half
+  under a leaf, and how often a real tag is hit by dirt in a run.
+
 ### Known-area squares in all 12 slots (M5 acceptance, 2026-11-26)
 
 - **The acceptance test fails with both methods.** Twelve flat green squares of known area, one in
