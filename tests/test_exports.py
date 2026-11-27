@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import io
+import threading
 import time
 import zipfile
 
@@ -628,8 +629,9 @@ def test_purge_needs_every_photo_part_sent_in_full(monkeypatch: pytest.MonkeyPat
 
 def test_a_late_adopted_photos_row_does_not_join_the_frozen_parts(monkeypatch: pytest.MonkeyPatch) -> None:
     """#482 (review of #378, finding 1): a photo saved to disk while rig.db stayed locked (#439),
-    whose row is only added afterwards by `adopt_unrecorded_photos`, must not retroactively join
-    an export's parts even though its taken_at is early enough: the list is fixed once, at build."""
+    whose row is only added after an export was built, must not join that export's parts: the
+    list is fixed once, at build. (Since #489 an export adds the rows missing at its start, so
+    the photo here is saved after the export is built.)"""
     from npec_rig import settings
     from npec_rig.camera import CameraManager
     from tests.helpers import lock_held
@@ -637,18 +639,19 @@ def test_a_late_adopted_photos_row_does_not_join_the_frozen_parts(monkeypatch: p
     experiment = captures.start_experiment(captures.create_experiment(name="Drought")["id"])
     _array, _record = captures.take_photo("capture")
     del _array
+    export = export_built(_client(), experiment["id"])
+    assert len(export["parts"]) == 2  # part 0 + one photo part
+
     CameraManager.instance()
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
-    with lock_held(1.0):
+    with lock_held(30, until=(photo_saved := threading.Event())):  # until the photo is saved, however slow
         _array, record = captures.take_photo("capture")
+        photo_saved.set()
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
     assert record["capture_id"] is None  # the photo is on disk, its row is not yet
 
-    export = export_built(_client(), experiment["id"])
-    assert len(export["parts"]) == 2  # part 0 + one photo part: only the first photo had a row
-
     assert captures.adopt_unrecorded_photos(experiment, {record["date"]}).added == 1
-    assert database.captures_by_path([record["path"]])  # the row now exists, with an early taken_at
+    assert database.captures_by_path([record["path"]])  # the row now exists
 
     again = exports.export_with_parts(export["id"])
     assert again["parts"] == export["parts"]
@@ -1120,3 +1123,29 @@ def test_an_export_is_refused_while_a_video_is_being_made_and_starts_once_it_is_
     started = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False})
     assert started.status_code == 200
     assert [e["id"] for e in database.exports_for(experiment["id"])] == [started.json()["id"]]
+
+
+def test_a_photo_saved_while_rig_db_was_locked_is_in_the_export_started_after_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#489: Export listed only photos with a row, so a photo whose row could not be written was
+    left out of the export, and Purge deleted it after that."""
+    from npec_rig import settings
+    from npec_rig.camera import CameraManager
+    from tests.helpers import lock_held
+
+    experiment = captures.start_experiment(captures.create_experiment(name="Late row")["id"])
+    _array, first = captures.take_photo("capture")
+    del _array
+    CameraManager.instance()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
+    with lock_held(30, until=(photo_saved := threading.Event())):  # until the photo is saved, however slow
+        _array, late = captures.take_photo("capture")
+        photo_saved.set()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert late["capture_id"] is None  # on disk, and without a row
+
+    _export, files = _unzipped(experiment["id"])
+
+    rows = list(csv.DictReader(io.StringIO(files["captures.csv"].decode())))
+    assert sorted(r["path"] for r in rows) == sorted([first["path"], late["path"]])

@@ -12781,3 +12781,93 @@ measure. The covered tag results come from one tag. The time-in-location rule (1
 trays: the panel could show the move from the scheduled photo of 10:06:15, 1 hour 5 minutes after the swap photo, and
 showed it at the first read, 10:18; when it first showed it was not read.
 
+
+## 55. A tray lying off the grid of its touching neighbours (issue #577, written 2026-11-27, after the measurement)
+
+**Label: development check.** Why the app returned twelve tray outlines for eleven trays on a
+production photo, what the wrong outlines cost in the reported numbers, and what was tried against
+it. Written after the measurement: the fault was found while looking at a live experiment, not in
+a planned test. It extends sections 20 and 21, which chose and built the blue finder; nothing
+there has a tray lying off its neighbours' grid.
+
+*Data.* Production (`d6-daylight`), experiment 2 ("Preliminary test parent lines"), photo 319 of
+2026-11-27 13:20 UTC, copied read only with its calibration and its saved tag detections. Ten
+trays lie touching in two rows of five; an eleventh (tag 27) lies to their left, shifted down by
+about half a tray, so it straddles the boundary between the two rows. The same twelve outlines are
+in all 41 daytime photos of this layout, 09:40 to 13:20 UTC: one layout, not 41 independent cases.
+Scripts and the copied data: `experiments/577-tray-offset-repair/`.
+
+*Method.* The app's own finder (`tray_placement.find_outlines`, commit `6014fb9`) was run offline
+on the copied photo with the production calibration, and its outlines compared with the
+`tray_reading` rows production had already stored. The left tray's true outline was read by eye on
+a full-size crop, repeatable to about 10 px (1 mm at this scale).
+
+*Result (2026-11-27).* The offline run reproduced production exactly: the same twelve outlines.
+
+| Measured | Value |
+|---|---|
+| Left tray, known outline (by eye, full-size crop) | x 257 to 1746, y 2774 to 4564 px; centre (1001, 3669) |
+| The two app outlines covering it, centres off by | 970 px and 835 px, about 196 mm and 169 mm |
+| Plant area on the untagged outline | 82.3 mm² |
+| Plant area reported for tray 27 | 6.6 mm² |
+| Tray 27's twenty cells span | y 2010 to 3382 px, against the tray's real 2774 to 4564 |
+| Cells of tray 27 holding any green | 4 of 20 |
+
+So the plants of one tray were counted on an outline with no tray ID, and the named tray reported
+a twelfth of the area actually in it. The cause is in `_cells`: the blue rims of touching trays
+form one blob, and the blob's rectangle is cut into a uniform grid of tray-sized cells (here
+6 x 2 = 12). A tray that does not sit on that grid cannot be represented.
+
+*What the rig said about it.* Nothing that pointed at the fault. Tray 27 carried only "partly
+outside the photo", which is false for it: that flag belonged to the whole blue blob, so every one
+of the twelve outlines carried it because one tray at the end of the block met the frame. The
+untagged outline carried "no tag", which was true but said nothing about its tagged neighbour.
+
+*Options tried, all on copied data.* Scored as in section 20 (a tray is found when its centre lies
+within 30 mm of the known centre and the outlines overlap by at least 0.80), on photo 319 and on
+the 44 stills with known answers of section 20.
+
+| Option | Photo 319 | The 44 old stills | Time per photo | Verdict |
+|---|---|---|---|---|
+| A. The app now: blue rim, uniform grid cut | 12 outlines, the left tray split across two | prod 12/12, dev 8/8, hard 11/11 | 0.4 s | Fails on this layout |
+| B. Method E of section 20: rectangles fitted to the whole picture, tags off | 7 of 11 trays, 1 false; left tray at (1008, 3680) | not rerun | 26 s | Too slow, loses trays |
+| C. Ring fit alone: the tray-sized rectangle whose outer rim loop the blue best covers | 11 trays; left tray at (1006, 3672) | prod 11/12, dev 6/8 | 0.6 s | Worse than A |
+| D. A, then repair only the cells the blue rim does not support | 11 trays, one per tray; left tray at (1006, 3672), 1 mm from the known centre | identical to A on all 44, and on the 24 held-out stills of 20.1 | 6 to 9 s | Works here, not adopted |
+
+Option D separates well on this photo: the two bad cells score 0.38 on rim coverage and the ten
+regular trays 0.61 to 0.92. Its thresholds (0.45 suspect, 0.60 accept, a minimum move of a quarter
+of a tray) are decisions, not measurements, chosen against this one photo.
+
+**Limits of the evidence.** One real failing layout and one photo; the other 40 are repeats of it.
+The 44 and 24 stills show that D changes nothing where the app is already right, not that D fixes
+anything: none of them has a grid failure. Nothing here shows D works on another offset layout, a
+tray turned sideways, two offset trays, or a tray offset along its row. The left tray's known
+answer is one reading of one crop by one person, good to about 10 px. The top and bottom plastic
+edges of the ten regular trays lie within 6 mm of the app's outlines; their left-right positions
+were not measured independently, and A and C differ by 3 to 18 mm there, with no evidence which is
+closer. Right-edge trays, partly outside the frame, are the weak spot of any ring fit. Timings are
+on the controller with 800 MB free; production is a 4 GB Pi 5 and was not timed.
+
+*What was done (2026-11-27, Aaron).* Option D was **not** adopted: it patches a cut that assumes
+touching trays lie on a grid, which this photo shows they do not, and its three thresholds rest on
+this one case. Two things were shipped instead, neither of which moves any outline:
+
+1. "Partly outside the photo" is now worked out per tray instead of per blue blob, so only a tray
+   that really reaches the frame carries it.
+2. A block of touching trays holding both a tag and an outline with no tag — fewer tags than
+   outlines, as here, 11 against 12 — warns every tray in the block with **"fewer tags than
+   trays"**, not only the untagged outline. Tray 27 would have carried it. A block with no tag at
+   all is not warned: nothing there says how many trays it holds, so the count cannot be short,
+   and the development rig's 2 x 2 trays were photographed untagged (section 20). That is the
+   blind spot of counting tags, and a block whose tags were all missed stays silent.
+
+The way the trays are placed is to change next, to placing each tray from its own tag and letting
+the blue account for the rest, measured against this photo and a wider set of production photos
+before it goes in (#577).
+
+*Figure.* `docs/figures/55/compare-319.jpg`: photo 319 with the app's twelve outlines (left) and
+option D's eleven (right); the left tray is the one split in the left-hand picture. Made by
+`experiments/577-tray-offset-repair/scripts/hybrid_319.py` as `compare_319.png` in that folder,
+scaled to 2318 px wide and saved as JPEG quality 85 for this section on 2026-11-27.
+
+![Photo 319: the app's twelve outlines against option D's eleven](figures/55/compare-319.jpg)

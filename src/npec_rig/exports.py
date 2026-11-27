@@ -50,7 +50,7 @@ import yaml
 
 from npec_rig import database, dwell, timelapse, tray_readings
 from npec_rig.calibration_store import calibration_root
-from npec_rig.captures import experiments_root
+from npec_rig.captures import adopt_quietly, experiments_root
 from npec_rig.validation_store import validations_root
 
 
@@ -88,6 +88,9 @@ def start_export(experiment_id: int, *, data: bool = True, photos: bool = True) 
     that reads every photo at a time (#503). Returns the export with its parts."""
     if timelapse.being_made() is not None:
         raise database.ExperimentError("A time lapse video is being made. Export when it is done.")
+    # Photos saved while rig.db was locked get their rows first, or the export would leave them
+    # out and a later Purge delete them (#489). A lock does not stop the export.
+    adopt_quietly(experiment_id)
     try:
         export = database.create_export(experiment_id, now=_now(), data=data, photos=photos)
     except database.ExperimentError:

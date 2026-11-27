@@ -1,5 +1,6 @@
 import json
 import shutil
+import sqlite3
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 from npec_rig import captures, database, scheduler, settings
 from npec_rig.app import app
 from npec_rig.camera import CameraManager, SyntheticBackend
+from npec_rig.settings import db_path
 from tests.helpers import lock_held, read_rig_db
 
 pytestmark = pytest.mark.unit
@@ -833,3 +835,89 @@ def test_a_scheduled_photos_info_file_records_its_slot() -> None:
     assert schedule["since"] == since
     assert schedule["slot"] >= 1
     assert datetime.fromisoformat(schedule["due_at"]) > datetime.fromisoformat(since)
+
+
+def test_a_manual_photo_saved_while_rig_db_was_locked_has_its_row_after_the_app_restarts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#489: a photo with no row and no slot to settle (here a manual one, in an experiment with
+    no interval) stayed on disk without a row for good: only a running schedule added rows."""
+    client = TestClient(app)  # no lifespan: no scheduler runs
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    # One photo before the lock: the first photo of a fresh rig.db also saves the default photo
+    # quality, which a lock would refuse, and only this second one is about the lock.
+    captures.take_photo("capture")
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", SHORT_DB_WAIT_S)
+    # Held until the photo is saved, however long a loaded machine takes over it.
+    with lock_held(30, until=(photo_saved := threading.Event())):
+        captures.take_photo("capture")
+        photo_saved.set()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert _photos(experiment["id"]) == 1  # the second photo is saved, and has no row
+
+    with TestClient(app):  # the app starts again
+        _wait_for(lambda: _photos(experiment["id"]) == 2)
+
+
+def test_a_manual_photo_saved_while_rig_db_was_locked_has_its_row_after_the_experiment_is_stopped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#489: Stop did not add the rows of photos saved while rig.db was locked, so a photo of the
+    last minutes was missing from the Gallery and the export until the app restarted."""
+    client = TestClient(app)  # no lifespan: no scheduler runs
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    captures.take_photo("capture")  # see the test above for this first photo
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", SHORT_DB_WAIT_S)
+    # Held until the photo is saved, however long a loaded machine takes over it.
+    with lock_held(30, until=(photo_saved := threading.Event())):
+        captures.take_photo("capture")
+        photo_saved.set()
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert _photos(experiment["id"]) == 1  # the second photo is saved, and has no row
+
+    client.post(f"/api/experiments/{experiment['id']}/stop")
+
+    assert _photos(experiment["id"]) == 2
+
+
+def test_after_a_restart_slots_whose_photos_were_saved_before_it_are_counted_taken() -> None:
+    """#489: photos saved while rig.db was locked have their slots only in memory. After a
+    restart those slots were counted "the app was not running", though the photos exist. Now
+    the info files name the slots: they are taken, and the slots between them, lost to the lock,
+    say so. Slots 1 to 4 are looked at: the restart comes later in the schedule, and which later
+    slots count as down or slow depends on how fast the machine is."""
+    client = TestClient(app)  # no lifespan: the app is down
+    experiment, started = _start(client, INTERVAL_S)
+    since = datetime.fromisoformat(started["schedule"]["since"])
+    _array, manual = captures.take_photo("capture")
+    del _array
+    day = captures.experiments_root() / started["folder"] / "stills" / manual["date"]
+    stem = Path(manual["path"]).name
+    record = json.loads((day / f"{stem}.json").read_text())
+    for slot in (2, 4):  # photos the scheduler saved, whose slots it never wrote
+        due = since + timedelta(seconds=slot * INTERVAL_S)
+        name = f"23000{slot}_000000"
+        shutil.copy(day / f"{stem}.jpg", day / f"{name}.jpg")
+        (day / f"{name}.json").write_text(json.dumps({
+            **record, "timestamp": due.isoformat(),
+            "schedule": {"since": since.isoformat(), "slot": slot, "due_at": due.isoformat()},
+        }))
+    time.sleep(_slots(5.4))  # slots 1 to 5 pass with the app down
+
+    def first_four_slots() -> list[tuple[bool, str | None]]:
+        with sqlite3.connect(db_path()) as conn:
+            return [
+                (taken, reason) for taken, reason in conn.execute(
+                    "SELECT capture_id IS NOT NULL, missed_reason FROM scheduled_photo"
+                    " WHERE experiment_id = ? AND slot <= 4 ORDER BY slot", (experiment["id"],)
+                )
+            ]
+
+    with TestClient(app):
+        _wait_for(lambda: len(first_four_slots()) == 4 and first_four_slots()[1][0] and first_four_slots()[3][0])
+
+    assert first_four_slots() == [
+        (False, scheduler.MISSED_DB_LOCKED), (True, None), (False, scheduler.MISSED_DB_LOCKED), (True, None),
+    ]
