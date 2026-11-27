@@ -482,7 +482,25 @@
       }
     });
 
-    function purgeAsk(e) {
+    // Where the guide for photos without a record is read (docs/recovering-photos.md, #489).
+    const RECOVERY_GUIDE = "https://github.com/txoof/npec-camera-rig/blob/main/docs/recovering-photos.md";
+
+    async function purgeAsk(e) {
+      // First the rig adds a row for each photo that lacks one; the dialog then says how many
+      // it could not add. Purge still goes ahead (Aaron, 2026-11-23).
+      let missingLine = "";
+      try {
+        const { photos_without_row: missing } = await call("POST", `/api/experiments/${e.id}/purge-check`);
+        if (missing > 0) {
+          const [photos, it] = missing === 1 ? ["photo has", "it"] : ["photos have", "them"];
+          missingLine = `<p><strong>${missing} ${photos} no record.</strong> `
+            + `Purge deletes ${it}, and no export holds ${it}. To keep ${it}, copy ${it} off the rig first: `
+            + `<a href="${RECOVERY_GUIDE}" target="_blank" rel="noopener">how to copy</a>.</p>`;
+        }
+      } catch (err) {
+        missingLine = "<p><strong>Photos without a record were not checked</strong> "
+          + `(${esc(err.message)}). Purge deletes any there are.</p>`;
+      }
       const exportLine = e.complete_export
         ? `<p>It has a complete export, made ${esc(utc(e.complete_export.finished_at))}.</p>`
         : `<p><strong>It has no complete export.</strong> A complete export is one made after the `
@@ -494,7 +512,7 @@
       ui.confirmPanel({
         title: `Purge ${displayName(e)}`,
         body: "<p>Purge deletes this experiment's photos and export files. This cannot be undone. "
-          + "Its name, dates and notes stay as a record.</p>" + exportLine,
+          + "Its name, dates and notes stay as a record.</p>" + exportLine + missingLine,
         typed: e.purge_confirmation,
         check: e.complete_export ? null : "Purge without a complete export",
         ok: "Purge",

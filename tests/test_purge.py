@@ -331,3 +331,56 @@ def test_purge_succeeds_with_a_photo_never_read_for_trays() -> None:
     purged = captures.purge_experiment(experiment["id"], confirm="Drought")
 
     assert purged["state"] == "purged"
+
+
+def _photo_file_without_a_row(experiment: dict, *, readable: bool = True) -> str:
+    """A photo as the rig saves one while rig.db is locked: its JPEG and info file on disk, no
+    row. A copy of the experiment's first photo under a new name; with `readable` False its
+    info file is empty, as after a power cut. Returns its path as rig.db stores it."""
+    first = next((captures.experiments_root() / experiment["folder"] / "stills").rglob("*.jpg"))
+    jpeg = first.with_name("235959_000001.jpg")
+    jpeg.write_bytes(first.read_bytes())
+    jpeg.with_suffix(".json").write_text(first.with_suffix(".json").read_text() if readable else "")
+    return f"experiments/{experiment['folder']}/stills/{first.parent.name}/{jpeg.stem}"
+
+
+def test_purge_adds_a_missing_row_first_and_so_asks_for_a_new_export() -> None:
+    """#489: a photo with no row was left out of every export, and Purge deleted it with the
+    folder. Purge now adds the row first, and refuses until the photo is exported."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    experiment = _stopped()
+    _exported(experiment)
+    path = _photo_file_without_a_row(experiment)
+
+    refused = TestClient(app).post(f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought"})
+
+    assert refused.status_code == 409
+    assert refused.json()["detail"]["reason"] == "photos_added"
+    assert database.captures_by_path([path])
+
+
+def test_purge_check_counts_the_photos_that_cannot_be_given_a_row_and_purge_still_goes_ahead() -> None:
+    """#489 (Aaron, 2026-11-23): try to add the rows, warn with the number that failed, and let
+    Purge go ahead."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig.app import app
+
+    experiment = _stopped()
+    client = TestClient(app)
+    readable = _photo_file_without_a_row(experiment)
+    assert client.post(f"/api/experiments/{experiment['id']}/purge-check").json() == {"photos_without_row": 0}
+    assert database.captures_by_path([readable])  # the check added its row
+
+    damaged = captures.experiments_root() / experiment["folder"] / "stills"
+    next(damaged.rglob("235959_000001.json")).with_name("235959_000002.json").write_text("")
+    next(damaged.rglob("235959_000001.jpg")).with_name("235959_000002.jpg").write_bytes(b"x")
+    assert client.post(f"/api/experiments/{experiment['id']}/purge-check").json() == {"photos_without_row": 1}
+
+    purged = client.post(
+        f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought", "override_no_export": True}
+    )
+    assert purged.json()["state"] == "purged"

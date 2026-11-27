@@ -142,6 +142,12 @@ class Scheduler:
             self._thread.join(timeout_s)
 
     def _run(self) -> None:
+        # Photos saved while rig.db was locked, before this start, still have no row (#489).
+        captures.adopt_quietly()
+        try:
+            self._record_slots_of_photos_on_disk()
+        except Exception:
+            logger.exception("Could not record the slots of the photos already on disk; going on")
         wait_s = 0.0
         while not self._stop.wait(wait_s):
             try:
@@ -152,6 +158,30 @@ class Scheduler:
         # Stopping (the app shuts down): one last try to write the slots not yet written (#481).
         if self._unwritten:
             self._catch_up(None)
+
+    def _record_slots_of_photos_on_disk(self) -> None:
+        """Slots whose photo was saved before this start but never written to rig.db (the app
+        stopped while rig.db was locked, #489): their info files name them. They are recorded
+        for the photos to be linked, and the slots between them, lost to the lock, say so.
+        Without this the gap is counted "the app was not running", though the photos exist."""
+        experiment = database.running_experiment()
+        sched = _running_schedule(experiment)
+        if sched is None:
+            return
+        last_slot = database.schedule_progress(experiment["id"], sched["since"])["last_slot"]
+        named = captures.scheduled_slots_on_disk(
+            experiment, sched["since"], from_day=_due_at(sched, last_slot).date().isoformat()
+        )
+        named = {slot: due for slot, due in named.items() if slot > last_slot}
+        if not named:
+            return
+        slots = [
+            (slot, named[slot], None, None) if slot in named
+            else (slot, _due_at(sched, slot).isoformat(), None, MISSED_DB_LOCKED)
+            for slot in range(last_slot + 1, max(named) + 1)
+        ]
+        database.record_scheduled_photos(experiment["id"], sched["since"], slots)
+        self._settle_due = True  # the photos are linked to these slots next
 
     def _tick(self) -> float:
         """Take the current slot's photo if it is not yet recorded, then do the database work.

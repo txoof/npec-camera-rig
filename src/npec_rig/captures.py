@@ -323,22 +323,30 @@ class Adopted(NamedTuple):
     slots: dict[tuple[str, int], str]
 
 
-def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> Adopted:
+def adopt_unrecorded_photos(experiment: dict, days: set[str] | None = None) -> Adopted:
     """Add a `capture` row for each of `experiment`'s photos saved in the `days` folders
-    (YYYY-MM-DD) without one: saved while rig.db could not be written (#439). Each row is marked
+    (YYYY-MM-DD), or in every day folder when `days` is None, without one: saved while rig.db
+    could not be written (#439). Each row is marked
     as added later and gets the calibration its info file names (#488). An older info file has
     none: the calibration of its recorded validation is used, or none.
 
     A photo whose info file cannot be read (empty or damaged, as after a power cut) is left
     without a row and logged; the others are still added (#481). A rig.db error is raised, to be
     tried again later."""
+    stills = experiments_root() / experiment["folder"] / "stills"
+    if days is None:
+        days = {folder.name for folder in stills.iterdir() if folder.is_dir()} if stills.is_dir() else set()
     found = []
     for day in sorted(days):
         prefix = f"experiments/{experiment['folder']}/stills/{day}"
-        for sidecar in sorted((experiments_root() / experiment["folder"] / "stills" / day).glob("*.json")):
+        for sidecar in sorted((stills / day).glob("*.json")):
             if sidecar.with_suffix(".jpg").exists():
                 found.append((f"{prefix}/{sidecar.stem}", sidecar))
-    known = database.captures_by_path([path for path, _ in found])
+    # In batches: SQLite takes at most 32,766 values in one query, and an experiment's photos
+    # can pass that (a photo a minute is 43,000 in a month).
+    known: dict[str, dict] = {}
+    for start in range(0, len(found), _ADOPT_BATCH):
+        known.update(database.captures_by_path([path for path, _ in found[start : start + _ADOPT_BATCH]]))
     added = 0
     unreadable = []
     slots = {}
@@ -365,6 +373,51 @@ def adopt_unrecorded_photos(experiment: dict, days: set[str]) -> Adopted:
         logger.warning("Added the photo %s to the database after it was taken", path)
         added += 1
     return Adopted(added, unreadable, slots)
+
+
+_ADOPT_BATCH = 500
+
+
+def adopt_all_unrecorded_photos(experiment_id: int | None = None) -> int:
+    """Add the missing rows of every photo of every experiment that is not purged, or of
+    `experiment_id` alone (#489). Returns how many photos are still without a row: those whose
+    info file cannot be read. A rig.db error is raised."""
+    still_missing = 0
+    for experiment in database.list_experiments():
+        if experiment["state"] in ("set up", "purged") or not experiment["folder"]:
+            continue
+        if experiment_id is not None and experiment["id"] != experiment_id:
+            continue
+        still_missing += len(adopt_unrecorded_photos(experiment).unreadable)
+    return still_missing
+
+
+def adopt_quietly(experiment_id: int | None = None) -> None:
+    """`adopt_all_unrecorded_photos` for a caller that must go on whatever it finds: Start,
+    Stop and Export are never held up by a locked rig.db (#489). A failure is logged."""
+    try:
+        adopt_all_unrecorded_photos(experiment_id)
+    except Exception:
+        logger.exception("Could not add the photos without a row to rig.db; trying again later")
+
+
+def scheduled_slots_on_disk(experiment: dict, since: str, from_day: str) -> dict[int, str]:
+    """The slots that the info files of `experiment`'s photos name, `{slot: due time}`, for the
+    schedule that started at `since`, read from the day folders `from_day` (YYYY-MM-DD) on. An
+    info file that cannot be read is left out (#489)."""
+    named: dict[int, str] = {}
+    stills = experiments_root() / experiment["folder"] / "stills"
+    if not stills.is_dir():
+        return named
+    for day in sorted(d for d in stills.iterdir() if d.is_dir() and d.name >= from_day):
+        for sidecar in day.glob("*.json"):
+            try:
+                schedule = json.loads(sidecar.read_text()).get("schedule")
+                if isinstance(schedule, dict) and schedule["since"] == since:
+                    named[int(schedule["slot"])] = schedule["due_at"]
+            except (ValueError, KeyError, TypeError, AttributeError, OSError):
+                continue
+    return named
 
 
 def _slot_of(record: dict) -> tuple[str, int] | None:
@@ -641,6 +694,7 @@ def start_experiment(experiment_id: int, *, stop_running: bool = False) -> dict:
 def stop_experiment(experiment_id: int) -> dict:
     experiment = database.stop_experiment(experiment_id, now=_now())
     _write_experiment_json(experiment)
+    adopt_quietly(experiment_id)  # photos saved while rig.db was locked get their rows now (#489)
     return experiment
 
 
