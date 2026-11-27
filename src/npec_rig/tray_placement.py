@@ -152,7 +152,7 @@ def _inside(point: tuple[float, float], corners: tuple[tuple[float, float], ...]
 # cut assumes the trays lie on one grid; a tray lying off it is split across two outlines, both in
 # the wrong place, and its plants are counted on the wrong tray (#577, photo 319 of production
 # experiment 2). Every tray of such a block is suspect, not only the outline with no tag.
-BLOCK_SUSPECT = "a tray outline here has no tag: these touching trays may be outlined wrongly"
+BLOCK_SUSPECT = "fewer tags than trays"
 
 
 def name_trays(outlines: list[TrayOutline], detections: list[TagDetection]) -> list[TrayPlacement]:
