@@ -63,6 +63,11 @@ NO_PHOTO_WINDOW_S = 0.5
 # A test that has to fit this inside a slot sizes the slot from it, never the other way round.
 RESTART_WORK_S = 0.16
 
+# The longest a test holds rig.db's lock while waiting for the rig to meet it. The lock is let go
+# the moment that happens, so this is only reached when something is wrong. Absolute, in whole
+# seconds: it is a backstop, not a budget (#576).
+LOCK_CAP_S = 30.0
+
 
 def _slots(n: float) -> float:
     """`n` photo intervals, in seconds."""
@@ -736,29 +741,57 @@ def test_a_photo_taken_during_a_lock_gets_its_row_before_the_next_photo(monkeypa
     is over half an interval before the second photo is due. A photo does some of its database
     work before the file is saved (captures.take_photo), so each of those waits has to fit in
     that half interval too: the wait for the lock is SHORT_DB_WAIT_S."""
+    import logging
+
     interval_s = _slots(8)
     monkeypatch.setattr(settings, "LOCK_WAIT_S", SHORT_DB_WAIT_S)
-    with TestClient(app) as client:
-        experiment, started = _start(client, interval_s)
-        folder = captures.experiments_root() / started["folder"]
-        # Done once on a new rig.db, before the lock: the camera's settings table, the JPEG setting.
-        CameraManager.instance()
-        settings.photo_quality_in_use()
-        with lock_held(1.5 * interval_s):  # the first photo, due one interval in, is taken under it
-            pass
-        assert len(list(folder.rglob("*.jpg"))) == 1
-        # The timeout stays generous, as _wait_for's does: "before the second photo is due" is
-        # checked by the counts read straight after it, not by racing a deadline against work
-        # that does not shrink with INTERVAL_S (#547 review).
-        _wait_for(lambda: _photos(experiment["id"]) >= 1 and not database.unlinked_slots(experiment["id"]))
-        on_disk = len(list(folder.rglob("*.jpg")))
-        recorded = _photos(experiment["id"])
-        # Both counts are read and the lock is long over, so the short wait has no job left.
-        # Restored before the stop, as the other locked tests do: the stop writes rig.db, and
-        # TestClient re-raises what the route raised, so a stop that landed on the scheduler
-        # writing a row would fail the test for the wait, not for the behaviour (#561).
-        monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
-        client.post(f"/api/experiments/{experiment['id']}/stop")
+    row_met_the_lock = threading.Event()
+
+    class RowMetTheLock(logging.Handler):
+        """Set when the photo's own row meets the lock, and nothing else.
+
+        database logs `<caller>: rig.db was locked, gave up after N s`. Matching the caller, not
+        just "was locked", is what keeps this test honest: any other query giving up would
+        otherwise end the lock early and the test would pass without the row ever having been
+        refused."""
+
+        def emit(self, record: logging.LogRecord) -> None:
+            if record.getMessage().startswith("record_capture:"):
+                row_met_the_lock.set()
+
+    handler = RowMetTheLock()
+    logging.getLogger("npec_rig.database").addHandler(handler)
+    try:
+        with TestClient(app) as client:
+            experiment, started = _start(client, interval_s)
+            folder = captures.experiments_root() / started["folder"]
+            # Done once on a new rig.db, before the lock: the camera's settings table, the JPEG setting.
+            CameraManager.instance()
+            settings.photo_quality_in_use()
+            # The lock ends when the photo's row has actually met it, not after a stretch of wall
+            # clock. It used to be held for 1.5 intervals and the photo had to be taken inside
+            # that: taking a photo is fixed work that does not shrink when the slots do, so on a
+            # slow or busy box no photo was taken before the lock ended and the test failed on an
+            # empty folder. 3 failures in 10 runs on the loaded controller (#576). Waiting for the
+            # refusal settles the order instead of racing it, and keeps the test honest: it cannot
+            # pass without the row having been refused at all.
+            with lock_held(LOCK_CAP_S, until=row_met_the_lock):
+                assert row_met_the_lock.wait(LOCK_CAP_S), "the photo's row never met the lock"
+            _wait_for(lambda: len(list(folder.rglob("*.jpg"))) == 1)
+            # The timeout stays generous, as _wait_for's does: "before the second photo is due" is
+            # checked by the counts read straight after it, not by racing a deadline against work
+            # that does not shrink with INTERVAL_S (#547 review).
+            _wait_for(lambda: _photos(experiment["id"]) >= 1 and not database.unlinked_slots(experiment["id"]))
+            on_disk = len(list(folder.rglob("*.jpg")))
+            recorded = _photos(experiment["id"])
+            # Both counts are read and the lock is long over, so the short wait has no job left.
+            # Restored before the stop, as the other locked tests do: the stop writes rig.db, and
+            # TestClient re-raises what the route raised, so a stop that landed on the scheduler
+            # writing a row would fail the test for the wait, not for the behaviour (#561).
+            monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+            client.post(f"/api/experiments/{experiment['id']}/stop")
+    finally:
+        logging.getLogger("npec_rig.database").removeHandler(handler)
     assert (on_disk, recorded) == (1, 1)
 
 
