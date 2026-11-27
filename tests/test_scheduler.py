@@ -55,8 +55,10 @@ NO_PHOTO_WINDOW_S = 0.5
 
 
 # The work between an app restart and the photo the scheduler then takes: TestClient's lifespan,
-# the scheduler thread starting, one CHECK_S poll and the photo itself. Measured on an idle Pi 5
-# (ac-testing, aarch64, 4 cores), 35 runs in two batches: 129 to 159 ms, mean 145.
+# the scheduler thread starting, one CHECK_S poll and the photo itself. Measured 2026-11-27 over
+# 35 runs in two batches, on an idle `ac-testing`: a Pi 5, aarch64, 4 cores, 4 GB, the old
+# production rig, out of service since #513 and used as a test box (Aaron, 2026-11-27). 129 to
+# 159 ms, mean 145.
 #
 # Absolute, in whole milliseconds, because it is fixed work on a given machine: lowering
 # INTERVAL_S shortens the slots, it does not speed the machine up (the note above, #547 review).

@@ -1820,6 +1820,7 @@ def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_savin
                 if time.monotonic() > deadline:
                     raise RuntimeError("the photo's tags were never stored")
                 time.sleep(0.001)
+            deadline = time.monotonic() + 15  # its own budget, not what the wait above left
             while slot.acquire(timeout=0.01):  # free: the reading is not segmenting yet
                 slot.release()
                 if gave_up.is_set():
@@ -1965,7 +1966,7 @@ def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calib
         holding = False
         try:
             tag_lock = images._key_locks[f"tags:{source}"]  # held by the reading until it stores
-            # Timed out, not bare: the suite has no pytest-timeout, so an unbounded wait here
+            # Timed out, not bare: pytest-timeout caps the test at 120 s (#576), but an unbounded wait here
             # would hang this xdist worker for the whole CI job with no test named (#565).
             if not guard.acquire(timeout=15):
                 raise RuntimeError("images' key-lock guard was still held after 15 s")

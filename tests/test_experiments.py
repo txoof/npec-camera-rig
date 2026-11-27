@@ -723,6 +723,10 @@ def test_a_reprocess_left_running_when_the_app_stopped_is_marked_interrupted_and
 TAGS_STORED_TIMEOUT_S = 30.0
 
 
+class _LockerEnded(Exception):
+    """The test finished before the locker reached the moment it was waiting for."""
+
+
 def _lock_once_the_reading_is_segmenting(path: str, *, until=None, seconds: float = 5.0):
     """A thread that takes rig.db's write lock once the photo's reading is segmenting, so that
     saving the reading is the first write to meet it; started by the caller, joined at the end.
@@ -739,41 +743,64 @@ def _lock_once_the_reading_is_segmenting(path: str, *, until=None, seconds: floa
     holds the same slot and stores the tags as it lets go, so the next thread to take it is this
     reading's own segmentation.
 
-    Both waits have a deadline and the thread is a daemon: with neither, a run where the tags
-    were never stored polled for ever and pytest could not exit at all (#576)."""
+    Both waits have a deadline of their own and the thread is a daemon: with neither, a run where
+    the tags were never stored polled for ever and pytest could not exit at all (#576).
+
+    The thread carries `failures` and `took_the_lock`, and the caller asserts on both. Without
+    them this helper could end without ever locking -- a wait giving up, or `until` set by
+    something else -- the Reprocess then ran unlocked, the test's own assertions still held, and
+    it passed green having tested nothing. Confirmed by replacing the locker with a thread that
+    does nothing: the test stayed green (/code-review on #576)."""
     import threading
     import time
 
     from npec_rig import images
     from tests.helpers import lock_held
 
+    failures: list[BaseException] = []
+    took_the_lock = threading.Event()
+
     def ended() -> bool:
         return until is not None and until.is_set()
 
+    def wait_for(done, complaint: str) -> None:
+        """Poll `done` on a deadline of its own, so a slow wait cannot eat the next one's budget."""
+        deadline = time.monotonic() + TAGS_STORED_TIMEOUT_S
+        while not done():
+            if ended():
+                raise _LockerEnded
+            if time.monotonic() > deadline:
+                raise AssertionError(f"{complaint} within {TAGS_STORED_TIMEOUT_S} s: {path}")
+            time.sleep(0.005)
+
     def run() -> None:
         slot = images.full_decode_slot()
-        deadline = time.monotonic() + TAGS_STORED_TIMEOUT_S
-        while images.stored_tag_detections(path) is None:
-            if ended():
-                return  # the test has already finished
-            assert time.monotonic() < deadline, (
-                f"the photo's tags were not stored within {TAGS_STORED_TIMEOUT_S} s: {path}"
-            )
-            time.sleep(0.001)
-        while slot.acquire(timeout=0.01):  # free: the reading is not segmenting yet
-            slot.release()
-            if ended():
-                return
-            assert time.monotonic() < deadline, (
-                f"the reading never took the full-decode slot to segment within "
-                f"{TAGS_STORED_TIMEOUT_S} s: {path}"
-            )
-            time.sleep(0.005)
-        with lock_held(seconds, until=until):
-            if until is not None:
-                until.wait(seconds)
 
-    return threading.Thread(target=run, daemon=True)
+        def segmenting() -> bool:
+            if slot.acquire(timeout=0.01):  # free: the reading is not segmenting yet
+                slot.release()
+                return False
+            return True
+
+        try:
+            wait_for(lambda: images.stored_tag_detections(path) is not None,
+                     "the photo's tags were not stored")
+            wait_for(segmenting, "the reading never took the full-decode slot to segment")
+            with lock_held(seconds, until=until):
+                took_the_lock.set()
+                if until is not None:
+                    until.wait(seconds)
+        except _LockerEnded:
+            pass  # the test has already finished
+        except BaseException as exc:
+            failures.append(exc)
+            if until is not None:
+                until.set()  # never leave the test waiting on a locker that has given up
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.failures = failures
+    thread.took_the_lock = took_the_lock
+    return thread
 
 
 def _wait_until_finished(client, experiment_id: int, timeout_s: float = 30) -> dict:
@@ -815,10 +842,19 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> N
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.05)
     gave_up = threading.Event()
+    save_met_the_lock = threading.Event()
 
     class FirstLockFailure(logging.Handler):
+        """Set when the reading's own save meets the lock, and nothing else.
+
+        database logs `<caller>: rig.db was locked, gave up after N s`. Matching the caller
+        matters twice over: any other query giving up -- including one from a thread another test
+        left running -- would otherwise end the lock early, and the test could then pass with the
+        Reprocess never having met it at all (#576)."""
+
         def emit(self, record: logging.LogRecord) -> None:
-            if "was locked" in record.getMessage():
+            if record.getMessage().startswith("record_tray_readings:"):
+                save_met_the_lock.set()
                 gave_up.set()
 
     handler = FirstLockFailure()
@@ -833,6 +869,13 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> N
         gave_up.set()
         locker.join(15)
         logging.getLogger("npec_rig.database").removeHandler(handler)
+
+    # Before anything else: a locker that failed, never locked, or was never met leaves the
+    # Reprocess running unlocked, and every assertion below then holds for the wrong reason.
+    if locker.failures:
+        raise locker.failures[0]
+    assert locker.took_the_lock.is_set(), "the locker never took rig.db's lock"
+    assert save_met_the_lock.is_set(), "the reading's save never met the lock"
 
     assert (progress["state"], progress["done"], progress["failed"]) == ("finished", 1, 0)
     assert tray_readings.photo_readings(path)["status"] == "read"
@@ -874,7 +917,8 @@ def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypa
     client = TestClient(app)
     slot = images.full_decode_slot()
     # Timed: this is the one process-global decode slot, shared with the tag search and with every
-    # other test in this xdist worker, and there is no pytest-timeout here. An untimed acquire
+    # other test in this xdist worker. pytest-timeout would end the run at 120 s (#576), but 120 s
+    # of a stalled worker is still 120 s of no output and no test named. An untimed acquire
     # would block the worker for ever if anything else were holding the slot -- no output, no test
     # named, CI reporting a 20-minute timeout instead of a failure.
     assert slot.acquire(timeout=30), "the full-decode slot was already held"  # the run waits here
