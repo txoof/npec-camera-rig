@@ -256,6 +256,13 @@ the reason. If the app stops under a Reprocess, the run is marked "interrupted a
 app starts again; it is not resumed, and a new one can be started. A run whose last save failed (rig.db was locked) is
 marked interrupted the same way at the next progress read, start or Stop, not only when the app starts.
 
+## When Purge says photos have no record
+
+Before Purge, the rig adds a database row for every photo file that lacks one. If some cannot be
+added, the Purge dialog says how many, and Purge still goes ahead if you confirm it: those photos are
+deleted with the folder, and they were never in an export. To keep them, copy them off the rig first:
+`docs/recovering-photos.md` says what the files are and how.
+
 ## Why it is done this way
 
 The project rule is that every certainty is measured, never derived: if a number cannot be shown
