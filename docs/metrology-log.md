@@ -13098,6 +13098,43 @@ four stills in five.
 **A remains better than C on the obsolete stills, and on covered trays**, where C has nothing to
 anchor on and falls back to A anyway.
 
+### 56.8 A tray placed in the gangway, and why no rim score rejects it (2026-11-27)
+
+Aaron found the case on the still of 2026-11-09 (old production, current cell A1 tags, grown
+plants): the app finds 10 trays, C finds 11, and C's extra one sits in the empty gangway between
+the two rows of trays, on bare table. The tray it was placed from is found correctly in the same
+run, from the blue, so C reports the same physical tray twice: once in the right place with no
+name, and once in the gangway carrying the tag's ID.
+
+*Cause.* A tray tag lies in a corner cell, and stepping from it to the tray's centre has two
+readings 350 mm apart (56.6). C chooses between them by which outline covers more blue. In the
+gangway the wrong reading's rim band clips the real tray above it and the real tray below it, so
+it picks up blue on two of its four sides and wins the vote.
+
+*Does a floor reject it?* No, by either rule. Measured on that still:
+
+| Tray | Whole rim loop | Worst side | Second worst side |
+|---|---|---|---|
+| The gangway tray | 0.662 | 0.453 | 0.460 |
+| Genuine trays, range | 0.362 to 0.867 | 0.155 to 0.624 | 0.157 to 0.815 |
+
+The gangway tray scores **above** the 0.40 floor of 56.6 on the whole loop, and its worst side,
+0.453, is higher than the worst side of several genuine trays, the lowest of which is 0.211 (a
+tray partly under a calibration sheet). Taking the worst of the four sides instead of the loop as
+a whole, which was tried because a tray ought to have blue on all four sides, does not separate
+them: the two distributions overlap.
+
+**So rim coverage cannot tell a tray from a well-placed guess.** The quantity that was meant to
+make C self-checking does not do it, and no threshold read off this still would. This is the
+second case Aaron picked out of the sheets where the app's method is the better of the two, after
+the trays under clear lids (56.6).
+
+*Standing.* C fixes the fault of section 55 on the four stills that have it, and on 31 of 39
+current stills it agrees with the app. Against that it places trays that are not there, by a
+mechanism no measurement in this test rejects. Condition 3 of 56.4 is not met and no fix for it
+has been found. **C is not adopted, and no further version of it should be built until there is a
+measurement that separates a real tray from a well-placed guess.**
+
 *Where the raw data is.* Scripts in `experiments/577-tray-from-tags/`; the per-still numbers in
 `cmp.jsonl` of each set, not in the repository because the photos are not either. Sheets drawn for
 inspection were put on the controller's scratch viewer, which is not kept.

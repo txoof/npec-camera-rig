@@ -113,6 +113,33 @@ def _ring_score(rim, corners, band_px):
     return 0.0 if n == 0 else float((rim[y0:y1, x0:x1] & ring.astype(bool)).sum()) / n
 
 
+def side_scores(rim, corners, band_px):
+    """How much of each of a tray's four sides is blue, worst side first.
+
+    The whole rim loop taken together is not enough: a tray placed in the gangway between two rows
+    picks up the rims of the real trays above and below it, scores two sides out of four and looks
+    like a tray (metrology log 56.8, the still of 2026-11-09 where it scored 0.66). A tray has
+    blue on all four of its sides.
+    """
+    pts = np.asarray(corners, float)
+    out = []
+    for i in range(4):
+        a, c = pts[i], pts[(i + 1) % 4]
+        mid = (pts.mean(axis=0) - (a + c) / 2)
+        n = np.linalg.norm(mid)
+        inward = mid / n if n else np.zeros(2)
+        quad = np.array([a, c, c + inward * band_px, a + inward * band_px])
+        x0 = max(0, int(quad[:, 0].min()) - 2); y0 = max(0, int(quad[:, 1].min()) - 2)
+        x1 = min(rim.shape[1], int(quad[:, 0].max()) + 2); y1 = min(rim.shape[0], int(quad[:, 1].max()) + 2)
+        if x1 <= x0 or y1 <= y0:
+            out.append(0.0); continue
+        m = np.zeros((y1 - y0, x1 - x0), np.uint8)
+        cv2.fillConvexPoly(m, np.round(quad - (x0, y0)).astype(np.int32), 1)
+        n_px = int(m.sum())
+        out.append(0.0 if n_px == 0 else float((rim[y0:y1, x0:x1] & m.astype(bool)).sum()) / n_px)
+    return sorted(out)
+
+
 def nudge_onto_blue(placed, rim, scale_field, factor):
     """Method C's nudge: the tray moved, within `NUDGE_MM`, to where its rim band covers the most
     blue. `rim` is the blue rim mask of the small image; `factor` its scale to full size."""
