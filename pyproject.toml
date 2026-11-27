@@ -31,7 +31,9 @@ where = ["src"]
 # --strict-config: without it, a run where pytest-timeout has not been installed turns the
 # `timeout` below into a "Unknown config option" warning and the backstop silently disappears,
 # which is the one failure this cap exists to prevent.
-addopts = "-m unit --strict-config"
+# -m 'unit and not timing': the default tier is every unit test except the ones whose result
+# depends on how fast and how busy the machine is. See the `timing` marker below.
+addopts = "-m 'unit and not timing' --strict-config"
 # No unit test may take two minutes. The cap is a backstop against a hang, not a budget: the whole
 # tier runs in about 50 s on an x86 box and 250 s on a Pi, so nothing legitimate comes near it.
 #
@@ -52,4 +54,5 @@ markers = [
     "hailo: needs the Hailo accelerator",
     "integration: full pipeline against fixture images",
     "slow: soak / long-running",
+    "timing: a unit test whose result depends on how fast and how busy the machine is. Left out of the default tier, run with `pytest -m timing`. Not a second-class test: it checks real behaviour and is not known to be wrong. It is out because a test that fails on a busy machine while the rig is working makes the rule that a red test blocks the commit unusable (Aaron, 2026-11-27, #576)",
 ]

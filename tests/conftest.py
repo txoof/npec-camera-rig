@@ -89,7 +89,10 @@ def pytest_cmdline_main(config: pytest.Config) -> None:
     if (
         config.pluginmanager.hasplugin("xdist")
         and config.option.numprocesses is None
-        and config.option.markexpr == "unit"
+        # Any selection of the unit tier, not the exact string: the default became
+        # `unit and not timing` when the `timing` marker was added, an exact match stopped
+        # recognising it, and the suite silently ran serially -- 150 s against 50 s on x86 (#576).
+        and config.option.markexpr.startswith("unit")
         and config.args_source == pytest.Config.ArgsSource.TESTPATHS
         and "PYTEST_XDIST_WORKER" not in os.environ
     ):

@@ -441,7 +441,19 @@ def test_downtime_runs_from_the_last_photo_before_it_to_the_restart() -> None:
     assert restarted_at <= until <= restarted_at + timedelta(seconds=4 * RESTART_WORK_S)
 
 
+@pytest.mark.timing
 def test_the_photo_taken_on_return_is_listed_as_late() -> None:
+    # Out of the default tier, `pytest -m timing` to run it. Nothing here is known to be wrong:
+    # it checks real behaviour and it passed 11 of 12 full runs on a Pi. The one failure listed a
+    # photo whose slot fell 3.2 s *after* the restart, so it was not late at all -- the restart
+    # happened to land on a slot boundary rather than in the slot's first tenth the helper below
+    # aims for, and the next slot was a whole interval away.
+    #
+    # The margin was already sized from measurement once in this work, and it still turns on where
+    # in a slot a busy machine happens to put the restart. Making it certain means reaching that
+    # moment on purpose rather than arranging for it to be likely, which is more than the budget
+    # for this issue allowed (Aaron, 2026-11-27, #576).
+    #
     # The slot is sized from the restart work, not from INTERVAL_S, because that work is what has
     # to fit inside it and it does not shrink when the slots do (#547 review, #559, #576).
     #
