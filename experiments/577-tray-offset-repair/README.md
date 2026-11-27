@@ -74,3 +74,21 @@ python scripts/score_rig.py prod|dev|hard      # needs the old stills in ~/.clau
 - Hard-coded paths: the scripts point at the controller (`/home/pi/.claude/jobs/44c5d2e5/tmp` for the old stills of log 20, `~/scratch/tray-boundaries/` for the photo). Those stills are not kept: re-make them from the rigs or take the held-out and hard sets named in metrology log 20 and 20.1.
 - Run scripts with a venv that has opencv-python-headless, numpy and pillow, and `PYTHONPATH=<worktree>/src`. Run the harness scripts one rig at a time in the foreground: a single 44-still batch run was killed twice on the controller (memory, about 800 MB free).
 - First step in the issue: test against more stills from the potato-free production experiment backed up on `media-server`.
+
+## Running on media-server
+
+**Running on `media-server` (Aaron, 2026-11-27): the photos stay there, only small results come back.**
+
+Open, to answer before the first run (Aaron): the user, checkout path and Python on `media-server`; whether the repo is cloned there (branch `577-tray-offset-repair`); whether the backup is a full copy of `/var/lib/npec-rig` including `calibration/` and `rig.db`; the name of the potato-free experiment.
+
+1. **Inputs.** Each photo needs its calibration JSON (`calibration/<id>.json`, the id is in the `capture` row). `rig.db` holds the saved tag detections (`capture_analysis`, kind `tags`) and the outlines the app stored then (`tray_reading.outline`). The scripts have the controller's paths written in; change them to take paths as arguments or environment variables first.
+2. **No-harm test without re-running the app.** The stored `tray_reading.outline` is what the app produced. Run only the prototype and compare its outlines with the stored ones: they should be identical except where a cell is repaired or labelled "weak". Every repaired or weak cell is then looked at by eye.
+3. **No known answers for these photos.** The scoring harness (`experiments/round3-tray-outlines/harness.py`) fits only the old stills. For new photos, either make a truth file in the same shape (outline corners per tray, by inspection) or make contact sheets for Aaron to inspect: outlines in magenta or red, never cyan, each outline numbered. Aaron's answers go into the metrology log.
+4. **Finding offset cases cheaply.** Scan the stored outlines for a "no tag" outline beside a tag-bearing one, or for cells whose ring score is under 0.45 (`scripts/cell_scores.py`). Experiment 2's 41 photos are one layout. A potato-free experiment on a tidy grid will mostly show no harm, not the fix: say so in the result.
+5. **Rules.**
+   - Read `CLAUDE.md` and `CONTRIBUTING.md` first. Sessions started anywhere but `~/npec_camera_rig` on the controller act as Aaron, so on `media-server` do not commit or push: copy the small results (CSV, contact sheets) to the controller, and the controller session commits and pushes.
+   - Never write into the backups; every run writes to a new folder.
+   - Cap memory with `ulimit -v`; run one experiment or one set per foreground call (batch runs were killed twice on the controller).
+   - Contact sheets go to `~/scratch/577-tray-offset-repair/` on the controller and are linked as `http://testpi-02:8001/577-tray-offset-repair/<file>`.
+   - Write the test method into `docs/metrology-log.md` before running it; label the result a development check.
+6. **Speed.** The prototype takes 6 to 9 s per photo on the controller. Do not time it on `media-server`: re-measure on a Pi 5 class device (production is a 4 GB Pi 5, no Hailo).
