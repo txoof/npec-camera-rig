@@ -723,31 +723,52 @@ def test_a_reprocess_left_running_when_the_app_stopped_is_marked_interrupted_and
 TAGS_STORED_TIMEOUT_S = 30.0
 
 
-def _lock_once_tags_are_stored(path: str, *, until=None, seconds: float = 5.0):
-    """A thread that takes rig.db's write lock the moment the photo's tags are stored (images.py), so
-    that saving the reading is the first write to meet it; started by the caller, joined at the end.
+def _lock_once_the_reading_is_segmenting(path: str, *, until=None, seconds: float = 5.0):
+    """A thread that takes rig.db's write lock once the photo's reading is segmenting, so that
+    saving the reading is the first write to meet it; started by the caller, joined at the end.
 
-    The wait for the tags has a deadline, and the thread is a daemon. It had neither, and that
-    made the suite hang rather than fail: on a run where the tags were never stored -- the
-    Reprocess did not get that far -- this loop polled for ever. `join(15)` cannot stop a thread,
-    so it outlived the test, and a live non-daemon thread stops the interpreter exiting, so pytest
-    never returned. Run alone the process was found alive at 13 minutes; under xdist the worker was
-    cut off and the test was reported as an ordinary failure, which hid the cause. Reproduced and
-    fixed in #576. A deadline makes the same run fail and say what it was waiting for; `daemon=True`
-    means a helper that is stuck for any other reason can never hold the process open again."""
+    Segmenting, not merely "the tags are stored". The tags can already be stored when this
+    starts, and the lock then went up before the request that starts the Reprocess: that
+    request's own write met it and the test failed with `database is locked` at the POST, which
+    is neither what it asserts nor a fault in the rig. 2 failures in 8 full runs on an idle Pi
+    (#576). Taking the full-decode slot is strictly after the request and strictly before the
+    reading saves anything, so it settles the order instead of racing it -- the same move #561
+    made for the sibling test.
+
+    Waiting for the stored tags first is what makes the slot mean segmentation: the tag search
+    holds the same slot and stores the tags as it lets go, so the next thread to take it is this
+    reading's own segmentation.
+
+    Both waits have a deadline and the thread is a daemon: with neither, a run where the tags
+    were never stored polled for ever and pytest could not exit at all (#576)."""
     import threading
     import time
 
     from npec_rig import images
     from tests.helpers import lock_held
 
+    def ended() -> bool:
+        return until is not None and until.is_set()
+
     def run() -> None:
+        slot = images.full_decode_slot()
         deadline = time.monotonic() + TAGS_STORED_TIMEOUT_S
         while images.stored_tag_detections(path) is None:
+            if ended():
+                return  # the test has already finished
             assert time.monotonic() < deadline, (
                 f"the photo's tags were not stored within {TAGS_STORED_TIMEOUT_S} s: {path}"
             )
             time.sleep(0.001)
+        while slot.acquire(timeout=0.01):  # free: the reading is not segmenting yet
+            slot.release()
+            if ended():
+                return
+            assert time.monotonic() < deadline, (
+                f"the reading never took the full-decode slot to segment within "
+                f"{TAGS_STORED_TIMEOUT_S} s: {path}"
+            )
+            time.sleep(0.005)
         with lock_held(seconds, until=until):
             if until is not None:
                 until.wait(seconds)
@@ -790,7 +811,7 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> N
 
     handler = FirstLockFailure()
     logging.getLogger("npec_rig.database").addHandler(handler)
-    locker = _lock_once_tags_are_stored(path, until=gave_up)
+    locker = _lock_once_the_reading_is_segmenting(path, until=gave_up)
     client = TestClient(app)
     try:
         locker.start()
