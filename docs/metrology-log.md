@@ -12592,3 +12592,66 @@ It does not cover:
   is already soft.
 - The other scenes in the file. They were halved without moving onto the grid and they still read
   the areas expected of them, but their margin to the cutoff was not measured.
+
+## 54. M4 acceptance: 12 trays identified, a tray moved, a tag smeared with soil (issue #72, method written 2026-11-27, before the session)
+
+**Label: development check.** The known answer is the layout a person sets out and records, not an
+independent measurement of the trays, so this is not a reference comparison. It is the M4
+acceptance test of `PLAN.md`, run on the development rig `npec-rig-01` with the app at `bfb5de2`
+(no code change, no migration). The results are added below when the session is done.
+
+**Changes since the issue was written (2026-10-08).** The 12 regions of `PLAN.md` became 6 table
+locations (NW NM NE along the top of the photo, SW SM SE along the bottom) in #332. A tray counts as
+moved after it has been found in another location for over 1 hour (`dwell.MOVE_AFTER`, a decision of
+Aaron, 2026-10-30). Trays are placed from their cell A1 tag (#247); the app stores no rotation, so
+the check reads it from the cell readings: cell A1 in the south-west corner of the tray outline is 0 degrees,
+in the north-east corner 180. Dirty tags have no special handling: an unreadable tag gives a tray
+outlined with "No tag" and a "not seen" report for 48 hours (#331, #318); measuring a tray with no
+tag is #471, not part of this test (triage of #68, Aaron, 2026-10-27).
+
+**Setup.** Experiment 4 (Dario 13 Emergence, 6 trays: tags 8, 9, 11, 12, 25, 51) is stopped for the
+session and resumed after it. Its 6 trays stay on the table, slid a few centimetres to touch, each
+in the table location it had before, and are put back at the end (a `restore` check compares each
+tray's location, cell A1 corner and centre with a snapshot taken before). Six spare 4 x 5 trays, each
+with its own unused tag in cell A1, take the other slots. A new experiment, "M4 acceptance 72", takes
+a photo a minute under the steady chamber lights (about 08:35 to 00:00 UTC).
+
+The layout was chosen by hand before the session, not drawn at random: 12 trays in 2 rows of 6
+(North 1 to 6, South 1 to 6, trays touching), every tray at 0 or 180 degrees (A1 south-west or
+north-east, the 12-tray rule of `reference/trays.md`), with a mix of both, and experiment 4's trays
+kept in their table locations so that its own dwell record does not change. The layout is in the
+rig's `m4.py` (below) and in the figures.
+
+**Check 1, 12 trays identified.** After the layout is set and nobody is in the chamber, the newest
+5 photos with the lights on are read for trays. Pass: in every one of them, all 12 tags are read
+with the tray found in the photo, each tray is in the planned table location with cell A1 in the
+planned corner, no tag is read that is not on the layout, and no tag is read twice.
+
+**Check 2, a moved tray.** Two spare trays (E, in South 3 turned 180 degrees, and F, in South 6 at 0)
+are lifted off and put back in each other's slots, each turned 180 degrees. Nothing else moves for the
+next hour and a few minutes. Pass: the first photo after the swap lists both as moved since the
+previous photo (SM to SE and SE to SM); about 65 minutes later the Experiments page's Table
+locations panel shows, for each of the two, a move from the old to the new location and "Now in" the
+new one; no other tray of the experiment shows a move.
+
+**Check 3, a smeared tag.** On one spare tray, soil is smeared over its tag in up to four steps, each
+adding to the last (a dusting of dry soil, a damp streak over a quarter of the tag, half of it, all of
+it), 3 photos after each step, then the tag is wiped clean and 3 photos follow. Pass, from the
+decision of 2026-10-27 (today's behaviour): at no step is any tag number read that is not on the
+layout or any other tray named by this tray's number; the rig keeps taking a photo a minute and its
+pages load; a tag that is no longer read shows as a tray outlined with "No tag" or as "not seen"
+with its warning; the other 11 trays keep reading as in check 1; after cleaning, the tag is read
+again within 3 photos.
+
+**What is recorded.** Every check command of `~/scratch/72-m4-acceptance/m4.py` (read only: GET
+requests to the rig and one ssh read) is appended with its UTC time to `session-log.txt`, and each
+physical step is timestamped by a `note` line. The photos and their tray readings stay in the
+experiment's folder on `npec-rig-01`. At the write-up the session log is copied to
+`docs/figures/54/` and the overlays the Gallery draws for the first photo of each check are copied
+beside it, as `docs/figures/README.md` asks.
+
+**What it covers and does not.** One rig, one calibration, one layout of 12 empty or lightly planted
+4 x 5 trays, one tag per tray in cell A1, one smeared tag, soil as the dirt. Not covered: other
+rotations (any angle other than 0 and 180), fewer than 12 trays, a tag half hidden by a leaf,
+dirt other than soil, a tray out of the chamber for over 48 hours, and centroids against a tape
+measure (the issue asks for identification, movement and degradation). The layout is not random.
