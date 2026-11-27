@@ -17,6 +17,7 @@ dev = [
     "pytest",
     "httpx",
     "pytest-xdist",
+    "pytest-timeout",
 ]
 
 [build-system]
@@ -28,6 +29,14 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 addopts = "-m unit"
+# No unit test may take two minutes. The cap is a backstop against a hang, not a budget: the whole
+# tier runs in about 50 s on an x86 box and 250 s on a Pi, so nothing legitimate comes near it.
+#
+# Without it a test that waits with no deadline takes the run down with it instead of failing. That
+# is not hypothetical: tests/test_experiments.py's lock helper polled for ever in a thread that was
+# not a daemon, and pytest could not exit. Run alone it was found alive at 13 minutes; in CI the
+# only guard was the job's own 20-minute limit, which kills everything and names no test (#576).
+timeout = 120
 # Only tests/: experiments/ holds analysis scripts, some named *_test.py, that read data at import (#167).
 testpaths = ["tests"]
 markers = [

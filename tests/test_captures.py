@@ -228,12 +228,16 @@ def two_roots(monkeypatch: pytest.MonkeyPatch, tmp_path):
 
 def test_pages_back_in_time_across_rig_and_experiment_photos(two_roots) -> None:
     keys, before = [], None
-    while True:
+    # Capped: there are 7 photos, so 3 full pages at most. Without a cap a page that never
+    # shrinks, or a cursor that stops advancing, spins here for ever (#576).
+    for _ in range(10):
         page = list_recent_captures(limit=3, before=before)
         keys += [p["key"] for p in page]
         if len(page) < 3:
             break
         before = page[-1]["key"]
+    else:
+        raise AssertionError("paging did not reach the last page in 10 pages")
     assert keys == [
         "2026-10-15T010000_000000", "2026-10-14T120000_000000", "2026-10-14T091500_000000",
         "2026-10-14T090000_000000", "2026-10-14T085000_000000", "2026-10-14T080000_000000",

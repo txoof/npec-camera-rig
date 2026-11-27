@@ -162,10 +162,15 @@ def _wait_for_a_missed_slot(since: str, interval_s: float) -> None:
     slot, including past its end. This returns at a phase the caller can rely on, however long
     anything before it took."""
     start = datetime.fromisoformat(since)
+    # Capped. The window below comes round every interval, so this returns almost at once; the
+    # deadline is here because the loop reads the wall clock, which can step backwards, and
+    # `elapsed >= interval_s` would then never be true again (#576).
+    deadline = time.monotonic() + 30
     while True:
         elapsed = (datetime.now(UTC) - start).total_seconds()
         if elapsed >= interval_s and interval_s / 5 <= elapsed % interval_s < interval_s / 3:
             return
+        assert time.monotonic() < deadline, "no photo slot came due in 30 s"
         time.sleep(0.001)
 
 

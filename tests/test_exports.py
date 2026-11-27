@@ -837,7 +837,11 @@ def test_export_answers_at_once_and_builds_the_data_file_in_the_background() -> 
     export = client.post(f"/api/experiments/{experiment['id']}/export", json={"data": True, "photos": False}).json()
     assert export["finished_at"] is None
     seen = []
+    # Deadline, as tests.helpers.export_built has. This poll runs on the main thread, so without
+    # one an export that never marks itself finished hangs the run instead of failing it (#576).
+    deadline = time.monotonic() + 60
     while not (status := client.get(f"/api/exports/{export['id']}").json())["finished_at"]:
+        assert time.monotonic() < deadline, "the export did not finish in 60 s"
         seen.append(status["parts"][0]["making"])
         time.sleep(0.01)
     during = [s for s in seen if s is not None]

@@ -1798,9 +1798,13 @@ def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_savin
             slot = images.full_decode_slot()
             # The tags are stored after the tag search lets the slot go, so from here the next
             # thread to take it is this reading's own segmentation.
-            while images.stored_tag_detections(path.removeprefix("rig/")) is None:
-                time.sleep(0.001)
             deadline = time.monotonic() + 15
+            while images.stored_tag_detections(path.removeprefix("rig/")) is None:
+                if gave_up.is_set():
+                    return  # the test has already ended
+                if time.monotonic() > deadline:
+                    raise RuntimeError("the photo's tags were never stored")
+                time.sleep(0.001)
             while slot.acquire(timeout=0.01):  # free: the reading is not segmenting yet
                 slot.release()
                 if gave_up.is_set():
