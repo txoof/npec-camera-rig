@@ -493,7 +493,9 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
                 finally:
                     conn.close()
 
-    thread = threading.Thread(target=hold)
+    # A daemon: every wait inside `hold` is bounded, but a daemon thread can never be the reason
+    # a pytest run fails to exit (#576).
+    thread = threading.Thread(target=hold, daemon=True)
     thread.start()
     if not taken.wait(5):
         raise RuntimeError("the rig.db lock was not taken within 5 s")

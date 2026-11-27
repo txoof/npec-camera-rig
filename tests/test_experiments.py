@@ -716,9 +716,25 @@ def test_a_reprocess_left_running_when_the_app_stopped_is_marked_interrupted_and
     _wait_until_finished(client, experiment_id)  # its thread ends before the next test starts
 
 
+# How long the locker below waits for the photo's tags to be stored before it gives up. The
+# reading stores them in well under a second even on a loaded Pi, so this only has to be longer
+# than that; it is reached only when they are never stored at all. Absolute, in whole seconds,
+# because it covers real work on an unknown machine (#576).
+TAGS_STORED_TIMEOUT_S = 30.0
+
+
 def _lock_once_tags_are_stored(path: str, *, until=None, seconds: float = 5.0):
     """A thread that takes rig.db's write lock the moment the photo's tags are stored (images.py), so
-    that saving the reading is the first write to meet it; started by the caller, joined at the end."""
+    that saving the reading is the first write to meet it; started by the caller, joined at the end.
+
+    The wait for the tags has a deadline, and the thread is a daemon. It had neither, and that
+    made the suite hang rather than fail: on a run where the tags were never stored -- the
+    Reprocess did not get that far -- this loop polled for ever. `join(15)` cannot stop a thread,
+    so it outlived the test, and a live non-daemon thread stops the interpreter exiting, so pytest
+    never returned. Run alone the process was found alive at 13 minutes; under xdist the worker was
+    cut off and the test was reported as an ordinary failure, which hid the cause. Reproduced and
+    fixed in #576. A deadline makes the same run fail and say what it was waiting for; `daemon=True`
+    means a helper that is stuck for any other reason can never hold the process open again."""
     import threading
     import time
 
@@ -726,13 +742,17 @@ def _lock_once_tags_are_stored(path: str, *, until=None, seconds: float = 5.0):
     from tests.helpers import lock_held
 
     def run() -> None:
+        deadline = time.monotonic() + TAGS_STORED_TIMEOUT_S
         while images.stored_tag_detections(path) is None:
+            assert time.monotonic() < deadline, (
+                f"the photo's tags were not stored within {TAGS_STORED_TIMEOUT_S} s: {path}"
+            )
             time.sleep(0.001)
         with lock_held(seconds, until=until):
             if until is not None:
                 until.wait(seconds)
 
-    return threading.Thread(target=run)
+    return threading.Thread(target=run, daemon=True)
 
 
 def _wait_until_finished(client, experiment_id: int, timeout_s: float = 30) -> dict:
