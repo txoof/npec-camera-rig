@@ -106,15 +106,16 @@ GROWN_NOT_WORKED_OUT = "grown area not worked out"
 CELLS_NOT_WORKED_OUT = "cells not worked out"
 
 
-def _calibration(path: str) -> tuple[str, object, list[dict] | None]:
-    """Photo `path`'s status so far ("read", or "no calibration", "no slot layout"), its
-    calibration's scale field and its slot layout's slots."""
-    try:
-        record = database.captures_by_path([path]).get(path)
-    except (sqlite3.Error, RuntimeError):
-        logger.exception("Could not read the capture row of %s", path)
-        return "no calibration", None, None
-    if record is None or not record.get("calibration"):
+def _calibration(record: dict) -> tuple[str, object, list[dict] | None]:
+    """The photo's status so far ("read", or "no calibration", "no slot layout"), its
+    calibration's scale field and its slot layout's slots, from the capture row `record` its
+    caller has already read.
+
+    The row used to be read again here, and a rig.db lock on that read was swallowed into "no
+    calibration": the photo was saved for good as having no calibration and no trays, and was
+    never offered for reading again (#564). The row is now read once, in `_read_photo`, where a
+    lock raises and the caller reads the photo again (#439, #464, #483)."""
+    if not record.get("calibration"):
         return "no calibration", None, None
     try:
         stem = calibration_for_photos(record["calibration"])
@@ -159,14 +160,17 @@ def _saved_outlines(saved: dict | None) -> list[TrayOutline]:
     return list(out.values())
 
 
-def found_trays(path: str, tags: list[TagDetection], saved: dict | None = None) -> tuple[str, list[TrayPlacement]]:
+def found_trays(
+    path: str, tags: list[TagDetection], saved: dict | None = None, *, record: dict,
+) -> tuple[str, list[TrayPlacement]]:
     """The trays of photo `path`: found in the photo from their blue plastic and named by the tag
     inside each, and each tray tag inside no outline seen where it lies, with the calibration the
     photo was taken under; no slot layout is needed (#331). The status: "read", "no calibration",
     "placement failed", or "no trays found" when the photo shows neither a tray nor a tag, as with
     the lights off. With the photo gone (Reprocess from its saved mask), the outlines of the saved
-    reading `saved` are used again; with none saved, "photo not found"."""
-    status, scale_field, _slots = _calibration(path)
+    reading `saved` are used again; with none saved, "photo not found". `record` is the photo's
+    capture row, which the caller has read already (#564)."""
+    status, scale_field, _slots = _calibration(record)
     if scale_field is None:
         return status, []
     try:
@@ -219,7 +223,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
     if unless_measured and _saved_by_this_segmenter(saved):
         return capture_readings(record)
     tags = photo_tags.photo_tags_for(path)
-    status, placed = found_trays(path, tags, saved)
+    status, placed = found_trays(path, tags, saved, record=record)
     # A tag seen with no tray found around it has no outline: nothing to measure (#331).
     outlined = [p for p in placed if p.outline is not None]
     recount = False

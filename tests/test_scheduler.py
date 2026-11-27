@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from npec_rig import captures, database, scheduler, settings
 from npec_rig.app import app
 from npec_rig.camera import CameraManager, SyntheticBackend
-from tests.helpers import lock_held
+from tests.helpers import lock_held, read_rig_db
 
 pytestmark = pytest.mark.unit
 
@@ -108,9 +108,15 @@ def test_the_next_photo_is_one_interval_after_the_start(interval_s: int) -> None
 def _wait_for(condition, timeout_s: float = 10.0, poll_s: float = 0.02) -> None:
     """Poll until `condition` holds. The timeout is generous on purpose: it costs nothing when
     the condition comes quickly, and a test that waits for the thing it is about cannot be made
-    flaky by a slow machine the way a fixed sleep can."""
+    flaky by a slow machine the way a fixed sleep can.
+
+    `condition` usually reads rig.db, and several of these tests shorten settings.LOCK_WAIT_S,
+    which is the wait the test's own reads get as well: a read landing on the scheduler writing
+    a row would then raise "database is locked" rather than answer. That is the rig working, not
+    failing, so the read is tried again and the deadline above still decides when the test
+    fails (`read_rig_db`, #561)."""
     deadline = time.monotonic() + timeout_s
-    while not condition():
+    while not read_rig_db(condition):
         assert time.monotonic() < deadline, "timed out"
         time.sleep(poll_s)
 
@@ -399,7 +405,9 @@ def test_a_photo_saved_while_rig_db_was_locked_gets_its_row_and_its_slot(monkeyp
 
 
 def _photos(experiment_id: int) -> int:
-    return len(database.captures_for_experiment(experiment_id))
+    """How many photos rig.db holds for the experiment. Retried while rig.db is locked: the
+    tests that shorten settings.LOCK_WAIT_S shorten this read's wait too (`read_rig_db`, #561)."""
+    return read_rig_db(lambda: len(database.captures_for_experiment(experiment_id)))
 
 
 # How long after its slot was due the photo below was taken. It has to land inside the slot:
@@ -561,5 +569,10 @@ def test_a_photo_taken_during_a_lock_gets_its_row_before_the_next_photo(monkeypa
         _wait_for(lambda: _photos(experiment["id"]) >= 1 and not database.unlinked_slots(experiment["id"]))
         on_disk = len(list(folder.rglob("*.jpg")))
         recorded = _photos(experiment["id"])
+        # Both counts are read and the lock is long over, so the short wait has no job left.
+        # Restored before the stop, as the other locked tests do: the stop writes rig.db, and
+        # TestClient re-raises what the route raised, so a stop that landed on the scheduler
+        # writing a row would fail the test for the wait, not for the behaviour (#561).
+        monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
         client.post(f"/api/experiments/{experiment['id']}/stop")
     assert (on_disk, recorded) == (1, 1)
