@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 
 from npec_rig import captures, database, exclusions, exports
@@ -384,3 +386,27 @@ def test_purge_check_counts_the_photos_that_cannot_be_given_a_row_and_purge_stil
         f"/api/experiments/{experiment['id']}/purge", json={"confirm": "Drought", "override_no_export": True}
     )
     assert purged.json()["state"] == "purged"
+
+
+def test_purge_check_says_to_try_again_while_rig_db_is_locked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#489: the check cannot add a row while rig.db is locked, and says so (503) rather than
+    reporting that no photos are without one."""
+    from fastapi.testclient import TestClient
+
+    from npec_rig import settings
+    from npec_rig.app import app
+    from tests.helpers import lock_held
+
+    experiment = _stopped()
+    path = _photo_file_without_a_row(experiment)
+    client = TestClient(app)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
+
+    with lock_held(30, until=(checked := threading.Event())):
+        response = client.post(f"/api/experiments/{experiment['id']}/purge-check")
+        checked.set()
+
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    assert response.status_code == 503
+    assert "try again" in response.json()["detail"]
+    assert database.captures_by_path([path]) == {}  # no row was added
