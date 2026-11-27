@@ -1,5 +1,6 @@
 """Routes for the Experiments page: set up, start, stop, purge, export and reprocess an experiment."""
 
+import sqlite3
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request
@@ -128,6 +129,9 @@ def api_purge_experiment(experiment_id: int, request: PurgeRequest) -> dict:
     (with a `count`) or `reprocessed`, each with a plain `message`, from `exports.purge_status`,
     the same check the Experiments and Data pages' "can Purge happen" reading uses."""
     if not request.override_no_export:
+        # Photos saved while rig.db was locked get their rows first, so the check below sees them
+        # and asks for a new export instead of Purge deleting them unexported (#489).
+        captures.adopt_quietly(experiment_id)
         status = _experiment_action(exports.purge_status, experiment_id)
         if status["blocked"] is not None:
             raise HTTPException(409, status["blocked"])
@@ -137,6 +141,18 @@ def api_purge_experiment(experiment_id: int, request: PurgeRequest) -> dict:
         confirm=request.confirm,
         override_no_export=True,
     )
+
+
+@router.post("/api/experiments/{experiment_id}/purge-check")
+def api_purge_check(experiment_id: int) -> dict:
+    """Before the Purge dialog: add a row for each photo of the experiment that lacks one, and
+    say how many photos are still without one, so Purge would delete them unexported (#489). Only
+    photos whose info file cannot be read stay without a row. 503 while rig.db is locked."""
+    _experiment_action(database.get_experiment, experiment_id)  # 404 for no such experiment
+    try:
+        return {"photos_without_row": captures.adopt_all_unrecorded_photos(experiment_id)}
+    except (sqlite3.Error, RuntimeError, OSError) as exc:
+        raise HTTPException(503, f"rig.db is busy, try again: {exc}") from exc
 
 
 class ReprocessRequest(BaseModel):
