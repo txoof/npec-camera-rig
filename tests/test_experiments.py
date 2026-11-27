@@ -789,7 +789,6 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> N
                 gave_up.set()
 
     handler = FirstLockFailure()
-    logging.getLogger("npec_rig.database").addHandler(handler)
     client = TestClient(app)
     slot = images.full_decode_slot()
     # Timed, and asserted: this is the one process-global decode slot, shared with the tag search
@@ -802,6 +801,11 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> N
     # is wrong; `save_met_the_lock` below is what catches that.
     lock_cap_s = 60
     try:
+        # Inside the try, so the `finally` below always takes it off again. Added before the slot
+        # assertion above, that assertion -- a failure this test expects and names -- left the
+        # handler on the module-level logger for the rest of the worker's session, where it went
+        # on firing for every later test's rig.db warnings (/code-review on #576).
+        logging.getLogger("npec_rig.database").addHandler(handler)
         assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
         with lock_held(lock_cap_s, until=gave_up):
             slot.release()  # the run segments, then its save is the first write to meet the lock

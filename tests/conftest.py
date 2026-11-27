@@ -203,6 +203,16 @@ def isolated_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
 _THREAD_HANDOVER_S = 30.0
 
 
+def _started_by_a_test(name: str) -> bool:
+    """Whether a thread of this name holds rig.db connections of its own and so must not outlive
+    the test that started it. The scheduler and the tray reader are started by `app.py`'s
+    lifespan; a Reprocess run (`tray_readings`) and an export (`exports`) are started by a
+    request and end when their work runs out, but both write to rig.db the whole way through, so
+    one still running when the next test begins is on that test's database (/code-review on
+    #576)."""
+    return name in ("tray-reader", "scheduler", "reprocess") or name.startswith("export-")
+
+
 @pytest.fixture(autouse=True)
 def _no_background_thread_outlives_its_test():
     """No scheduler or tray reader started by a test is still running when the next one starts.
@@ -220,19 +230,27 @@ def _no_background_thread_outlives_its_test():
     locked` before the lock is ever taken. Measured 2026-11-27 on x86, 8 full runs of `pytest` at
     `origin/main` (8e48548): 5 red, every one of them this (#576).
 
-    Joining is all that is needed, because every one of these threads has already been asked to
-    stop by the lifespan or by the test itself. A thread that was never asked to stop would sit
-    here until the backstop and then fail the test by name, which is what should happen: it would
-    otherwise fail some later test instead."""
+    Joining is all that is needed, because every one of these threads either has already been
+    asked to stop (the lifespan and the tests both set the stop event) or ends by itself when the
+    work it was given runs out. A thread that does neither sits here until the backstop and then
+    fails the test that left it, by name, which is what should happen: it would otherwise fail
+    some later test instead.
+
+    The threads already running are held as objects, not as `ident`s. A thread's `ident` is
+    reused: it is freed when that thread ends and CPython hands the same number to a later one
+    (six short-lived threads in a row shared one `ident` on the controller). A thread alive at
+    setup that ends during the test would free its number for the reader or scheduler the test
+    then starts, and keying on the number would skip exactly the leftover this exists to catch
+    (/code-review on #576)."""
     import threading
     import time
 
-    before = {t.ident for t in threading.enumerate()}
+    before = set(threading.enumerate())  # the objects: `ident` is reused, see above
     yield
     deadline = time.monotonic() + _THREAD_HANDOVER_S
     left_running = []
     for thread in threading.enumerate():
-        if thread.ident in before or thread.name not in ("tray-reader", "scheduler"):
+        if thread in before or not _started_by_a_test(thread.name):
             continue
         thread.join(max(0.0, deadline - time.monotonic()))
         if thread.is_alive():

@@ -429,8 +429,15 @@ def test_downtime_runs_from_the_last_photo_before_it_to_the_restart() -> None:
     # The upper bound is sized from RESTART_WORK_S, not a flat 0.5 s. `until` is the restart, and
     # the schedule cannot report it until the app has started and taken its photo, so this budget
     # has to cover that work. At 0.5 s it did not: the suite measured 762 ms and the test failed
-    # 1 of 8 full runs on a Pi (#576). What it still catches is `until` being wrong by the kind of
-    # margin a real bug gives, such as the last photo's time or the time of the read.
+    # 1 of 8 full runs on a Pi (#576).
+    #
+    # What the lower bound still catches is `until` being earlier than the restart at all: the
+    # last photo's time, which is what the bug this test is about reported. The upper bound no
+    # longer catches `until` being the time of the *read*: the schedule is read well under a
+    # second after the restart (`_wait_for` polls every 20 ms), so that value now falls inside
+    # this budget and would pass. It is left wide rather than narrowed, because narrowing it far
+    # enough to catch that would put it back under the 762 ms this work measured here
+    # (/code-review on #576).
     assert restarted_at <= until <= restarted_at + timedelta(seconds=4 * RESTART_WORK_S)
 
 
