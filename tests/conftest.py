@@ -194,3 +194,49 @@ def isolated_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_DERIVED_DIR", str(tmp_path / "derived"))
     # Plant masks (segmentation.py) likewise.
     monkeypatch.setenv("NPEC_RIG_MASKS_DIR", str(tmp_path / "masks"))
+
+
+# How long a test's teardown waits for a background thread it started to end. A reader asked to
+# stop ends within one POLL_S of finishing the photo it is on; this only has to cover the photo,
+# which is a full-size decode and a segmentation. Absolute, in whole seconds, because it is real
+# work on an unknown machine, and it is a backstop: the usual wait is milliseconds (#576).
+_THREAD_HANDOVER_S = 30.0
+
+
+@pytest.fixture(autouse=True)
+def _no_background_thread_outlives_its_test():
+    """No scheduler or tray reader started by a test is still running when the next one starts.
+
+    `app.py`'s lifespan stops both with `stop(timeout_s=0)`: the thread is asked to stop and not
+    waited for, which is right in production, where the process is on its way out anyway. Under
+    pytest the process does not exit. The next test starts, `isolated_settings_db` points
+    `NPEC_RIG_DB_PATH` at that test's own file, and `database._connect` looks `db_path()` up fresh
+    on every query -- so a reader left over from an earlier test goes on polling, against the new
+    test's database.
+
+    That is not only noise. `lock_held(readers_too=True)` (three tests in `test_tray_readings.py`)
+    switches rig.db out of WAL to make readers wait too, and the switch needs the file to itself:
+    a leftover reader's open connection makes it raise `sqlite3.OperationalError: database is
+    locked` before the lock is ever taken. Measured 2026-11-27 on x86, 8 full runs of `pytest` at
+    `origin/main` (8e48548): 5 red, every one of them this (#576).
+
+    Joining is all that is needed, because every one of these threads has already been asked to
+    stop by the lifespan or by the test itself. A thread that was never asked to stop would sit
+    here until the backstop and then fail the test by name, which is what should happen: it would
+    otherwise fail some later test instead."""
+    import threading
+    import time
+
+    before = {t.ident for t in threading.enumerate()}
+    yield
+    deadline = time.monotonic() + _THREAD_HANDOVER_S
+    left_running = []
+    for thread in threading.enumerate():
+        if thread.ident in before or thread.name not in ("tray-reader", "scheduler"):
+            continue
+        thread.join(max(0.0, deadline - time.monotonic()))
+        if thread.is_alive():
+            left_running.append(thread.name)
+    assert not left_running, (
+        f"still running {_THREAD_HANDOVER_S} s after the test ended: {', '.join(left_running)}. "
+        "A thread that outlives its test reads and writes the next test's rig.db.")
