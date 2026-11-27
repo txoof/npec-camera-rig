@@ -498,3 +498,31 @@ def test_a_photo_taken_with_auto_exposure_off_is_saved_as_idle() -> None:
 
     row = database.captures_by_path([record["path"]])[record["path"]]
     assert row["ae_state"] == "idle"
+
+
+def test_a_photos_info_file_names_the_calibration_it_was_taken_under(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """#488: the info file is the one record that cannot be wrong about which calibration was
+    active, so a row added later reads it from there."""
+    from tests.helpers import TABLE_STEM, table_calibration
+
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+    table_calibration()
+
+    _array, record = take_photo("capture")
+
+    on_disk = json.loads((photos_root() / record["date"] / record["filename"]).with_suffix(".json").read_text())
+    assert on_disk["calibration"] == "20270101T000000000000" == TABLE_STEM
+
+
+def test_a_photo_taken_with_no_calibration_says_so_in_its_info_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("NPEC_RIG_CALIBRATION_DIR", str(tmp_path / "calibration"))
+
+    _array, record = take_photo("capture")
+
+    on_disk = json.loads((photos_root() / record["date"] / record["filename"]).with_suffix(".json").read_text())
+    assert "calibration" in on_disk
+    assert on_disk["calibration"] is None
