@@ -95,6 +95,7 @@ GROWN_SOIL_HIDDEN = GROWN_SOIL_MAX - GROWN_SOIL_BIN
 GROWN_BLUE_COVERAGE_MIN = 0.5
 SOIL_HIDDEN = "mats covering soil; area measured with a less precise fallback"
 SOIL_GREEN = "soil looks unusually green; plant area unaffected"
+SOIL_NOT_SEEN = "no bare soil seen; area measured with a less precise fallback"
 GROWN_BLUE_MARGIN = 0  # blue plastic: blue above red and green by more than this (0 to 255 values)
 GROWN_TAG_ENLARGE = 1.6  # the tray tag's square, enlarged this many times about its centre, is no plant
 GROWN_WHITE_MIN = 140  # white paper: every channel above this,
@@ -106,10 +107,14 @@ GROWN_WHITE_WIDEN_PX = 61  # widened by a square this many pixels wide, is no pl
 @dataclass(frozen=True)
 class GrownPlant:
     """One tray box's plant by `grow_from_cores`: the mask, the soil level found and the lower
-    cutoff used (soil level None: no soil to find it from, the floor is used). `blue_coverage`:
+    cutoff used (soil level None: no soil to find it from, the floor is used; also None when no
+    pixel of the tray is both non-core and non-blue, canopy over the whole tray, since no bare soil
+    is in view, #522). `blue_coverage`:
     the fraction of the tray's countable area that is blue, a leaf core's own cell left out, and
     any other cell holding one, so an empty cell's own blue bottom, and the tray's walls and rim,
     are never read as a mat (#486); with no cell holding a core, or no cells known, the whole tray.
+    None when nothing was countable (canopy covers the whole box): not measured, which is not the
+    same as 0.0, no mats (#522).
     `soil_hidden`: blue covers most of the tray, so the floor was used instead of the soil level
     found. `soil_green`: the soil level found lies in the histogram's top bin, but blue does not
     cover most of the tray, so the soil-based cutoff was kept anyway."""
@@ -118,7 +123,7 @@ class GrownPlant:
     soil_level: float | None
     lower_cutoff: float
     soil_hidden: bool = False
-    blue_coverage: float = 0.0
+    blue_coverage: float | None = 0.0
     soil_green: bool = False
 
 
@@ -192,10 +197,16 @@ def grow_from_cores(
             countable = cv2.bitwise_and(countable, np.isin(cell_labels, cored).view(np.uint8) * np.uint8(255))
         del cell_labels
     countable_n = cv2.countNonZero(countable)
-    blue_coverage = 0.0 if countable_n == 0 else (
+    blue_coverage = None if countable_n == 0 else (
         cv2.countNonZero(cv2.bitwise_and(countable, cv2.bitwise_not(notblue))) / countable_n)
     del countable
-    soil_level = _soil_level(_greenness_table(), _counts(g, red_blue, cv2.bitwise_and(sel, notblue)))
+    # No bare soil in view (canopy over the whole tray, #522): no pixel of the tray is both non-core
+    # and non-blue, so none is reported; any level read from leaf bleed or the histogram's artifact
+    # bin would be wrong. A count of zero, not a threshold; whether cells are known does not matter.
+    soil = cv2.bitwise_and(sel, notblue)
+    soil_level = None if cv2.countNonZero(cv2.bitwise_and(soil, cv2.bitwise_not(core))) == 0 else _soil_level(
+        _greenness_table(), _counts(g, red_blue, soil))
+    del soil
     hidden = soil_hidden(soil_level, blue_coverage)
     green = soil_green(soil_level, blue_coverage)
     if lower_cutoff is None:
@@ -319,9 +330,10 @@ def soil_hidden(soil_level: float | None, blue_coverage: float | None) -> bool:
     """Whether the soil counts as hidden: a soil level in the histogram's top bin
     (`soil_reads_high`, never true with nothing to measure, such as a tray with no soil sampled
     at all) and, when it was measured, blue covering most of the tray (GROWN_BLUE_COVERAGE_MIN).
-    `blue_coverage` is None only for a reading saved before #486 and recounted from its saved mask,
-    never for a freshly grown one: for those, the old rule alone stands in its place — so an old
-    reading is never reclassified as SOIL_GREEN without a fresh measurement to justify it
+    `blue_coverage` is None for a reading saved before #486 and recounted from its saved mask, and
+    for a tray grown with nothing countable (canopy over the whole box, #522): for those, the old
+    rule alone stands in its place, so such a reading is never reclassified as SOIL_GREEN without
+    a measurement to justify it
     (`soil_green`). Used to decide the lower cutoff as a tray is grown; once it is grown, a saved
     reading's actual cutoff is the more reliable record of what was decided
     (`tray_readings._at_the_floor`), immune to `GROWN_BLUE_COVERAGE_MIN` being retuned later."""

@@ -1300,6 +1300,38 @@ def test_a_tray_whose_soil_looks_green_with_no_mats_keeps_the_soil_cutoff_and_is
     assert segmentation.SOIL_HIDDEN not in tray["warnings"]
 
 
+# Issue #522: canopy over the whole tray. No bare soil is in view, so no soil level is reported and
+# the area is grown from the floor cutoff: a less precise fallback, which the tray now says.
+def _full_canopy_tray_scene(monkeypatch) -> None:
+    from npec_rig.camera import CameraManager, SyntheticBackend
+
+    _plant_scene(monkeypatch)
+
+    class Scene(SyntheticBackend):
+        def capture_full_res(self):
+            frame, metadata = super().capture_full_res()
+            frame[:] = 128
+            frame[200:2030, 150:1675] = TRAY_BLUE
+            frame[250:1980, 200:1625] = MINT_LEAF_RGB  # leaf over the whole inside, a 50 px blue rim left showing
+            return frame, metadata
+
+    monkeypatch.setattr(photo_tags, "detect_tags", lambda frame: [_a1_tag(5, 389.75, 1812.0)])
+    CameraManager.set_instance(CameraManager(Scene(width=2000, height=2200)))
+
+
+def test_a_tray_with_canopy_over_all_of_it_says_no_bare_soil_was_seen(monkeypatch) -> None:
+    from npec_rig import segmentation
+
+    _full_canopy_tray_scene(monkeypatch)
+    [tray] = tray_readings.read_photo(_photo())["trays"]
+
+    assert tray["grown_soil_level"] is None
+    assert tray["grown_lower_cutoff"] == pytest.approx(segmentation.GROWN_FLOOR)
+    assert segmentation.SOIL_NOT_SEEN in tray["warnings"]
+    assert segmentation.SOIL_HIDDEN not in tray["warnings"]
+    assert segmentation.SOIL_GREEN not in tray["warnings"]
+
+
 def test_reprocess_keeps_counting_a_soil_looks_green_reading_without_the_photo(monkeypatch) -> None:
     """A reading whose soil read green with no mats (its blue coverage saved, #486) is not shaped
     like a reading saved before #373 with its leaves cut short: with the photo gone, its saved mask

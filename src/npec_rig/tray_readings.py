@@ -258,6 +258,7 @@ def _read_photo(path: str, *, reuse_mask: bool, unless_measured: bool) -> dict:
             "warnings": list(p.warnings) + ([TAG_TURNED] if celled.get(id(p), no_cells)[2] else [])
             + ([segmentation.SOIL_HIDDEN] if g and _at_the_floor(soil_level, lower_cutoff) else [])
             + ([segmentation.SOIL_GREEN] if g and _soil_reads_green(soil_level, lower_cutoff) else [])
+            + ([segmentation.SOIL_NOT_SEEN] if g and _no_soil_seen(soil_level, lower_cutoff) else [])
             + ([GROWN_NOT_WORKED_OUT] if m and not g else [])
             + ([CELLS_NOT_WORKED_OUT] if m and celled.get(id(p), no_cells)[3] else []),
             "outline_px": None if p.outline is None else [list(c) for c in p.outline],
@@ -501,6 +502,13 @@ def _soil_reads_green(soil_level: float | None, lower_cutoff: float | None) -> b
         segmentation.soil_reads_high(soil_level) and lower_cutoff is not None
         and lower_cutoff > segmentation.GROWN_FLOOR + 1e-9
     )
+
+
+def _no_soil_seen(soil_level: float | None, lower_cutoff: float | None) -> bool:
+    """Whether a tray was grown with no soil level found: canopy over the whole tray, nothing
+    countable to read a soil level from, so the floor was the cutoff (#522). A tray never grown has
+    no cutoff either, and is not this."""
+    return soil_level is None and lower_cutoff is not None
 
 
 def _grown_into_leaves(soil_level: float | None, lower_cutoff: float | None, blue_coverage: float | None) -> bool:

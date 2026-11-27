@@ -342,6 +342,70 @@ def test_grow_from_leaf_cores_counts_blue_only_inside_cells_that_hold_a_core() -
     assert grown.blue_coverage == 0.0
 
 
+# #522: when canopy covers the whole box, no pixel is countable (inside the tray, not a leaf core,
+# not tag or paper). Nothing was measured, so blue coverage is None ("not measured"), never 0.0,
+# which would read as "definitely no mats".
+def test_full_canopy_tray_reports_blue_coverage_as_not_measured() -> None:
+    from npec_rig.segmentation import grow_from_cores
+
+    box = np.full((400, 400, 3), PLANT["benchmark mint leaf"], dtype=np.uint8)  # every pixel a leaf core
+    grown = grow_from_cores(box, np.ones((400, 400), dtype=bool))
+
+    assert grown.blue_coverage is None
+
+
+# #522: with nothing countable there is no bare soil to find. Any soil level read from leaf
+# smoothing bleed or the histogram's artifact bin would be wrong, so none is reported and the
+# lower cutoff is the floor, the same as a tray with no soil sampled at all.
+def test_full_canopy_tray_has_no_soil_level_and_uses_the_floor_cutoff() -> None:
+    from npec_rig.segmentation import GROWN_FLOOR, grow_from_cores
+
+    box = np.full((400, 400, 3), PLANT["benchmark mint leaf"], dtype=np.uint8)  # every pixel a leaf core
+    grown = grow_from_cores(box, np.ones((400, 400), dtype=bool))
+
+    assert grown.soil_level is None
+    assert grown.lower_cutoff == GROWN_FLOOR
+    assert not grown.soil_hidden
+    assert not grown.soil_green
+    assert grown.mask.sum() == 400 * 400  # the whole box is leaf
+
+
+# #522: the walls and rim of a tray are blue, and with no cell grid known they count for blue
+# coverage. They are not soil, though: a tray whose every non-blue pixel is leaf core has no bare
+# soil in view, and says so whether or not its cells are known.
+def test_full_canopy_tray_with_a_blue_rim_and_no_cells_has_no_soil_level_and_uses_the_floor_cutoff() -> None:
+    from npec_rig.segmentation import GROWN_FLOOR, grow_from_cores
+
+    box = np.full((400, 400, 3), NOT_PLANT["blue tray"], dtype=np.uint8)  # the walls and rim
+    box[50:350, 50:350] = PLANT["benchmark mint leaf"]  # leaf over the whole inside, 90,000 px
+    grown = grow_from_cores(box, np.ones((400, 400), dtype=bool))
+
+    assert grown.soil_level is None
+    assert grown.lower_cutoff == GROWN_FLOOR
+    assert not grown.soil_hidden
+    assert not grown.soil_green
+    assert grown.mask.sum() == 300 * 300  # the leaf only: the rim stays out
+
+
+# #522: a cell wholly leaf leaves nothing countable for blue coverage (only cells holding a core
+# count), but the soil in the other cells is still in view, so its level is still found.
+def test_a_tray_with_bare_soil_in_another_cell_keeps_its_soil_level_when_the_cored_cell_is_all_leaf() -> None:
+    from npec_rig.segmentation import GROWN_FLOOR, grow_from_cores
+
+    box = np.full((400, 400, 3), SOIL_LOW, dtype=np.uint8)  # bare soil: level -0.035, cutoff 0.035
+    box[0:200, 0:200] = PLANT["benchmark mint leaf"]  # the north-west cell: leaf from edge to edge
+    cells = [((0, 0), (200, 0), (200, 200), (0, 200)), ((200, 0), (400, 0), (400, 200), (200, 200)),
+             ((0, 200), (200, 200), (200, 400), (0, 400)), ((200, 200), (400, 200), (400, 400), (200, 400))]
+
+    grown = grow_from_cores(box, np.ones((400, 400), dtype=bool), cells=cells)
+
+    assert grown.blue_coverage is None  # the only cored cell has nothing countable
+    assert grown.soil_level == pytest.approx(-0.035, abs=1e-9)
+    assert grown.lower_cutoff == pytest.approx(0.035, abs=1e-9)
+    assert grown.lower_cutoff > GROWN_FLOOR
+    assert grown.mask.sum() == 200 * 200  # the leaf only
+
+
 def test_grow_from_leaf_cores_still_counts_the_whole_tray_blue_when_no_cell_holds_a_core() -> None:
     """Metrology log 39's tray is read before any cell grid is known for it (a 1 x 1 tray, or one
     whose cells could not be placed): `cells` given but none of them holding a core must not read as
