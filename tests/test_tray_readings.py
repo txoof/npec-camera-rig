@@ -1605,6 +1605,7 @@ def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_the_re
     neither is left to be counted against it: a Reprocess with the photo gone says "a saved mask is
     missing" and changes nothing, and no temporary file is left."""
     import sqlite3
+    import threading
 
     from npec_rig import segmentation
     from npec_rig.captures import photo_file
@@ -1614,10 +1615,24 @@ def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_the_re
     before = _saved(path)
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.3)
 
-    # 2 s, not the helper's default 5: the reading gives up after 0.57 s (measured), and the rest
-    # of the 5 s was the holder thread sleeping on, 4 s of this file's run (#547).
-    with lock_held(2.0), pytest.raises(sqlite3.OperationalError, match="locked"):
-        tray_readings.read_photo(path, reuse_mask=True)
+    # The lock lasts exactly as long as the reading, with 30 s only as a backstop.
+    #
+    # It was a flat 2 s, cut down from the helper's default 5 so the holder did not sleep on for
+    # 4 s of this file's run (#547). The 2 s came from the 0.57 s the reading takes to give up on
+    # an x86 box, and that is the bug: on a Pi the reading outlived the lock, so nothing was
+    # locked by the time it wrote and the test failed "DID NOT RAISE", 1 of 8 full runs (#576).
+    # Ending the lock on the reading rather than on the clock keeps the short run time without
+    # depending on how fast the machine is.
+    #
+    # The event is set inside the lock, not in a finally around it: lock_held joins its holder on
+    # the way out, so an event set after the block would leave it waiting out the whole backstop.
+    reading_done = threading.Event()
+    with lock_held(30.0, until=reading_done):
+        try:
+            with pytest.raises(sqlite3.OperationalError, match="locked"):
+                tray_readings.read_photo(path, reuse_mask=True)
+        finally:
+            reading_done.set()
     assert _saved(path) == before
     assert [f.exists() for f in files] == [False, False]
     assert not list(files[0].parent.glob("*.staged"))
