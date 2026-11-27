@@ -1885,6 +1885,114 @@ def test_a_photo_whose_reading_met_a_locked_rig_db_is_read_again(monkeypatch, tm
     assert len(tray_readings.photo_readings(path)["trays"]) == 12
 
 
+def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calibration(monkeypatch, tmp_path) -> None:
+    """#564: the trays were looked for with the photo's calibration read from the capture row a
+    second time, and a momentary rig.db lock on that read was swallowed into the status
+    "no calibration". There is no saved reading to refuse (`_refuse_worse` returns early), so the
+    photo was then saved for good as "no calibration" with no trays, `database.unread_photos`
+    never offered it again, and the caller's retry (#464) never happened: the photo was lost from
+    the readings with nothing on any page to say why. A photo whose reading meets a locked rig.db
+    must be read again, as #439 and #483 settled for every other query the reading makes.
+
+    The lock is placed with no polling and no timing margin (#561). The reading stores the
+    photo's tags in rig.db (`images._store_tags`) and then takes `images._key_locks_guard` to
+    forget that photo's tag lock. This test holds that guard, from inside the tag search, so the
+    reading parks there: after its tags are stored, and before the capture row is read again.
+    The hand-over is exact rather than timed, in both directions. The reading releases the
+    photo's own tag lock as the last thing it does before the park, so the locker waits on that
+    lock instead of watching for a side effect, and at the park the reading holds no rig.db
+    connection, which is what `lock_held(readers_too=True)` needs. The lock goes up while the
+    reading cannot move, so no query it made earlier can have met it.
+
+    With the row read once, nothing reads rig.db between the park and the save, so the query that
+    meets the lock here is now the save itself (`record_tray_readings`). It raises, as every
+    other locked query in a reading does, and the reader reads the photo again.
+    """
+    from npec_rig import images
+
+    monkeypatch.setattr(tray_readings, "POLL_S", 0.05)
+    monkeypatch.setenv("NPEC_RIG_EXPERIMENTS_DIR", str(tmp_path / "experiments"))
+    _calibrate()
+    _finds(monkeypatch, "080357_563754")
+    fixture_tags = photo_tags.detect_tags
+    client = TestClient(app)  # not started as a context: no reader or scheduler of its own
+    experiment = client.post("/api/experiments", json={}).json()
+    client.post(f"/api/experiments/{experiment['id']}/start")
+    path = _photo()
+    source = path.removeprefix("rig/")  # what images.py files the photo's tags under
+
+    armed = threading.Event()  # the guard is held: the reading will park on it
+    gave_up = threading.Event()  # the reading has met the lock, which can now end
+    lock_over = threading.Event()  # rig.db is free and back in WAL: this thread may read it again
+    met: list[str] = []
+    locker_failed: list[BaseException] = []
+
+    def lock_once_the_tags_are_stored() -> None:
+        guard = images._key_locks_guard
+        holding = False
+        try:
+            tag_lock = images._key_locks[f"tags:{source}"]  # held by the reading until it stores
+            guard.acquire()
+            holding = True
+            armed.set()
+            if not tag_lock.acquire(timeout=15):
+                raise RuntimeError("the reading never stored the photo's tags")
+            # The reading has stored its tags and closed that connection, and its next step is the
+            # guard above, so it is standing still with nothing open on rig.db.
+            with lock_held(until=gave_up, readers_too=True):
+                guard.release()
+                holding = False
+                gave_up.wait(10)
+        except BaseException as exc:  # the test fails on it below: a locker that could not take
+            # the lock must not leave the reading to pass quietly
+            locker_failed.append(exc)
+        finally:
+            if holding:
+                guard.release()  # never leave the reading parked for ever
+            armed.set()
+            gave_up.set()
+            lock_over.set()
+
+    locker = threading.Thread(target=lock_once_the_tags_are_stored)
+
+    def detect_then_arm(frame):
+        if locker.ident is None:  # once: the tags are searched once per photo
+            locker.start()
+            assert armed.wait(15), "the locker never took images' key-lock guard"
+        return fixture_tags(frame)
+
+    class LockMet(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            # The reading's thread only: the lock stops every rig.db access in this process while
+            # it is up, and a thread left running by a neighbouring test would otherwise end it.
+            if record.threadName != "tray-reader":
+                return
+            if "rig.db was locked" in record.getMessage():
+                met.append(record.getMessage().split(":")[0])  # the query that met it
+                gave_up.set()  # the lock ends as the reading gives up on it, not before
+
+    handler = LockMet()
+    logging.getLogger("npec_rig.database").addHandler(handler)
+    monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.3)
+    monkeypatch.setattr(photo_tags, "detect_tags", detect_then_arm)
+    reader = tray_readings.TrayReader()
+    try:
+        reader.start()
+        assert lock_over.wait(30), "the reading never reached the lock"
+        _wait_for(lambda: tray_readings.photo_readings(path) is not None, timeout_s=15)
+    finally:
+        gave_up.set()
+        locker.join(timeout=15)
+        reader.stop(timeout_s=15)
+        logging.getLogger("npec_rig.database").removeHandler(handler)
+        if locker_failed:
+            raise locker_failed[0]
+    assert met, "the reading never met the lock: it was not held where this test meant to hold it"
+    reading = tray_readings.photo_readings(path)
+    assert reading["status"] == "read"
+    assert len(reading["trays"]) == 12
+
+
 # --- A cell where grow from leaf cores reads far above the fixed cutoff is flagged (#484) ---------
 def _cells_read(*pairs) -> dict:
     """A tray 7 whose cells hold plant (fixed area, grown area) mm2 for each pair, read back by
