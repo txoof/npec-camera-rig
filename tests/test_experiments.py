@@ -787,16 +787,24 @@ def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> N
 
 def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypatch, twin) -> None:
     """The lock is held through the 3 tries of the cap and let go when the run logs that it gave
-    the photo up, so the failure itself can be saved: the photo is listed as failed with the reason."""
+    the photo up, so the failure itself can be saved: the photo is listed as failed with the reason.
+
+    The lock has to be up before the run's first write and after the run row the request itself
+    writes, and the tags are stored before it so that only writes meet it (#561). Both are settled
+    here rather than raced: the tags are searched up front, and this test holds
+    `images.full_decode_slot()` from before the request, so the run cannot get past segmenting the
+    photo -- its last step before it saves anything -- until the lock is up and the slot let go."""
     import logging
     import threading
 
     from fastapi.testclient import TestClient
 
-    from npec_rig import settings, tray_readings
+    from npec_rig import images, photo_tags, settings, tray_readings
     from npec_rig.app import app
+    from tests.helpers import lock_held
 
     experiment_id, [path] = _experiment_with_photos(twin, 1)
+    photo_tags.photo_tags_for(path)  # its tags stored before the lock, so only writes meet it
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.05)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.01)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_TRIES", 3)
@@ -809,15 +817,20 @@ def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypa
 
     handler = GaveUp()
     logging.getLogger("npec_rig.tray_readings").addHandler(handler)
-    locker = _lock_once_tags_are_stored(path, until=gave_the_photo_up, seconds=20)
     client = TestClient(app)
+    slot = images.full_decode_slot()
+    slot.acquire()  # the run waits here to segment the photo until the lock is up
+    holding_slot = True
     try:
-        locker.start()
         assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
-        progress = _wait_until_finished(client, experiment_id)
+        with lock_held(20, until=gave_the_photo_up):
+            slot.release()
+            holding_slot = False
+            progress = _wait_until_finished(client, experiment_id)
     finally:
         gave_the_photo_up.set()
-        locker.join(25)
+        if holding_slot:
+            slot.release()
         logging.getLogger("npec_rig.tray_readings").removeHandler(handler)
 
     assert (progress["done"], progress["failed"]) == (1, 1)
