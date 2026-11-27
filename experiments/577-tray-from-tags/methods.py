@@ -63,14 +63,30 @@ def _centre_from_tag(tag, ppm, corner_sign=1):
     return (tag.centre[0] + corner_sign * dx, tag.centre[1] + corner_sign * dy), tilt
 
 
-def place_from_tags(detections, scale_field, factor):
+def place_from_tags(detections, scale_field, factor, rim=None):
     """Method B: each tray placed from its own tag, in full-size photo pixels. The blue is not
-    used, so a tray with no readable tag is not placed at all."""
+    used to move anything, so a tray with no readable tag is not placed at all.
+
+    The tag lies in one corner cell, but which one depends on how the tray was laid down, and the
+    two readings put the tray's centre about 350 mm apart. The app settles it with the slot layout
+    (`place_trays`); here there is no slot layout, so with `rim` the blue settles it -- the corner
+    whose outline covers more blue -- and without `rim` the A1 reading is taken and the other is
+    reported as the alternative. A tray placed on the wrong corner lands off the table entirely.
+    """
     out = []
     for tag in sorted(_tray_tags(detections), key=lambda d: d.tag_id):
         ppm = scale_field.px_per_mm(*tag.centre)
-        centre, tilt = _centre_from_tag(tag, ppm)
-        out.append(Placed(tag.tag_id, centre, tray_outline_at(centre, tilt, ppm), tilt, 0.0, float("nan")))
+        band = max(2.0, RIM_BAND_MM * ppm / factor)
+        best = None
+        for sign in (1, -1):
+            centre, tilt = _centre_from_tag(tag, ppm, sign)
+            corners = tray_outline_at(centre, tilt, ppm)
+            score = (_ring_score(rim, np.asarray(corners, float) / factor, band)
+                     if rim is not None else (1.0 if sign == 1 else 0.0))
+            if best is None or score > best[0]:
+                best = (score, centre, corners, tilt)
+        score, centre, corners, tilt = best
+        out.append(Placed(tag.tag_id, centre, corners, tilt, 0.0, score))
     return out
 
 
@@ -133,8 +149,9 @@ def leftover(rim, placed_list, scale_field, factor):
 
 
 def place_tags_then_blue(detections, image, scale_field, factor):
-    """Method C: tags anchor, blue explains the rest."""
+    """Method C: tags anchor, blue explains the rest. The blue chooses which corner each tag lies
+    in, nudges each tray onto the rim beside it, and what is then left over is reported."""
     rim = _blue_rim(image)
-    first = place_from_tags(detections, scale_field, factor)
+    first = place_from_tags(detections, scale_field, factor, rim=rim)
     moved = [nudge_onto_blue(p, rim, scale_field, factor) for p in first]
     return moved, leftover(rim, moved, scale_field, factor)
