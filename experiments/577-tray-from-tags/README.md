@@ -9,6 +9,9 @@ in `src/` imports them, and they are not deployed.
 - `compare.py STILLS_DIR INDEX` — one still through A, B and C, one JSON line out. Scoring as
   section 20: a tray matches when the centres lie within 30 mm and the outlines overlap by at
   least 0.80.
+- `draw_method_d.py STILLS_DIR INDEX OUT.jpg CAPTION` - the before-and-after sheet of the method
+  that shipped: the app above, the re-cut below. It made the figures of metrology log 56.9.
+- `run_method_d.py STILLS_DIR INDEX` - method D against the app on one still, one JSON line out.
 - `draw.py STILLS_DIR INDEX OUT.jpg CAPTION` — the side-by-side sheet, A left and C right,
   outlines in red and numbered (never blue or cyan: they cannot be seen on blue trays).
 - `one_photo.py STILLS_DIR INDEX` — the app alone, used to measure how often the
