@@ -55,15 +55,25 @@ NO_PHOTO_WINDOW_S = 0.5
 
 
 # The work between an app restart and the photo the scheduler then takes: TestClient's lifespan,
-# the scheduler thread starting, one CHECK_S poll and the photo itself. Measured 2026-11-27 over
-# 35 runs in two batches, on an idle `ac-testing`: a Pi 5, aarch64, 4 cores, 4 GB, the old
-# production rig, out of service since #513 and used as a test box (Aaron, 2026-11-27). 129 to
-# 159 ms, mean 145.
+# the scheduler thread starting, one CHECK_S poll and the photo itself.
+#
+# Measured 2026-11-27 on `ac-testing`, a Pi 5, aarch64, 4 cores, 4 GB: the old production rig,
+# out of service since #513 and used as a test box (Aaron, 2026-11-27).
+#
+#   idle, one test at a time, 35 runs:        129 to 159 ms, mean 145
+#   with the full suite running beside it     254 to 430 ms, mean 354
+#   (4 xdist workers), 15 runs:
+#   worst seen in a real suite run:           762 ms
+#
+# The loaded figure is the one that counts, because `pytest` runs this test on one of four
+# workers while the other three are busy; the idle figure is 5x too small. Sizing a slot from the
+# idle number is what made test_the_photo_taken_on_return_is_listed_as_late look like a 9x margin
+# when it was under 2x (#576).
 #
 # Absolute, in whole milliseconds, because it is fixed work on a given machine: lowering
 # INTERVAL_S shortens the slots, it does not speed the machine up (the note above, #547 review).
 # A test that has to fit this inside a slot sizes the slot from it, never the other way round.
-RESTART_WORK_S = 0.16
+RESTART_WORK_S = 0.8
 
 # The longest a test holds rig.db's lock while waiting for the rig to meet it. The lock is let go
 # the moment that happens, so this is only reached when something is wrong. Absolute, in whole
@@ -414,7 +424,12 @@ def test_downtime_runs_from_the_last_photo_before_it_to_the_restart() -> None:
     (period,) = schedule["downtime"]
     assert datetime.fromisoformat(period["after"]) == last_photo_at
     until = datetime.fromisoformat(period["until"])
-    assert restarted_at <= until <= restarted_at + timedelta(seconds=0.5)
+    # The upper bound is sized from RESTART_WORK_S, not a flat 0.5 s. `until` is the restart, and
+    # the schedule cannot report it until the app has started and taken its photo, so this budget
+    # has to cover that work. At 0.5 s it did not: the suite measured 762 ms and the test failed
+    # 1 of 8 full runs on a Pi (#576). What it still catches is `until` being wrong by the kind of
+    # margin a real bug gives, such as the last photo's time or the time of the read.
+    assert restarted_at <= until <= restarted_at + timedelta(seconds=4 * RESTART_WORK_S)
 
 
 def test_the_photo_taken_on_return_is_listed_as_late() -> None:
@@ -422,11 +437,14 @@ def test_the_photo_taken_on_return_is_listed_as_late() -> None:
     # to fit inside it and it does not shrink when the slots do (#547 review, #559, #576).
     #
     # _wait_for_a_missed_slot leaves the restart in the slot's first tenth, so at least nine
-    # tenths of the interval below is left: 1.44 s against the 159 ms worst of 35 measured runs on
-    # a Pi, about 9x. At the old size the margin was under 2x and this test failed 2 of 8 full
-    # runs on an idle Pi, once with no late photo listed at all and once with the photo's slot
-    # falling 239 ms after the restart, so it was not late at all.
-    interval_s = 10 * RESTART_WORK_S
+    # tenths of the interval below is left: 2.88 s against the 762 ms worst ever seen, about 3.8x.
+    # At the old size the margin was under 2x and this test failed 2 of 8 full runs on an idle Pi,
+    # once with no late photo listed at all and once with the photo's slot falling 239 ms after
+    # the restart, so it was not late at all.
+    #
+    # It costs about 3.6 s: one whole interval has to pass before a slot can have been missed.
+    # That is the price of the test not depending on how busy the machine is.
+    interval_s = 4 * RESTART_WORK_S
     client = TestClient(app)  # no lifespan: no scheduler runs, as while the app is down
     _experiment, started = _start(client, interval_s)
     _wait_for_a_missed_slot(started["schedule"]["since"], interval_s)
