@@ -307,7 +307,15 @@ def test_after_a_restart_the_schedule_resumes_and_counts_the_photos_missed_while
     time.sleep(_slots(3.4))  # slots 1, 2 and 3 pass with nobody to take them
 
     with TestClient(app) as client:
-        _wait_for(lambda: len(database.captures_for_experiment(experiment["id"])) >= 1)
+        # Wait for the counts this test asserts, not for the photo's own row. The scheduler writes
+        # the capture row as it takes the photo and the slot rows afterwards (_catch_up), so a
+        # schedule read between the two shows photos_taken 0 with the photo already on disk. That
+        # is what failed here, `assert 0 >= 1`, in 1 of 8 full runs on an idle Pi (#576).
+        def counted() -> bool:
+            progress = client.get("/api/experiments").json()[0]["schedule"]
+            return progress["photos_taken"] >= 1 and progress["photos_missed"] >= 2
+
+        _wait_for(counted)
         schedule = client.get("/api/experiments").json()[0]["schedule"]
     assert schedule["photos_taken"] >= 1
     assert schedule["photos_missed"] >= 2

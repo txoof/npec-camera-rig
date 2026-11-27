@@ -777,11 +777,23 @@ def _lock_once_the_reading_is_segmenting(path: str, *, until=None, seconds: floa
 
 
 def _wait_until_finished(client, experiment_id: int, timeout_s: float = 30) -> dict:
+    """Poll the Reprocess progress route until the run has ended.
+
+    Through read_rig_db: the tests that lock rig.db shorten settings.LOCK_WAIT_S, and
+    database._connect gives that same short wait to every connection, including the one this
+    route reads on. A poll landing while something commits then raised
+    `sqlite3.OperationalError: database is locked` out of the route, which TestClient re-raises,
+    and the test failed for its own read rather than for the rig's behaviour. 1 failure in 8 full
+    runs on an idle Pi, and the same mechanism failed the Arm64 CI runner on #575 (#576)."""
     import time
+
+    from tests.helpers import read_rig_db
 
     deadline = time.monotonic() + timeout_s
     while True:
-        progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+        progress = read_rig_db(
+            lambda: client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+        )
         if not progress["running"]:
             return progress
         assert time.monotonic() < deadline, "Reprocess did not finish"
