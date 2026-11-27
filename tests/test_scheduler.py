@@ -54,6 +54,16 @@ SHORT_DB_WAIT_S = 0.005
 NO_PHOTO_WINDOW_S = 0.5
 
 
+# The work between an app restart and the photo the scheduler then takes: TestClient's lifespan,
+# the scheduler thread starting, one CHECK_S poll and the photo itself. Measured on an idle Pi 5
+# (ac-testing, aarch64, 4 cores), 35 runs in two batches: 129 to 159 ms, mean 145.
+#
+# Absolute, in whole milliseconds, because it is fixed work on a given machine: lowering
+# INTERVAL_S shortens the slots, it does not speed the machine up (the note above, #547 review).
+# A test that has to fit this inside a slot sizes the slot from it, never the other way round.
+RESTART_WORK_S = 0.16
+
+
 def _slots(n: float) -> float:
     """`n` photo intervals, in seconds."""
     return n * INTERVAL_S
@@ -148,14 +158,21 @@ def _wait_for_the_short_db_wait_to_take(experiment_id: int) -> None:
 
 
 def _wait_for_a_missed_slot(since: str, interval_s: float) -> None:
-    """Block until one photo slot has come due with nobody to take it, and the next slot is
-    between a fifth and a third of the way through.
+    """Block until one photo slot has come due with nobody to take it, and the next slot has just
+    begun (its first tenth).
 
     A restart has to land at a known place inside a slot. scheduler._tick takes the photo of
     whichever slot is current when it runs, so a restart that straddles a slot boundary gets the
     photo of the slot after the one the test measured itself against: that photo was due after
     the restart, not before it, and it is not listed as late at all. On the Arm64 CI runner that
     is what happened, at the old 0.3 s interval, the due time 0.2 s after the restart (#559).
+
+    The first tenth, not a fifth to a third as before #576: what the caller then does -- start the
+    app and let it take a photo -- has to finish inside the rest of this slot, and the earlier
+    placement threw away a third of it before that work even began. On a Pi the work is about
+    145 ms against the 200 to 240 ms that was left, a margin under 2x, and the test failed 2 of 8
+    full runs. Starting at the slot boundary leaves the caller the whole interval to size against
+    RESTART_WORK_S.
 
     Polled rather than slept. A sleep of so many intervals assumes the work before it took no
     time, and a sleep on a loaded machine overshoots; either leaves the restart anywhere in the
@@ -168,7 +185,7 @@ def _wait_for_a_missed_slot(since: str, interval_s: float) -> None:
     deadline = time.monotonic() + 30
     while True:
         elapsed = (datetime.now(UTC) - start).total_seconds()
-        if elapsed >= interval_s and interval_s / 5 <= elapsed % interval_s < interval_s / 3:
+        if elapsed >= interval_s and elapsed % interval_s < interval_s / 10:
             return
         assert time.monotonic() < deadline, "no photo slot came due in 30 s"
         time.sleep(0.001)
@@ -386,13 +403,15 @@ def test_downtime_runs_from_the_last_photo_before_it_to_the_restart() -> None:
 
 
 def test_the_photo_taken_on_return_is_listed_as_late() -> None:
-    # Six times the usual slot, and the restart placed a fifth to a third of the way into one
-    # (_wait_for_a_missed_slot). What has to fit in the rest of that slot -- TestClient's
-    # lifespan, the scheduler thread starting, one CHECK_S poll -- is fixed work that does not
-    # shrink with INTERVAL_S, so the slot is made long enough to hold it many times over: at
-    # least 200 ms of slot left, against 25 to 34 ms measured from the restart to the photo,
-    # pinned to one core with two busy competitors (#547 review, #559).
-    interval_s = _slots(6)
+    # The slot is sized from the restart work, not from INTERVAL_S, because that work is what has
+    # to fit inside it and it does not shrink when the slots do (#547 review, #559, #576).
+    #
+    # _wait_for_a_missed_slot leaves the restart in the slot's first tenth, so at least nine
+    # tenths of the interval below is left: 1.44 s against the 159 ms worst of 35 measured runs on
+    # a Pi, about 9x. At the old size the margin was under 2x and this test failed 2 of 8 full
+    # runs on an idle Pi, once with no late photo listed at all and once with the photo's slot
+    # falling 239 ms after the restart, so it was not late at all.
+    interval_s = 10 * RESTART_WORK_S
     client = TestClient(app)  # no lifespan: no scheduler runs, as while the app is down
     _experiment, started = _start(client, interval_s)
     _wait_for_a_missed_slot(started["schedule"]["since"], interval_s)
