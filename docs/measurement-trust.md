@@ -619,7 +619,19 @@ metrology log backs it.
   layout, so that evidence does not cover it. Since 2026-11-27 a block of touching trays holding
   fewer tags than outlines warns every tray in it ("fewer tags than trays"), so the numbers are
   no longer reported as if they were sound; a block whose tags were all missed is still not
-  caught. The placement itself is to be changed (metrology log 55, #577).
+  caught (metrology log 55, #577).
+
+- **A block of touching trays short of tags is re-cut from its tags (2026-11-27).** Where a block
+  holds fewer tags than outlines, one tray is placed per tag inside that block instead of taking
+  the grid cut, each tray required to sit inside the block's own blue. On production photo 319
+  that returns eleven trays, one per tray, the odd one within 30 mm of the outline marked by eye.
+  Across 69 stills from three rigs it leaves the app's answer unchanged on 63, and on stills using
+  today's cell A1 tags it differs only on the four carrying this fault. Aaron inspected ten
+  before-and-after sheets and judged the edge cases better after, except trays under clear
+  propagator lids, which the change does not touch and where the outlines remain wrong. Not shown:
+  a tray turned sideways, two trays offset at once, a tray offset along its row, or any
+  independent measurement of a re-cut tray's edges; the agreement above is with the app, which is
+  not truth (metrology log 56.9, #577).
 
 ### Cells placed in each tray (round 3, 2026-11-06)
 
