@@ -10,6 +10,8 @@ works out.
 import json
 from pathlib import Path
 
+import math
+
 import pytest
 
 from npec_rig.calibration import scale_field_from_dict
@@ -352,6 +354,113 @@ def test_trays_cut_from_one_blue_piece_share_a_block_and_separate_pieces_do_not(
     assert blocks[8900] != blocks[1900]
 
 
+# --- A block of touching trays re-cut from its tags (#577) ---------------------------------------
+# One scene throughout: five trays at 10 px/mm, four of them touching in two rows of two, and a
+# fifth to their left shifted down half a tray so it straddles the row boundary. This is the
+# layout of production photo 319 (metrology log 55). The grid cut gives six cells for five trays
+# and splits the odd one across two of them.
+
+_OFF_GRID_TRAYS = [
+    (0, 2230, 3050, 5890),      # the odd one, half a tray lower than the block beside it
+    (3050, 400, 6100, 4060), (6100, 400, 9150, 4060),
+    (3050, 4060, 6100, 7720), (6100, 4060, 9150, 7720),
+]
+_OFF_GRID_CENTRES = [(1525, 4060), (4575, 2230), (7625, 2230), (4575, 5890), (7625, 5890)]
+# The tray wall, full-size px at 10 px/mm: 13 mm, the widest measured (review of #281).
+_WALL_PX = 130
+
+
+def _rim_scene(size, trays):
+    """A grey quarter-size photo with each tray drawn as its lit rim, a band `_WALL_PX` wide
+    inside its outline, as a real tray shows it. Trays drawn solid have no rim to settle on."""
+    import numpy as np
+
+    image = np.full((size[1], size[0], 3), 128, np.uint8)
+    for x0, y0, x1, y1 in trays:
+        image[round(y0 / 4):round(y1 / 4), round(x0 / 4):round(x1 / 4)] = TRAY_BLUE
+    for x0, y0, x1, y1 in trays:
+        image[round((y0 + _WALL_PX) / 4):round((y1 - _WALL_PX) / 4),
+              round((x0 + _WALL_PX) / 4):round((x1 - _WALL_PX) / 4)] = (90, 70, 55)  # soil
+    return image
+
+
+def _off_grid_scene():
+    return _rim_scene((2288, 2030), _OFF_GRID_TRAYS)
+
+
+def _tag_in_cell_a1_of(centre):
+    """The tag of a tray centred at `centre`, lying in its cell A1 at 10 px/mm: the offset
+    `tray_placement.A1_TAG_TO_CENTRE_MM` read backwards for an untilted tray."""
+    return centre[0] - 1040, centre[1] + 1416
+
+
+def test_a_tray_off_the_grid_of_its_touching_neighbours_is_outlined_once_on_itself() -> None:
+    """Production photo 319: the grid cut returns six outlines for five trays and splits the odd
+    one across two of them, neither of which is the tray (metrology log 55). With a tag for every
+    tray, the block is re-cut and each tray gets one outline on itself (#577)."""
+    from npec_rig.tray_placement import find_outlines, recut_short_blocks
+
+    scene, scale = _off_grid_scene(), scale_field_from_dict(EVEN_10)
+    tags = [_tag_at(n, *_tag_in_cell_a1_of(c)) for n, c in enumerate(_OFF_GRID_CENTRES, start=1)]
+    assert len(find_outlines(scene, scale, 4)) == 6  # the fault this fixes
+
+    trays = recut_short_blocks(find_outlines(scene, scale, 4), tags, scene, scale, 4)
+    assert len(trays) == 5
+    # Found, as metrology log 20 scores it: one outline within 30 mm of the tray, 300 px here.
+    assert [sum(math.dist(t.centre, c) <= 300 for t in trays) for c in _OFF_GRID_CENTRES] == [1] * 5
+
+
+def test_a_tag_outside_the_block_makes_no_tray_there() -> None:
+    """A tag that is not on a tray of the block -- lying on the table, or on a sheet -- must place
+    nothing. Letting any tag place a tray put one in the gangway between two rows of trays, where
+    the rims above and below made it score like a real tray (metrology log 56.8)."""
+    from npec_rig.tray_placement import find_outlines, recut_short_blocks
+
+    scene, scale = _rim_scene((2288, 2400), _OFF_GRID_TRAYS), scale_field_from_dict(EVEN_10)
+    tags = [_tag_at(n, *_tag_in_cell_a1_of(c)) for n, c in enumerate(_OFF_GRID_CENTRES, start=1)]
+    stray = _tag_at(99, 1000, 9000)  # bare table, well below the block and its slack
+
+    without = recut_short_blocks(find_outlines(scene, scale, 4), tags, scene, scale, 4)
+    with_stray = recut_short_blocks(find_outlines(scene, scale, 4), [*tags, stray], scene, scale, 4)
+    assert len(with_stray) == len(without) == 5
+    assert all(math.dist(t.centre, stray.centre) > 300 for t in with_stray)
+
+
+def test_a_block_with_a_tag_for_every_outline_is_left_exactly_as_the_grid_cut_had_it() -> None:
+    """The re-cut runs only where the grid cut cannot be trusted. Two touching trays with a tag in
+    each are not short of tags, so nothing is touched (#577)."""
+    from npec_rig.tray_placement import find_outlines, recut_short_blocks
+
+    scene, scale = _rim_scene((1800, 1300), [(400, 400, 3450, 4060), (3450, 400, 6500, 4060)]), scale_field_from_dict(EVEN_10)
+    outlines = find_outlines(scene, scale, 4)
+    assert len(outlines) == 2
+    tags = [_tag_at(n, *_tag_in_cell_a1_of(o.centre)) for n, o in enumerate(outlines, start=1)]
+    assert recut_short_blocks(outlines, tags, scene, scale, 4) == outlines
+
+
+def test_no_tray_tag_at_all_leaves_the_outlines_alone() -> None:
+    """Trays under clear lids and calibration stills read no tray tag (metrology log 56.7). With
+    nothing to re-cut from, the app's own outlines come back unchanged (#577)."""
+    from npec_rig.tray_placement import find_outlines, recut_short_blocks
+
+    scene, scale = _off_grid_scene(), scale_field_from_dict(EVEN_10)
+    outlines = find_outlines(scene, scale, 4)
+    assert recut_short_blocks(outlines, [], scene, scale, 4) == outlines
+
+
+def test_a_second_tag_on_one_tray_does_not_make_a_second_tray_there() -> None:
+    """Two tags inside one tray happen: a spare tag card laid on a tray, or a tray tagged twice
+    (`name_trays` already handles it). Placing one tray per tag would put the same plants on two
+    trays, which `find_outlines` guards against with `MAX_OVERLAP` (#577)."""
+    from npec_rig.tray_placement import find_outlines, recut_short_blocks
+
+    scene, scale = _off_grid_scene(), scale_field_from_dict(EVEN_10)
+    tags = [_tag_at(n, *_tag_in_cell_a1_of(c)) for n, c in enumerate(_OFF_GRID_CENTRES, start=1)]
+    spare = _tag_at(98, tags[0].centre[0] + 1000, tags[0].centre[1])  # 100 mm along the same tray
+
+    assert len(recut_short_blocks(find_outlines(scene, scale, 4), [*tags, spare], scene, scale, 4)) == 5
+
+
 def test_a_tray_is_found_at_the_calibrations_scale_where_it_lies() -> None:
     """At 5 px/mm a tray is 1525 x 1830 px. Drawn that size it is one tray; at 10 px/mm it would
     be under half a tray and not a tray at all."""
@@ -381,12 +490,17 @@ def _fixture_outlines(name: str):
     return find_outlines(rgb, scale_field_from_dict(fixture["scale_field"]), fixture["factor"])
 
 
-@pytest.mark.parametrize("name", sorted(BLUE_EXPECTED))
+# Fixtures the blue finder is expected to get right on its own. `off-grid-tray` is not one: its
+# whole point is that the grid cut splits a tray, which the re-cut then puts right (#577).
+BLUE_ONLY = sorted(n for n, f in BLUE_EXPECTED.items() if f.get("method") != "recut")
+
+
+@pytest.mark.parametrize("name", BLUE_ONLY)
 def test_every_tray_in_a_real_still_is_found_once(name: str) -> None:
     assert len(_fixture_outlines(name)) == BLUE_EXPECTED[name]["count"]
 
 
-@pytest.mark.parametrize("name", sorted(n for n, f in BLUE_EXPECTED.items() if f["trays"]))
+@pytest.mark.parametrize("name", sorted(n for n in BLUE_ONLY if BLUE_EXPECTED[n]["trays"]))
 def test_each_tray_found_in_a_real_still_lies_within_30_mm_of_its_known_centre(name: str) -> None:
     """30 mm, as in #328. A tray only partly in the photo is left out: its outline is the tray's
     full size from its side inside the photo, not the visible part that was marked."""
@@ -403,7 +517,7 @@ def test_each_tray_found_in_a_real_still_lies_within_30_mm_of_its_known_centre(n
         assert nearest <= fixture["centre_tolerance_mm"], f"{tray.get('tray_id', tray.get('name'))}: {nearest:.1f} mm"
 
 
-@pytest.mark.parametrize("name", sorted(n for n, f in BLUE_EXPECTED.items() if f["trays"] and "tray_id" in f["trays"][0]))
+@pytest.mark.parametrize("name", sorted(n for n in BLUE_ONLY if BLUE_EXPECTED[n]["trays"] and "tray_id" in BLUE_EXPECTED[n]["trays"][0]))
 def test_each_tray_tag_in_a_real_still_names_the_tray_it_lies_on(name: str) -> None:
     import math
 
@@ -627,3 +741,54 @@ def test_a_tray_with_no_outline_has_no_tag_place() -> None:
     [tray] = name_trays([], [tag])
     assert tray.outline is None
     assert tag_on_tray(tray, tag, scale_field_from_dict(EVEN_10)) is None
+
+
+def _fixture_recut(name: str):
+    import numpy as np
+    from PIL import Image
+
+    from npec_rig.tags import TagDetection
+    from npec_rig.tray_placement import find_outlines, recut_short_blocks
+
+    fixture = BLUE_EXPECTED[name]
+    with Image.open(BLUE_FIXTURES / f"{name}.jpg") as image:
+        rgb = np.asarray(image.convert("RGB"))
+    scale = scale_field_from_dict(fixture["scale_field"])
+    tags = [TagDetection(t["tag_id"], tuple(map(tuple, t["corners"])), tuple(t["centre"]))
+            for t in fixture["tags"]]
+    outlines = find_outlines(rgb, scale, fixture["factor"])
+    return outlines, recut_short_blocks(outlines, tags, rgb, scale, fixture["factor"]), fixture, scale
+
+
+def test_the_off_grid_tray_still_is_split_by_the_grid_cut_and_put_right_by_the_re_cut() -> None:
+    """Production photo 319 of 2026-11-27: eleven trays, the grid cut returns twelve outlines and
+    splits the one lying off the block's grid (metrology log 55). Expected centres come from
+    production's own readings for the ten regular trays and from the tray marked by eye for the
+    odd one, never from a finder (#577)."""
+    outlines, trays, fixture, scale = _fixture_recut("off-grid-tray")
+    assert len(outlines) == 12  # the fault
+    assert len(trays) == fixture["count"] == 11
+
+    for tray in fixture["trays"]:
+        x, y = tray["centre_px"]
+        nearest = min(math.dist((x, y), t.centre) for t in trays) / scale.px_per_mm(x, y)
+        assert nearest <= fixture["centre_tolerance_mm"], f"tray {tray['tray_id']}: {nearest:.1f} mm"
+
+
+def test_the_grid_cut_alone_puts_no_outline_on_the_off_grid_tray() -> None:
+    """What the re-cut is for: the app's own outlines miss that tray by about 170 to 200 mm
+    (metrology log 55), so this is not a tie the re-cut merely improves on."""
+    outlines, _trays, fixture, scale = _fixture_recut("off-grid-tray")
+    x, y = next(t["centre_px"] for t in fixture["trays"] if t["tray_id"] == 27)
+    nearest = min(math.dist((x, y), o.centre) for o in outlines) / scale.px_per_mm(x, y)
+    assert nearest > 150.0
+
+
+def test_a_re_cut_tray_that_reaches_the_photo_edge_still_says_so() -> None:
+    """Production photo 319: the block of trays meets the frame, and the grid cut marks the
+    outlines there "partly outside the photo". A re-cut tray that loses the mark has its area
+    reported as if the whole tray were in the picture, and the overlay and the time lapse stop
+    saying otherwise (#577)."""
+    outlines, trays, _fixture, _scale = _fixture_recut("off-grid-tray")
+    assert sum(o.edge for o in outlines) > 0
+    assert sum(t.edge for t in trays) > 0

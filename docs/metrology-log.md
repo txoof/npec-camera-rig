@@ -12871,3 +12871,373 @@ option D's eleven (right); the left tray is the one split in the left-hand pictu
 scaled to 2318 px wide and saved as JPEG quality 85 for this section on 2026-11-27.
 
 ![Photo 319: the app's twelve outlines against option D's eleven](figures/55/compare-319.jpg)
+
+## 56. Placing each tray from its own tag, against the blue finder (issue #577, method written 2026-11-27, before any still is read)
+
+**Label: development check.** Section 55 showed that cutting one blue blob into a uniform grid of
+tray-sized cells cannot represent a tray lying off its neighbours' grid, and what that costs. This
+test asks whether placing each tray from its own tag does better, and whether it does any harm on
+the layouts the blue finder already gets right. Nothing is changed in the app until this is
+answered. Written before any still is read: the stills, the scoring and the result that would
+justify a change are all fixed here first.
+
+### 56.1 Methods
+
+| Method | What places the tray | What the blue is used for |
+|---|---|---|
+| A. The app now (baseline) | the blue rim, cut into a uniform grid of tray-sized cells (`tray_placement.find_outlines`, `name_trays`) | everything; tags only name the outline they lie inside |
+| B. Tags alone | each tray tag, offset to its tray's centre | nothing |
+| C. Tags anchor, blue explains the rest | each tray tag, as in B, then the outline nudged onto the blue rim beside it | the nudge, and the leftover: blue that no placed tray accounts for, and any overlap between two placed trays, is flagged |
+
+B and C place a tray from its tag using **that tray's own learned tag-to-tray relationship**, not
+from the tag's rotation. On a 4 x 5 tray the tag lies in cell A1, so the offset is known by
+construction. On a 2 x 2 tray there is no A1: a corner is chosen and stays the same for the whole
+experiment, so the offset and the direction of the tray's long side are taken from that tray's
+first good photo and carried forward (`tag_on_tray`, `a1_bearing_deg`, as the app already does for
+cells). This is stated before the run because `place_trays` today takes the tray's tilt from the
+tag's own rotation, and researchers glue tags on at whatever angle they like (#385, section 32.2),
+so that path is not used here.
+
+### 56.2 Stills
+
+About 40 stills, read only, copied with their calibration and their stored tag detections; nothing
+is written on any rig. Three sources:
+
+| Source | Where | What it contributes |
+|---|---|---|
+| Old production | the `ac-testing` disk image on the T7 backup, read with `debugfs`, not mounted | several experiments over several days, including the tray-tracking run where trays were deliberately moved |
+| Production | `d6-daylight`, read over ssh | experiment 2, including photo 319 of 2026-11-27 13:20 UTC, the one failing layout of section 55 |
+| Development | `npec-rig-01`, read over ssh | 2 x 2 trays photographed untagged, and 4 x 5 trays |
+
+Chosen before the methods are run, from contact sheets, to be spread over experiments and days
+rather than repeats of one layout, and to hold all four of these:
+
+1. The tray lying off its neighbours' grid (photo 319), the case the change exists for.
+2. Stills where leaves cover one or more tags, the case B is expected to fail.
+3. Stills of untagged trays, where B places nothing at all.
+4. Tidy touching grids that A already gets right, for the no-harm check, which must be the
+   largest group.
+
+### 56.3 Truth and scoring, fixed before the results
+
+*Truth.* By Aaron's inspection of each still, outlines drawn in magenta or red (never blue or
+cyan: they cannot be seen on blue trays) and numbered, as in section 20.1. For photo 319 the known
+outline of section 55 is used as well.
+
+*Scoring, as section 20.* A tray is found when its outline's centre lies within 30 mm of the known
+centre and the two outlines overlap by at least 0.80 (intersection over union). Also counted per
+still: trays missed, outlines matching no tray, and, where both carry a tray ID, whether the IDs
+agree. Reported per source and over the whole set.
+
+*Also measured.* Seconds and peak memory per still, measured on a Pi 5 class device, not on the
+controller or on `media-server`. Production is a 4 GB Pi 5 with no accelerator; the app's finder
+takes 0.4 s per photo today.
+
+### 56.4 What would justify changing the app, fixed before the results
+
+C replaces A only if **all** of these hold:
+
+1. C finds the off-grid tray of photo 319 within 30 mm of its known centre, which A does not.
+2. On the tidy stills C's outlines agree with the known answer at least as often as A's. A result
+   where C fixes photo 319 but loses a tray anywhere else is not enough.
+3. C places no tray on a still where there is none, and finds nothing in a dark still.
+4. C's leftover check flags the stills where it is wrong, rather than being quietly wrong.
+5. C's time per still on a Pi 5 is within the budget Aaron sets when the number is known.
+
+B alone is not expected to replace A: it places nothing for an untagged tray and nothing for a
+tray whose tag is covered. It is scored to show how much of C's result comes from the tags and how
+much from the blue.
+
+### 56.5 Limits of the evidence, stated before the run
+
+The off-grid case rests on one real layout, the one of section 55; the other photos of it are
+repeats. Nothing in this set is known to hold a tray turned sideways, two trays offset at once, or
+a tray offset along its row, so the result will not cover those. Truth is one person's reading of
+each still, good to about 10 px on a full-size crop. The left-right position of a regular tray in
+a touching block has never been measured independently (section 55), so a disagreement there
+between A and C cannot be judged by this test. Right-edge trays, partly outside the frame, are the
+weak spot of any method that fits to the blue. The stills are chosen by eye for variety, not at
+random, and the methods are being compared on stills that will also have been looked at while
+choosing them.
+
+### 56.6 Result (2026-11-27)
+
+*Stills actually used.* 59, read only: 12 from production `d6-daylight`, 12 from development
+`npec-rig-01`, and 35 from the `ac-testing` disk image on the T7 backup, spread over 14 experiment
+groups and 2026-10-09 to 2026-11-27. Two more were copied and could not be scored: their tag
+search was never stored and their photo is of a scene with no trays. The off-grid layout of
+section 55 is in the production set (four photos of it, the same layout). The set does **not**
+hold a tray turned sideways, two trays offset at once, or a tray offset along its row, so the
+result says nothing about those.
+
+*How the methods compare, by the scoring of 56.3.*
+
+| Set | Stills | A trays | C trays (from tags + from blue) | A's trays matched by C | C's trays matched by A |
+|---|---|---|---|---|---|
+| Development | 12 | 72 | 73 (47 + 26) | **72 (100%)** | 72 (99%) |
+| Production | 12 | 89 | 108 (80 + 28) | 80 (90%) | 80 (74%) |
+| Old production (T7) | 35 | 372 | 425 (376 + 49) | 299 (80%) | 299 (70%) |
+
+- **C never comes up empty where A finds trays** (0 of 59 stills), the failure B has by
+  construction. Where no tag is read, C falls back to the blue and returns what A returns.
+- **C finds fewer trays than A on exactly 4 stills**, and they are the four of the off-grid
+  layout: 11 against A's 12. That is the fault of section 55, corrected. On that still C's rim
+  coverage is 0.82 to 0.98 per tray, the leftover blue is 0.18 of a tray, and C agrees with A on
+  10 of A's 12 outlines, differing on exactly the two A splits wrongly.
+- **C finds more trays than A on 21 stills.** This is its main fault and it has one cause: C
+  places a tray for every tray tag it sees, including tags that are not on a tray.
+- 20 stills have two C trays overlapping, which the leftover check reports.
+
+*Rim coverage, 606 placed trays.* The share of a tray's 9 mm rim band that is blue.
+
+| Trays | Count | Min | 1st decile | Median | 9th decile | Max |
+|---|---|---|---|---|---|---|
+| Placed from a tag | 503 | 0.08 | 0.48 | 0.76 | 0.95 | 0.99 |
+| Found in the leftover blue | 103 | 0.00 | 0.06 | 0.39 | 0.78 | 0.95 |
+
+*A floor on rim coverage, chosen from the spread above and not before it.* Dropping a tag-placed
+tray whose rim band is less than a given share blue:
+
+| Floor | Tag trays dropped | Stills where C > A | Stills where C < A | Stills where C = A |
+|---|---|---|---|---|
+| none | 0 | 21 | 4 | 34 |
+| 0.30 | 16 | 18 | 4 | 37 |
+| **0.40** | **28** | **16** | **4** | **39** |
+| 0.45 | 35 | 15 | 6 | 38 |
+| 0.50 | 61 | 12 | 19 | 28 |
+| 0.60 | 115 | 8 | 22 | 29 |
+
+0.40 is the knee: it removes the most trays that are not there before it starts removing trays
+that are. At 0.45 genuine trays begin to go (C < A rises from 4 to 6) and by 0.50 the method is
+losing 19 stills' worth. **The floor is a decision read off this table, not a measurement.**
+
+*Time per still, measured on `ac-testing` (aarch64, 4 cores, 4 GB, the same class as production,
+idle, nothing else running).*
+
+| Step | Seconds |
+|---|---|
+| Decoding the photo at quarter size | 0.6 to 1.1 |
+| A, the app's finder | 0.11 to 0.88 |
+| C | 0.17 to 1.98 |
+
+Against a budget of one photo per 60 s shared with every other task (Aaron, 2026-11-27), C costs
+about 1 to 2 s. **Measured idle: not measured with the camera, scheduler and web server running,
+which is the figure that counts.** Two things made that possible and are worth recording: the rim
+band is scored only in the tray's own neighbourhood rather than across the whole frame, and the
+nudge searches coarsely then finely. Before those, C took 6 to 9 s per still on a much faster
+machine and gave the same answer.
+
+*Against the conditions set in 56.4.*
+
+| Condition | Met |
+|---|---|
+| 1. Finds the off-grid tray of photo 319 | **Yes**, within 1 mm of the known centre of section 55 |
+| 2. At least as good as A on the tidy stills | **No.** 100% on development, but C places trays that are not there on 21 stills, 16 after the 0.40 floor |
+| 3. Places no tray where there is none | **No**, for the same reason |
+| 4. Flags itself when it is wrong rather than being quietly wrong | **Partly.** Overlaps are reported on 20 stills; a tray placed on a tag that is not on a tray is not |
+| 5. Within the time budget | **Yes** idle, 1 to 2 s against 60 s; not yet measured under load |
+
+**C is not adopted yet.** It does what it was built for and it never loses a tray, but it invents
+trays from tags that are not on trays, and conditions 2 and 3 were written to stop exactly that.
+
+*Two faults found while building the methods, recorded so they are not met again.* A tray tag lies
+in one corner cell of its tray, but which corner depends on how the tray was laid down, and the
+two readings put the tray's centre about 350 mm apart. The app settles it with the slot layout;
+these methods had none and first took one reading always, which put 5 of 11 trays off the table on
+the production still. Letting the blue settle it -- the corner whose outline covers more blue --
+took the mean rim coverage on that still from 0.25 to 0.93 and the leftover blue from 1.04 trays
+to 0.18.
+
+**Covered trays are beyond both methods.** On a production still of about ten trays under clear
+propagator lids, the blue is hidden, no tray tag is read, and some trays run out of frame. A finds
+4 outlines, one of them turned about 45 degrees to the table, and C returns the same 4 because it
+has no tag to anchor on. The rig reports those 4 as trays with only "no tag" against them. On a
+still like this the honest answer is that the trays are covered and not measured, and an outline
+turned about 45 degrees to the table and to every other tray is not a tray. Neither check exists
+(Aaron, 2026-11-27).
+
+### 56.7 The same stills split by which tag the trays carried (2026-11-27, after 56.6)
+
+56.6 scored all 59 stills together, and that understates C. Looking at the sheets, Aaron picked
+out an October still where C was far worse than A: eighteen trays against A's twelve, overlapping
+and turned at angles. That still is not a hard scene. It is the **20 mm edge tag** layout of 12 to
+19 October, where a tag was stuck on the rim of a tray instead of lying in a corner cell. C places
+a tray by stepping a fixed distance from the tag's corner cell, so with an edge tag the step is
+simply wrong and every tag throws out a tray. Section 20.1 recorded the same failure for every
+tag-led method on these stills. Those tags were replaced by the roughly 40 mm cell A1 tags on
+2026-10-19 (Aaron, CLAUDE.md), so the layout no longer occurs.
+
+Splitting the 59 stills on that date:
+
+| Stills | Count | A trays | C trays | Extra | C = A on | Mean nudge |
+|---|---|---|---|---|---|---|
+| Before 2026-10-20, 20 mm edge tags, obsolete | 20 | 240 | 290 | +50 | 6 of 20 | 23 mm |
+| 2026-10-20 onward, cell A1 tags, as used now | 39 | 293 | 316 | +23 | 28 of 39 | 11 mm |
+
+The mean nudge tells the same story: on the obsolete stills C moves each tray 23 mm, against its
+25 mm limit, because there is nothing for it to settle on; on current stills it moves 11 mm.
+
+*With the 0.40 rim-coverage floor of 56.6, on the 39 current stills only:*
+
+| Floor | Extra trays over A | C > A | C < A | C = A |
+|---|---|---|---|---|
+| none | +23 | 7 | 4 | 28 |
+| **0.40** | **0** | **4** | **4** | **31** |
+| 0.50 | -15 | 3 | 14 | 22 |
+
+At 0.40 the net extra trays fall to zero and C matches A on 31 of 39 stills. Of the 8 that differ,
+**4 are the off-grid layout where A is wrong and C is right**, and 4 have one extra tray each.
+
+**What this does and does not show.** It does not show C is correct. A is not truth: on the four
+off-grid stills A is the method known to be wrong. For the four stills where C has one tray more
+than A, nobody has yet looked at which is right. The floor was also read off this same set, so it
+is fitted to it. What the split does show is that C's bad behaviour in 56.6 was concentrated in a
+tag layout the rig stopped using in October, and that on the layouts in use now C and A agree on
+four stills in five.
+
+**A remains better than C on the obsolete stills, and on covered trays**, where C has nothing to
+anchor on and falls back to A anyway.
+
+### 56.8 A tray placed in the gangway, and why no rim score rejects it (2026-11-27)
+
+Aaron found the case on the still of 2026-11-09 (old production, current cell A1 tags, grown
+plants): the app finds 10 trays, C finds 11, and C's extra one sits in the empty gangway between
+the two rows of trays, on bare table. The tray it was placed from is found correctly in the same
+run, from the blue, so C reports the same physical tray twice: once in the right place with no
+name, and once in the gangway carrying the tag's ID.
+
+*Cause.* A tray tag lies in a corner cell, and stepping from it to the tray's centre has two
+readings 350 mm apart (56.6). C chooses between them by which outline covers more blue. In the
+gangway the wrong reading's rim band clips the real tray above it and the real tray below it, so
+it picks up blue on two of its four sides and wins the vote.
+
+*Does a floor reject it?* No, by either rule. Measured on that still:
+
+| Tray | Whole rim loop | Worst side | Second worst side |
+|---|---|---|---|
+| The gangway tray | 0.662 | 0.453 | 0.460 |
+| Genuine trays, range | 0.362 to 0.867 | 0.155 to 0.624 | 0.157 to 0.815 |
+
+The gangway tray scores **above** the 0.40 floor of 56.6 on the whole loop, and its worst side,
+0.453, is higher than the worst side of several genuine trays, the lowest of which is 0.211 (a
+tray partly under a calibration sheet). Taking the worst of the four sides instead of the loop as
+a whole, which was tried because a tray ought to have blue on all four sides, does not separate
+them: the two distributions overlap.
+
+**So rim coverage cannot tell a tray from a well-placed guess.** The quantity that was meant to
+make C self-checking does not do it, and no threshold read off this still would. This is the
+second case Aaron picked out of the sheets where the app's method is the better of the two, after
+the trays under clear lids (56.6).
+
+*Standing.* C fixes the fault of section 55 on the four stills that have it, and on 31 of 39
+current stills it agrees with the app. Against that it places trays that are not there, by a
+mechanism no measurement in this test rejects. Condition 3 of 56.4 is not met and no fix for it
+has been found. **C is not adopted, and no further version of it should be built until there is a
+measurement that separates a real tray from a well-placed guess.**
+
+### 56.9 Method D: the app everywhere, tags re-cutting only a block short of tags (2026-11-27)
+
+56.8 closed the line of work where tags place every tray: no measurement separated a real tray
+from a well-placed guess, so the method made trays that were not there. D takes the opposite
+shape, and it follows from what 56.6 to 56.8 measured.
+
+*The method.* The app runs unchanged. Only a block of touching trays whose grid cut returned more
+outlines than the tags read in it -- the signal already shipped as the warning "fewer tags than
+trays" (#579) -- is re-cut, by placing one tray per tag inside that block. **Every tray so placed
+must have its centre inside that block's own blue**, with 40 mm of slack for a tray at the edge of
+the block. Blue in the block that no placed tray covers keeps the app's outline. Everything
+outside such a block is the app's own answer, untouched.
+
+That constraint is what rules out the two faults Aaron found in the sheets. The gangway between
+two rows of trays is not part of a blue block, so a tray cannot be placed there (56.8). A tag that
+is not on a tray is not inside a suspect block, so it places nothing (the still of 2026-11-26 with
+23 tray tags).
+
+*Result, on the 69 stills of 56.2 plus the 10 calibration and validation stills of 56.7.*
+
+| Measure | Value |
+|---|---|
+| Stills where D's tray count equals the app's | **63 of 69** |
+| Stills where D re-cut any block at all | 11 |
+| Stills where D differs from the app | 6 |
+| Of those, the off-grid layout of section 55 | 4, each 12 outlines down to 11, one per tray |
+| Of those, 15 October stills with the obsolete 20 mm edge tags | 2 |
+
+On every still taken with the cell A1 tags in use now, D differs from the app **only** on the four
+that carry the fault it exists to fix.
+
+*Truth by inspection (Aaron, 2026-11-27).* Ten sheets covering the off-grid layout, grown plants,
+pots, empty trays, trays under clear lids, a still with 23 tray tags, production validation,
+archive calibration and validation, and a development still with two untagged trays. His verdict:
+"The before and after were similar for most and the edge cases were all better on the after with
+the exception of" the still of trays under clear lids, which he called "a legitimately hard one to
+deal with".
+
+*The one still he excepted is unchanged by D.* Trays under clear propagator lids: the blue is
+hidden, no tray tag is read, so no block is suspect and D returns the app's own four outlines, one
+of them turned about 45 degrees to the table where there are about ten trays. That is the
+pre-existing limit recorded in 56.6, not something D introduces, and it is still open.
+
+*Decision in D, not a measurement.* The 40 mm of slack on the block hull, which lets a tray at the
+edge of a block reach past the blue of its neighbours.
+
+*A decision that belongs to C, recorded here because it was measured.* C hands the blue its placed
+trays do not cover back to the app's finder, and blanking only the outline leaves each tray's own
+rim behind as a strip; two such strips either side of a gangway merge into a tray that is not
+there. On the validation still of 2026-10-27, blanking 5 mm beyond each tray removed that false
+tray and changed nothing on the other calibration and validation stills. D does not hand anything
+back to the finder, so it does not need this.
+
+*Figures.* `docs/figures/56/off-grid-tray-before-after.jpg`: production photo 319, the app's
+twelve outlines above and D's eleven below, outlines in yellow and numbered; the tray at the left
+is the one the app splits. `docs/figures/56/trays-under-lids-before-after.jpg`: the still Aaron
+excepted, where D returns the app's own four outlines for about ten trays under clear lids. Both
+made by `experiments/577-tray-from-tags/draw.py` on 2026-11-27 and scaled to 1400 px wide.
+
+![Photo 319, the app's outlines above and method D's below](figures/56/off-grid-tray-before-after.jpg)
+
+![Trays under clear lids, unchanged by method D](figures/56/trays-under-lids-before-after.jpg)
+
+### 56.10 What was built into the app, measured again (2026-11-27)
+
+`tray_placement.recut_short_blocks` is D with four changes made after a review of the branch, and
+it was measured again on the same 69 stills rather than assumed to behave as D did. The changes:
+a re-cut tray keeps "partly outside the photo" when it reaches the frame (D dropped it, so a tray
+half out of the picture had its area reported as if it were whole); two placed trays may not
+overlap by more than `MAX_OVERLAP`, as the grid cut already required, so a spare tag lying on a
+tray cannot put the same plants on two trays; which outline a tag belongs to is taken from one
+rule shared with `name_trays`, so a block cannot be warned without being re-cut; and the nudge may
+leave a tray where its tag put it, which D's search could not.
+
+*Result, scored as 56.3, split on the date the 20 mm edge tags were replaced.*
+
+| Stills | Count | Same tray count as the app | Every app outline reproduced | Differ |
+|---|---|---|---|---|
+| 2026-10-20 onward, cell A1 tags as used now | 49 | 45 | 45 | **4** |
+| Before 2026-10-20, 20 mm edge tags, obsolete | 20 | 20 | 13 | 7 |
+
+On the stills using today's tags the app's answer is reproduced exactly on 45 of 49, and the four
+that differ are the off-grid layout: 12 outlines become 11, ten of the app's twelve are kept and
+the two that split a tray are replaced by one tray on it. This is better than D, which left 6
+stills differing: the overlap guard removed two of them.
+
+**On the obsolete edge-tag stills the tray count never changes but the outlines move**, on 7 of
+20, down to 5 of 12 reproduced on the worst. Those tags did not lie in a corner cell, so a tray
+placed from one lands wrongly; the block hull keeps it inside the trays' own blue, which is why
+the count holds. Neither rig has used that layout since 2026-10-19 and no experiment running now
+carries it, but **re-reading a still from before that date would move its trays**. Nothing here
+measures which of the two is nearer the truth on those stills; section 20.1 found the tag-led
+methods wrong on them and the blue finder right, so the app's own outlines should be preferred
+there.
+
+Six stills, all of that obsolete set, gain one more "partly outside the photo" than the app gives.
+A tray is never left without the mark where the app set it.
+
+*Where the raw data is.* Scripts in `experiments/577-tray-from-tags/`: `methods.py` holds B, C and
+D, `compare.py` scores A, B and C on one still, `run_method_d.py` scores D, and `draw.py` makes the
+before-and-after sheet. Each takes a folder of copied stills, so the numbers above can be produced
+again from a copy of the same photographs; the photographs themselves are not in the repository
+and the per-still output (`cmp.jsonl`, `d.jsonl`) is not either. The sheets Aaron inspected were
+served from a scratch folder that is not kept; the two that carry the result are in
+`docs/figures/56/`.
+

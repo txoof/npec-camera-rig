@@ -155,6 +155,21 @@ def _inside(point: tuple[float, float], corners: tuple[tuple[float, float], ...]
 BLOCK_SUSPECT = "fewer tags than trays"
 
 
+def tags_at_home(outlines: list[TrayOutline], tags: list[TagDetection]) -> dict[int, int]:
+    """Which outline each tag of `tags` belongs to, as {index in `tags`: index in `outlines`}.
+
+    Accepted outlines may overlap a little (`MAX_OVERLAP`): a tag in the strip two share names
+    only the one whose centre is nearer, never both (review of #334). Naming and the re-cut of a
+    block short of tags both use this, so a block cannot be warned without being re-cut (#577).
+    """
+    home: dict[int, int] = {}
+    for k, tag in enumerate(tags):
+        holding = [i for i, o in enumerate(outlines) if _inside(tag.centre, o.corners)]
+        if holding:
+            home[k] = min(holding, key=lambda i: math.dist(tag.centre, outlines[i].centre))
+    return home
+
+
 def name_trays(outlines: list[TrayOutline], detections: list[TagDetection]) -> list[TrayPlacement]:
     """Each outline found in the photo named by the tray tag whose centre lies inside it, wherever
     the tag lies in the tray (#331): its place in the tray is never used. A tray tag inside no
@@ -162,13 +177,7 @@ def name_trays(outlines: list[TrayOutline], detections: list[TagDetection]) -> l
     blue, under a sheet), and a tray placed from the tag assumed it lay in cell A1, putting edge
     tags and second tags about 176 mm off (#331). Trays can lie anywhere on the table: no slot."""
     tags = [t for t in detections if t.tag_id in TRAY_ID_RANGE]
-    # Accepted outlines may overlap a little (`MAX_OVERLAP`): a tag in the strip two share names
-    # only the one whose centre is nearer, never both (review of #334).
-    home: dict[int, int] = {}
-    for k, tag in enumerate(tags):
-        holding = [i for i, o in enumerate(outlines) if _inside(tag.centre, o.corners)]
-        if holding:
-            home[k] = min(holding, key=lambda i: math.dist(tag.centre, outlines[i].centre))
+    home = tags_at_home(outlines, tags)
     # A block of two or more outlines cut from one blue piece, holding at least one tag and at
     # least one outline with no tag: fewer tags than outlines, so the cut is not to be trusted
     # for any tray in it. A block with no tag at all is left alone: nothing there says how many
@@ -378,6 +387,176 @@ def find_outlines(image: np.ndarray, scale_field: ScaleField, factor: float) -> 
             accepted.append(c)
             out.append(_tray_outline(cell, factor, edge, block))
     return out
+
+
+# --- A block of touching trays re-cut from its tags (#577) --------------------------------------
+# The grid cut above assumes the trays of one blue piece lie on a grid. A tray lying off that grid
+# is split across two outlines, neither of them the tray, and its plants are counted on the wrong
+# one (metrology log 55). A block holding fewer tags than outlines is the signal for it (#579), so
+# only such a block is re-cut, by placing one tray per tag in it. Everything else is left exactly
+# as the grid cut had it: on 69 stills the re-cut touched 11 and changed the tray count on 6, four
+# of them the fault it exists to fix (metrology log 56.9).
+
+# How far outside its block's blue a re-cut tray's centre may lie, mm: a tray at the edge of a
+# block reaches past the blue of its neighbours. A decision, not a measurement (56.9).
+BLOCK_SLACK_MM = 40.0
+# How far a re-cut tray may be moved from where its tag put it, mm. The tag places a tray to about
+# 10 mm (metrology log 15.5l) and the blue rim to about 3 mm (log 20), so a larger move is not a
+# correction. A decision, not a measurement.
+NUDGE_MM = 25.0
+NUDGE_STEP_MM = 2.0
+# How far inside its outline a tray's lit rim is looked for, mm; the tray wall measures 11 to
+# 13 mm (review of #281). The erode below takes half of this off each side, so the band actually
+# sampled is about 4.5 mm: the inner half of the wall, which is the part that faces the lights.
+# Tuned on the stills of metrology log 56, so changing either number changes the measured result.
+RIM_BAND_MM = 9.0
+
+
+def _ring_score(rim: np.ndarray, corners: np.ndarray, band_px: float) -> float:
+    """How much of the band just inside `corners` is blue rim. Only that neighbourhood of the
+    photo is touched: building the band across the whole frame made this hundreds of times slower
+    for the same answer (#577)."""
+    pts = np.asarray(corners, float)
+    pad = int(band_px) + 3
+    x0, y0 = max(0, int(pts[:, 0].min()) - pad), max(0, int(pts[:, 1].min()) - pad)
+    x1, y1 = min(rim.shape[1], int(pts[:, 0].max()) + pad), min(rim.shape[0], int(pts[:, 1].max()) + pad)
+    if x1 <= x0 or y1 <= y0:
+        return 0.0
+    outer = np.zeros((y1 - y0, x1 - x0), np.uint8)
+    cv2.fillConvexPoly(outer, np.round(pts - (x0, y0)).astype(np.int32), 1)
+    ring = outer - cv2.erode(outer, np.ones((3, 3), np.uint8), iterations=max(1, int(round(band_px / 2))))
+    n = int(ring.sum())
+    return 0.0 if n == 0 else float((rim[y0:y1, x0:x1] & ring.astype(bool)).sum()) / n
+
+
+def _nudged(corners: np.ndarray, rim: np.ndarray, ppm_small: float) -> tuple[np.ndarray, float]:
+    """`corners` (small-image pixels) moved, within `NUDGE_MM`, to where its rim band covers the
+    most blue. Coarse pass then fine: the same answer as the full grid, far less work."""
+    band, step = max(2.0, RIM_BAND_MM * ppm_small), max(1.0, NUDGE_STEP_MM * ppm_small)
+    reach = NUDGE_MM * ppm_small
+    best, at = None, (0.0, 0.0)
+    for scale in (4.0, 1.0):
+        base, span = at, reach if scale > 1 else step * 3
+        size = step * scale
+        # Symmetric about the offset so far, and including it: the tray must be allowed to stay
+        # where its tag put it.
+        steps = np.arange(-int(span / size), int(span / size) + 1) * size
+        for dy in steps:
+            for dx in steps:
+                ox, oy = base[0] + dx, base[1] + dy
+                if math.hypot(ox, oy) > reach:
+                    continue
+                s = _ring_score(rim, corners + (ox, oy), band)
+                if best is None or s > best:
+                    best, at = s, (ox, oy)
+    return corners + at, best or 0.0
+
+
+def _reaches_edge(corners: np.ndarray, shape: tuple[int, int]) -> bool:
+    """Whether a tray's outline (small-image pixels) reaches the photo's edge, by the same test
+    the grid cut uses. A re-cut tray that loses this loses "partly outside the photo" with it, and
+    its area is reported as if the whole tray were in the picture (#577)."""
+    height, width = shape[:2]
+    pts = np.asarray(corners, float)
+    return bool(((pts[:, 0] <= 2) | (pts[:, 1] <= 2)
+                 | (pts[:, 0] >= width - 3) | (pts[:, 1] >= height - 3)).any())
+
+
+def _tray_from_tag(tag: TagDetection, ppm: float, sign: int) -> tuple[tuple[float, float], float]:
+    """The centre and tilt of the tray whose cell A1 holds `tag`, taking the tag's corner to be
+    the one `sign` picks: the two readings lie about 350 mm apart, so the wrong one puts the tray
+    off the table (metrology log 56.6)."""
+    tilt = _tilt_deg(tag)
+    t = math.radians(180 + tilt)
+    right, up = (math.cos(t), math.sin(t)), (math.sin(t), -math.cos(t))
+    dx = (A1_TAG_TO_CENTRE_MM[0] * right[0] + A1_TAG_TO_CENTRE_MM[1] * up[0]) * ppm
+    dy = (A1_TAG_TO_CENTRE_MM[0] * right[1] + A1_TAG_TO_CENTRE_MM[1] * up[1]) * ppm
+    return (tag.centre[0] + sign * dx, tag.centre[1] + sign * dy), tilt
+
+
+def recut_short_blocks(
+    outlines: list[TrayOutline], detections: list[TagDetection], image: np.ndarray,
+    scale_field: ScaleField, factor: float,
+) -> list[TrayOutline]:
+    """`outlines` with every block short of tags re-cut from the tags inside it.
+
+    A block is short of tags when its outlines hold at least one tag and at least one outline has
+    none: more outlines than trays were read there, so its grid cut cannot be trusted (#579). Such
+    a block is replaced by one tray per tag in it, each placed from its tag and moved onto the
+    blue rim beside it, and any outline of the block that no placed tray covers is kept.
+
+    A placed tray's centre must lie inside the block's own blue, within `BLOCK_SLACK_MM`. Without
+    that, a tag places a tray in the gangway between two rows, where the rims of the trays above
+    and below make it look real (metrology log 56.8).
+    """
+    tags = [t for t in detections if t.tag_id in TRAY_ID_RANGE]
+    if not tags or not outlines:
+        return outlines
+    short = _blocks_short_of_tags(outlines, tags)
+    if not short:
+        return outlines
+    rim = _blue_rim(image)
+    kept = [o for o in outlines if o.block not in short]
+    for block in sorted(short):
+        members = [o for o in outlines if o.block == block]
+        kept += _recut_block(members, tags, rim, scale_field, factor)
+    return kept
+
+
+def _blocks_short_of_tags(outlines: list[TrayOutline], tags: list[TagDetection]) -> set[int]:
+    """The blocks `name_trays` warns with `BLOCK_SUSPECT`, by the same rule, so that a block is
+    never warned without being re-cut or re-cut without being warned (#577)."""
+    holds = set(tags_at_home(outlines, tags).values())
+    per_block = Counter(o.block for o in outlines if o.block >= 0)
+    with_tag = {outlines[i].block for i in holds}
+    return {o.block for i, o in enumerate(outlines)
+            if o.block >= 0 and per_block[o.block] > 1 and o.block in with_tag and i not in holds}
+
+
+def _recut_block(
+    members: list[TrayOutline], tags: list[TagDetection], rim: np.ndarray,
+    scale_field: ScaleField, factor: float,
+) -> list[TrayOutline]:
+    hull = cv2.convexHull(
+        np.vstack([np.asarray(o.corners, float) / factor for o in members]).astype(np.float32)
+    ).reshape(-1, 2).astype(np.float32)
+    ppm_small = scale_field.px_per_mm(*members[0].centre) / factor
+    slack = BLOCK_SLACK_MM * ppm_small
+
+    def in_block(point: tuple[float, float]) -> bool:
+        return cv2.pointPolygonTest(hull, (point[0] / factor, point[1] / factor), True) >= -slack
+
+    placed: list[TrayOutline] = []
+    for tag in sorted(tags, key=lambda t: t.tag_id):
+        if not in_block(tag.centre):
+            continue
+        best = None
+        for sign in (1, -1):
+            centre, tilt = _tray_from_tag(tag, scale_field.px_per_mm(*tag.centre), sign)
+            if not in_block(centre):
+                continue
+            corners = np.asarray(tray_outline_at(centre, tilt, scale_field.px_per_mm(*tag.centre)), float) / factor
+            moved, score = _nudged(corners, rim, ppm_small)
+            if best is None or score > best[0]:
+                best = (score, moved, tilt)
+        if best is None:
+            continue
+        tray = _tray_outline(best[1], factor, _reaches_edge(best[1], rim.shape), members[0].block)
+        # Two tags on one tray, or a spare tag card lying on one, would otherwise place the same
+        # tray twice and count its plants on both. The grid cut guards the same way (#577).
+        corners = np.asarray(tray.corners, np.float32)
+        if any(cv2.intersectConvexConvex(corners, np.asarray(p.corners, np.float32))[0]
+               > MAX_OVERLAP * cv2.contourArea(corners) for p in placed):
+            continue
+        placed.append(tray)
+    if not placed:
+        return members
+    for o in members:
+        c = np.asarray(o.corners, np.float32)
+        if not any(cv2.intersectConvexConvex(c, np.asarray(p.corners, np.float32))[0] > MAX_OVERLAP * cv2.contourArea(c)
+                   for p in placed):
+            placed.append(o)
+    return placed
 
 
 # --- Cells placed from the tray's outline and tag (#364) ----------------------------------------

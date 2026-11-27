@@ -41,6 +41,7 @@ from npec_rig.tray_placement import (
     TrayPlacement,
     find_outlines,
     name_trays,
+    recut_short_blocks,
     nearest_slot,
     a1_bearing_deg,
     place_cells,
@@ -182,6 +183,10 @@ def found_trays(
         small = _small_copy(path)
         if small is not None:
             outlines = find_outlines(small[0], scale_field, small[1])
+            # A block of touching trays holding fewer tags than outlines is re-cut from its tags:
+            # the grid cut cannot represent a tray lying off the block's grid (#577, metrology log
+            # 55 and 56.9). Every other block is left exactly as the cut had it.
+            outlines = recut_short_blocks(outlines, tags, small[0], scale_field, small[1])
         elif outlines := _saved_outlines(saved):
             pass
         else:
