@@ -1,6 +1,8 @@
 import contextlib
 import json
+import logging
 import sqlite3
+import threading
 import time
 
 import pytest
@@ -579,6 +581,13 @@ def _row(taken_at: str, path: str, experiment_id: int, calibration: str) -> None
     )
 
 
+# The longest the helper below holds rig.db's lock while waiting for the photo's row write to
+# meet it. The lock is let go the moment that happens, so this is only reached when something is
+# wrong, and the assertion on the event is what reports it. Absolute, in whole seconds: it is a
+# backstop, not a budget (#576).
+PHOTO_LOCK_CAP_S = 30.0
+
+
 def _photo_saved_while_locked(monkeypatch: pytest.MonkeyPatch, *, calibrated: bool = False) -> tuple[dict, dict]:
     """A running experiment's photo saved to disk while rig.db stayed locked, after a photo
     measured with calibration "cal-a". With `calibrated`, calibration TABLE_STEM is the active one
@@ -594,9 +603,47 @@ def _photo_saved_while_locked(monkeypatch: pytest.MonkeyPatch, *, calibrated: bo
     CameraManager.instance()
     settings.photo_quality_in_use()
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
-    with lock_held(1.0):
-        _array, record = captures.take_photo("capture")
+    row_met_the_lock = threading.Event()
+
+    class CaptureRowGaveUp(logging.Handler):
+        """Set when the photo's own row write gives up on the lock, and nothing else.
+
+        database logs `<caller>: rig.db was locked, gave up after N s`. Matching the caller
+        matters: taking a photo also stores the last tick and reads the camera events, and either
+        of those giving up would end the lock before the row write had met it -- which is the one
+        thing this helper exists to arrange (#576)."""
+
+        def emit(self, record: logging.LogRecord) -> None:
+            if record.getMessage().startswith("record_capture:"):
+                row_met_the_lock.set()
+
+    handler = CaptureRowGaveUp()
+    logging.getLogger("npec_rig.database").addHandler(handler)
+    try:
+        # The lock lasts exactly as long as the photo's row write needs to meet it, with
+        # PHOTO_LOCK_CAP_S behind it as a backstop.
+        #
+        # It was a flat 1 s, which is a guess at how long taking a photo takes. On a loaded Pi it
+        # took longer: the lock had already gone by the time the row was written, the row saved
+        # normally, and the test failed with `assert 2 is None` -- the rig working, and the test
+        # measuring the machine's speed rather than the behaviour. 1 of 12 full runs on ARM
+        # (#576). Ending the lock on the write rather than on the clock keeps the run short
+        # without depending on how fast the machine is.
+        with lock_held(PHOTO_LOCK_CAP_S, until=row_met_the_lock):
+            try:
+                _array, record = captures.take_photo("capture")
+            except BaseException:
+                # Let the lock go now. lock_held joins its holder on the way out and the holder is
+                # sitting in until.wait(PHOTO_LOCK_CAP_S), so a failure here would otherwise be
+                # reported only after the rest of the backstop had run out.
+                row_met_the_lock.set()
+                raise
+    finally:
+        logging.getLogger("npec_rig.database").removeHandler(handler)
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 10.0)
+    # Before the assertion below: if the row write never met the lock, the photo was never saved
+    # under one and `capture_id` being None would mean something else entirely.
+    assert row_met_the_lock.is_set(), "the photo's row write never met the lock"
     assert record["capture_id"] is None  # the photo is on disk, its row is not
     return experiment, record
 

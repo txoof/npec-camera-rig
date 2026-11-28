@@ -716,31 +716,24 @@ def test_a_reprocess_left_running_when_the_app_stopped_is_marked_interrupted_and
     _wait_until_finished(client, experiment_id)  # its thread ends before the next test starts
 
 
-def _lock_once_tags_are_stored(path: str, *, until=None, seconds: float = 5.0):
-    """A thread that takes rig.db's write lock the moment the photo's tags are stored (images.py), so
-    that saving the reading is the first write to meet it; started by the caller, joined at the end."""
-    import threading
-    import time
-
-    from npec_rig import images
-    from tests.helpers import lock_held
-
-    def run() -> None:
-        while images.stored_tag_detections(path) is None:
-            time.sleep(0.001)
-        with lock_held(seconds, until=until):
-            if until is not None:
-                until.wait(seconds)
-
-    return threading.Thread(target=run)
-
-
 def _wait_until_finished(client, experiment_id: int, timeout_s: float = 30) -> dict:
+    """Poll the Reprocess progress route until the run has ended.
+
+    Through read_rig_db: the tests that lock rig.db shorten settings.LOCK_WAIT_S, and
+    database._connect gives that same short wait to every connection, including the one this
+    route reads on. A poll landing while something commits then raised
+    `sqlite3.OperationalError: database is locked` out of the route, which TestClient re-raises,
+    and the test failed for its own read rather than for the rig's behaviour. 1 failure in 8 full
+    runs on an idle Pi, and the same mechanism failed the Arm64 CI runner on #575 (#576)."""
     import time
+
+    from tests.helpers import read_rig_db
 
     deadline = time.monotonic() + timeout_s
     while True:
-        progress = client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+        progress = read_rig_db(
+            lambda: client.get(f"/api/experiments/{experiment_id}/reprocess").json()
+        )
         if not progress["running"]:
             return progress
         assert time.monotonic() < deadline, "Reprocess did not finish"
@@ -749,37 +742,91 @@ def _wait_until_finished(client, experiment_id: int, timeout_s: float = 30) -> d
 
 def test_a_photo_that_meets_a_rig_db_lock_is_tried_again(monkeypatch, twin) -> None:
     """The lock is taken as the photo's reading is about to be saved and let go when the first
-    failure to save is logged: the photo is read on the next try and the run reports no failure."""
+    failure to save is logged: the photo is read on the next try and the run reports no failure.
+
+    The moment is reached on purpose, by the same means as the sibling test below: the tags are
+    searched up front, and this test holds `images.full_decode_slot()` from before the request, so
+    the run cannot get past segmenting -- its last step before it saves anything -- until the lock
+    is up and the slot let go. Nothing is raced, and nothing of the test's own touches rig.db
+    while the request runs.
+
+    That last part is why the watching thread this test used to start is gone. It polled
+    `images.stored_tag_detections(path)` every 5 ms to find the moment, and each of those calls
+    opens and closes a rig.db connection, so the test was contending with the very request it is
+    about: `get_experiment` takes rig.db's write lock in `migrate` (`BEGIN IMMEDIATE`) and has
+    only the shortened `LOCK_WAIT_S` to win it. It lost one full run in 8 on a loaded ARM box,
+    failing with `database is locked` at the POST -- the test's own contention, not the rig's
+    behaviour (#576)."""
     import logging
     import threading
 
     from fastapi.testclient import TestClient
 
-    from npec_rig import settings, tray_readings
+    from npec_rig import images, photo_tags, settings, tray_readings
     from npec_rig.app import app
+    from tests.helpers import lock_held
 
     experiment_id, [path] = _experiment_with_photos(twin, 1)
+    # Stored before the lock goes up, so only writes meet it (#561), and the run's one use of the
+    # decode slot is then its segmentation, which is what the slot below holds it at.
+    photo_tags.photo_tags_for(path)
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.1)
     monkeypatch.setattr(tray_readings, "REPROCESS_LOCK_WAIT_S", 0.05)
     gave_up = threading.Event()
+    save_met_the_lock = threading.Event()
 
     class FirstLockFailure(logging.Handler):
+        """Set when the reading's own save meets the lock, and nothing else.
+
+        database logs `<caller>: rig.db was locked, gave up after N s`. Matching the caller
+        matters twice over: any other query giving up -- including one from a thread another test
+        left running -- would otherwise end the lock early, and the test could then pass with the
+        Reprocess never having met it at all (#576)."""
+
         def emit(self, record: logging.LogRecord) -> None:
-            if "was locked" in record.getMessage():
+            if record.getMessage().startswith("record_tray_readings:"):
+                save_met_the_lock.set()
                 gave_up.set()
 
     handler = FirstLockFailure()
-    logging.getLogger("npec_rig.database").addHandler(handler)
-    locker = _lock_once_tags_are_stored(path, until=gave_up)
     client = TestClient(app)
+    slot = images.full_decode_slot()
+    # Timed, and asserted: this is the one process-global decode slot, shared with the tag search
+    # and with every other test in this xdist worker. An untimed acquire would block the worker
+    # for ever if anything else were holding it -- no output, no test named, CI reporting a
+    # 20-minute timeout instead of a failure (#576).
+    assert slot.acquire(timeout=30), "the full-decode slot was already held"
+    holding_slot = True
+    # The lock is let go the moment the save meets it, so this cap is only reached when something
+    # is wrong; `save_met_the_lock` below is what catches that.
+    lock_cap_s = 60
     try:
-        locker.start()
+        # Inside the try, so the `finally` below always takes it off again. Added before the slot
+        # assertion above, that assertion -- a failure this test expects and names -- left the
+        # handler on the module-level logger for the rest of the worker's session, where it went
+        # on firing for every later test's rig.db warnings (/code-review on #576).
+        logging.getLogger("npec_rig.database").addHandler(handler)
         assert client.post(f"/api/experiments/{experiment_id}/reprocess", json={"confirm": experiment_id}).status_code == 200
-        progress = _wait_until_finished(client, experiment_id)
+        with lock_held(lock_cap_s, until=gave_up):
+            slot.release()  # the run segments, then its save is the first write to meet the lock
+            holding_slot = False
+            try:
+                progress = _wait_until_finished(client, experiment_id)
+            except BaseException:
+                # Let the lock go now. lock_held joins its holder on the way out and the holder is
+                # sitting in until.wait(lock_cap_s), so a failure here would otherwise be reported
+                # only after the rest of the cap had run out.
+                gave_up.set()
+                raise
     finally:
         gave_up.set()
-        locker.join(15)
+        if holding_slot:
+            slot.release()
         logging.getLogger("npec_rig.database").removeHandler(handler)
+
+    # Before anything else: a run that never met the lock was never tried again, and every
+    # assertion below then holds for the wrong reason.
+    assert save_met_the_lock.is_set(), "the reading's save never met the lock"
 
     assert (progress["state"], progress["done"], progress["failed"]) == ("finished", 1, 0)
     assert tray_readings.photo_readings(path)["status"] == "read"
@@ -821,7 +868,8 @@ def test_a_photo_that_stays_locked_is_given_up_after_the_cap_and_listed(monkeypa
     client = TestClient(app)
     slot = images.full_decode_slot()
     # Timed: this is the one process-global decode slot, shared with the tag search and with every
-    # other test in this xdist worker, and there is no pytest-timeout here. An untimed acquire
+    # other test in this xdist worker. pytest-timeout would end the run at 120 s (#576), but 120 s
+    # of a stalled worker is still 120 s of no output and no test named. An untimed acquire
     # would block the worker for ever if anything else were holding the slot -- no output, no test
     # named, CI reporting a 20-minute timeout instead of a failure.
     assert slot.acquire(timeout=30), "the full-decode slot was already held"  # the run waits here

@@ -414,7 +414,9 @@ READ_RETRY_S = 10.0
 def read_rig_db(read: Callable[[], _Read]) -> _Read:
     """`read()`, tried again for up to READ_RETRY_S while rig.db answers "database is locked".
 
-    For a read a test makes to see what the rig did, never for the rig's own work.
+    For a read a test makes to see what the rig did, never for the rig's own work. It covers a
+    read made through a route as well as a direct call: TestClient re-raises whatever the route
+    raised, so `read_rig_db(lambda: client.get(...))` retries the same way (#576).
 
     rig.db is in rollback-journal mode in these tests -- images.py switches it to WAL and the
     scheduler never reaches images.py (measured: `PRAGMA journal_mode` reads "delete" in a
@@ -493,7 +495,9 @@ def lock_held(seconds: float = 5.0, *, until: threading.Event | None = None, rea
                 finally:
                     conn.close()
 
-    thread = threading.Thread(target=hold)
+    # A daemon: every wait inside `hold` is bounded, but a daemon thread can never be the reason
+    # a pytest run fails to exit (#576).
+    thread = threading.Thread(target=hold, daemon=True)
     thread.start()
     if not taken.wait(5):
         raise RuntimeError("the rig.db lock was not taken within 5 s")

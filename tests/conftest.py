@@ -89,7 +89,10 @@ def pytest_cmdline_main(config: pytest.Config) -> None:
     if (
         config.pluginmanager.hasplugin("xdist")
         and config.option.numprocesses is None
-        and config.option.markexpr == "unit"
+        # Any selection of the unit tier, not the exact string: the default became
+        # `unit and not timing` when the `timing` marker was added, an exact match stopped
+        # recognising it, and the suite silently ran serially -- 150 s against 50 s on x86 (#576).
+        and config.option.markexpr.startswith("unit")
         and config.args_source == pytest.Config.ArgsSource.TESTPATHS
         and "PYTEST_XDIST_WORKER" not in os.environ
     ):
@@ -194,3 +197,67 @@ def isolated_settings_db(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("NPEC_RIG_DERIVED_DIR", str(tmp_path / "derived"))
     # Plant masks (segmentation.py) likewise.
     monkeypatch.setenv("NPEC_RIG_MASKS_DIR", str(tmp_path / "masks"))
+
+
+# How long a test's teardown waits for a background thread it started to end. A reader asked to
+# stop ends within one POLL_S of finishing the photo it is on; this only has to cover the photo,
+# which is a full-size decode and a segmentation. Absolute, in whole seconds, because it is real
+# work on an unknown machine, and it is a backstop: the usual wait is milliseconds (#576).
+_THREAD_HANDOVER_S = 30.0
+
+
+def _started_by_a_test(name: str) -> bool:
+    """Whether a thread of this name holds rig.db connections of its own and so must not outlive
+    the test that started it. The scheduler and the tray reader are started by `app.py`'s
+    lifespan; a Reprocess run (`tray_readings`) and an export (`exports`) are started by a
+    request and end when their work runs out, but both write to rig.db the whole way through, so
+    one still running when the next test begins is on that test's database (/code-review on
+    #576)."""
+    return name in ("tray-reader", "scheduler", "reprocess") or name.startswith("export-")
+
+
+@pytest.fixture(autouse=True)
+def _no_background_thread_outlives_its_test():
+    """No scheduler or tray reader started by a test is still running when the next one starts.
+
+    `app.py`'s lifespan stops both with `stop(timeout_s=0)`: the thread is asked to stop and not
+    waited for, which is right in production, where the process is on its way out anyway. Under
+    pytest the process does not exit. The next test starts, `isolated_settings_db` points
+    `NPEC_RIG_DB_PATH` at that test's own file, and `database._connect` looks `db_path()` up fresh
+    on every query -- so a reader left over from an earlier test goes on polling, against the new
+    test's database.
+
+    That is not only noise. `lock_held(readers_too=True)` (three tests in `test_tray_readings.py`)
+    switches rig.db out of WAL to make readers wait too, and the switch needs the file to itself:
+    a leftover reader's open connection makes it raise `sqlite3.OperationalError: database is
+    locked` before the lock is ever taken. Measured 2026-11-27 on x86, 8 full runs of `pytest` at
+    `origin/main` (8e48548): 5 red, every one of them this (#576).
+
+    Joining is all that is needed, because every one of these threads either has already been
+    asked to stop (the lifespan and the tests both set the stop event) or ends by itself when the
+    work it was given runs out. A thread that does neither sits here until the backstop and then
+    fails the test that left it, by name, which is what should happen: it would otherwise fail
+    some later test instead.
+
+    The threads already running are held as objects, not as `ident`s. A thread's `ident` is
+    reused: it is freed when that thread ends and CPython hands the same number to a later one
+    (six short-lived threads in a row shared one `ident` on the controller). A thread alive at
+    setup that ends during the test would free its number for the reader or scheduler the test
+    then starts, and keying on the number would skip exactly the leftover this exists to catch
+    (/code-review on #576)."""
+    import threading
+    import time
+
+    before = set(threading.enumerate())  # the objects: `ident` is reused, see above
+    yield
+    deadline = time.monotonic() + _THREAD_HANDOVER_S
+    left_running = []
+    for thread in threading.enumerate():
+        if thread in before or not _started_by_a_test(thread.name):
+            continue
+        thread.join(max(0.0, deadline - time.monotonic()))
+        if thread.is_alive():
+            left_running.append(thread.name)
+    assert not left_running, (
+        f"still running {_THREAD_HANDOVER_S} s after the test ended: {', '.join(left_running)}. "
+        "A thread that outlives its test reads and writes the next test's rig.db.")

@@ -159,12 +159,16 @@ def test_shutdown_closes_the_camera_only_after_an_in_flight_call(monkeypatch) ->
             released_at.append(time.monotonic())
 
     started = threading.Event()
-    grab = threading.Thread(target=hold_the_call_lock)
+    # A daemon, and every wait below is bounded. The thread blocks on the camera's call lock,
+    # which other tests take on the same process-global CameraManager: if it were ever held, an
+    # untimed wait and join here stopped pytest exiting at all (#576).
+    grab = threading.Thread(target=hold_the_call_lock, daemon=True)
     grab.start()
-    started.wait()
+    assert started.wait(30), "the call lock was never taken"
     with TestClient(app):
         pass
-    grab.join()
+    grab.join(30)
+    assert not grab.is_alive(), "the call lock was still held after 30 s"
     assert backend.closed_at is not None
     assert backend.closed_at >= released_at[0]
 

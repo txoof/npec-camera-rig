@@ -52,11 +52,17 @@ def test_a_missing_file_is_made_again_not_an_error() -> None:
 
 def test_two_requests_for_the_same_image_make_it_once() -> None:
     calls = _counting_recipe("t_threads", delay_s=0.2)
-    threads = [threading.Thread(target=images.get, args=("t_threads", "s", {"x": 1})) for _ in range(3)]
+    # Daemons with a bounded join: these block on images._key_lock, which other tests hold on
+    # purpose, and a bare join on a non-daemon thread hangs the run rather than failing it (#576).
+    threads = [
+        threading.Thread(target=images.get, args=("t_threads", "s", {"x": 1}), daemon=True)
+        for _ in range(3)
+    ]
     for t in threads:
         t.start()
     for t in threads:
-        t.join()
+        t.join(30)
+    assert not any(t.is_alive() for t in threads), "an image request was still running after 30 s"
     assert len(calls) == 1
 
 
@@ -133,14 +139,20 @@ def test_two_requests_for_the_same_photographs_tags_search_it_once(tmp_path) -> 
         time.sleep(0.2)
         return []
 
+    # Daemons with a bounded join, as above (#576).
     threads = [
-        threading.Thread(target=images.tag_detections, args=("2026-10-01/000001_000000", path, slow_detect))
+        threading.Thread(
+            target=images.tag_detections,
+            args=("2026-10-01/000001_000000", path, slow_detect),
+            daemon=True,
+        )
         for _ in range(3)
     ]
     for t in threads:
         t.start()
     for t in threads:
-        t.join()
+        t.join(30)
+    assert not any(t.is_alive() for t in threads), "a tag search was still running after 30 s"
     assert len(runs) == 1
 
 

@@ -21,7 +21,7 @@ from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
 from tests.helpers import (
-    DARK_SOIL_RGB, MINT_LEAF_RGB, TABLE_RGB, banded_validation, draw_tray, lock_held,
+    DARK_SOIL_RGB, MINT_LEAF_RGB, TABLE_RGB, banded_validation, draw_tray, lock_held, read_rig_db,
     table_calibration, table_photo,
 )
 
@@ -176,8 +176,20 @@ def test_a_photo_not_yet_read_has_no_readings(monkeypatch) -> None:
 
 
 def _wait_for(condition, timeout_s: float = 10.0) -> None:
+    """Poll until `condition` holds, through `read_rig_db`, as `test_scheduler.py`'s does.
+
+    `condition` reads rig.db, and several tests here shorten `settings.LOCK_WAIT_S` to hurry the
+    rig's own writes along. `database._connect` hands that same short wait to every connection it
+    opens, including the one this read uses, so a poll landing while something commits raises
+    `sqlite3.OperationalError: database is locked` -- with no lock held by anyone, and while the
+    rig is doing exactly what the test is checking it does.
+
+    `test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calibration` failed
+    that way 2 of 12 full runs on a Pi, in its final read of the photo's readings (#576). The
+    deadline above still decides when a test fails; the retry only stops the test failing for its
+    own read."""
     deadline = time.monotonic() + timeout_s
-    while not condition():
+    while not read_rig_db(condition):
         assert time.monotonic() < deadline, "timed out"
         time.sleep(0.02)
 
@@ -1605,6 +1617,7 @@ def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_the_re
     neither is left to be counted against it: a Reprocess with the photo gone says "a saved mask is
     missing" and changes nothing, and no temporary file is left."""
     import sqlite3
+    import threading
 
     from npec_rig import segmentation
     from npec_rig.captures import photo_file
@@ -1614,10 +1627,24 @@ def test_reprocess_that_grows_again_and_then_meets_a_locked_rig_db_leaves_the_re
     before = _saved(path)
     monkeypatch.setattr(settings, "LOCK_WAIT_S", 0.3)
 
-    # 2 s, not the helper's default 5: the reading gives up after 0.57 s (measured), and the rest
-    # of the 5 s was the holder thread sleeping on, 4 s of this file's run (#547).
-    with lock_held(2.0), pytest.raises(sqlite3.OperationalError, match="locked"):
-        tray_readings.read_photo(path, reuse_mask=True)
+    # The lock lasts exactly as long as the reading, with 30 s only as a backstop.
+    #
+    # It was a flat 2 s, cut down from the helper's default 5 so the holder did not sleep on for
+    # 4 s of this file's run (#547). The 2 s came from the 0.57 s the reading takes to give up on
+    # an x86 box, and that is the bug: on a Pi the reading outlived the lock, so nothing was
+    # locked by the time it wrote and the test failed "DID NOT RAISE", 1 of 8 full runs (#576).
+    # Ending the lock on the reading rather than on the clock keeps the short run time without
+    # depending on how fast the machine is.
+    #
+    # The event is set inside the lock, not in a finally around it: lock_held joins its holder on
+    # the way out, so an event set after the block would leave it waiting out the whole backstop.
+    reading_done = threading.Event()
+    with lock_held(30.0, until=reading_done):
+        try:
+            with pytest.raises(sqlite3.OperationalError, match="locked"):
+                tray_readings.read_photo(path, reuse_mask=True)
+        finally:
+            reading_done.set()
     assert _saved(path) == before
     assert [f.exists() for f in files] == [False, False]
     assert not list(files[0].parent.glob("*.staged"))
@@ -1798,9 +1825,14 @@ def test_a_locked_rig_db_in_a_2x2_trays_cells_fails_the_reading_instead_of_savin
             slot = images.full_decode_slot()
             # The tags are stored after the tag search lets the slot go, so from here the next
             # thread to take it is this reading's own segmentation.
-            while images.stored_tag_detections(path.removeprefix("rig/")) is None:
-                time.sleep(0.001)
             deadline = time.monotonic() + 15
+            while images.stored_tag_detections(path.removeprefix("rig/")) is None:
+                if gave_up.is_set():
+                    return  # the test has already ended
+                if time.monotonic() > deadline:
+                    raise RuntimeError("the photo's tags were never stored")
+                time.sleep(0.001)
+            deadline = time.monotonic() + 15  # its own budget, not what the wait above left
             while slot.acquire(timeout=0.01):  # free: the reading is not segmenting yet
                 slot.release()
                 if gave_up.is_set():
@@ -1946,7 +1978,7 @@ def test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calib
         holding = False
         try:
             tag_lock = images._key_locks[f"tags:{source}"]  # held by the reading until it stores
-            # Timed out, not bare: the suite has no pytest-timeout, so an unbounded wait here
+            # Timed out, not bare: pytest-timeout caps the test at 120 s (#576), but an unbounded wait here
             # would hang this xdist worker for the whole CI job with no test named (#565).
             if not guard.acquire(timeout=15):
                 raise RuntimeError("images' key-lock guard was still held after 15 s")
