@@ -21,7 +21,7 @@ from npec_rig.calibration import CalibrationArtifact, scale_field_from_dict
 from npec_rig.calibration_store import save_calibration
 from npec_rig.tags import TagDetection
 from tests.helpers import (
-    DARK_SOIL_RGB, MINT_LEAF_RGB, TABLE_RGB, banded_validation, draw_tray, lock_held,
+    DARK_SOIL_RGB, MINT_LEAF_RGB, TABLE_RGB, banded_validation, draw_tray, lock_held, read_rig_db,
     table_calibration, table_photo,
 )
 
@@ -176,8 +176,20 @@ def test_a_photo_not_yet_read_has_no_readings(monkeypatch) -> None:
 
 
 def _wait_for(condition, timeout_s: float = 10.0) -> None:
+    """Poll until `condition` holds, through `read_rig_db`, as `test_scheduler.py`'s does.
+
+    `condition` reads rig.db, and several tests here shorten `settings.LOCK_WAIT_S` to hurry the
+    rig's own writes along. `database._connect` hands that same short wait to every connection it
+    opens, including the one this read uses, so a poll landing while something commits raises
+    `sqlite3.OperationalError: database is locked` -- with no lock held by anyone, and while the
+    rig is doing exactly what the test is checking it does.
+
+    `test_a_locked_rig_db_at_the_photos_calibration_leaves_it_unread_not_no_calibration` failed
+    that way 2 of 12 full runs on a Pi, in its final read of the photo's readings (#576). The
+    deadline above still decides when a test fails; the retry only stops the test failing for its
+    own read."""
     deadline = time.monotonic() + timeout_s
-    while not condition():
+    while not read_rig_db(condition):
         assert time.monotonic() < deadline, "timed out"
         time.sleep(0.02)
 
